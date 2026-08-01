@@ -1,7 +1,7 @@
 {
   "name": "joebrowser",
   "productName": "JoeBrowser",
-  "version": "5.0.0",
+  "version": "6.0.0",
   "description": "Joe Browser – Advanced open-source anti-detect browser with powerful fingerprint protection, multi-profile isolation, and stealth browsing",
   "author": "JoeBrowser",
   "license": "MIT",

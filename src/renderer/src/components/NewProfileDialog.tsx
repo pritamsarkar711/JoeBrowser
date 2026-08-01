@@ -19,6 +19,7 @@ import type { BrowserType, DeviceType, TargetOS } from '@shared/types'
 import { BROWSER_LABELS } from '@shared/types'
 import { useApp } from '../store'
 import { useToast } from '../hooks/useToasts'
+import { BrowserIcon } from './BrowserIcon'
 
 const OS_OPTIONS: Array<{ value: TargetOS; label: string }> = [
   { value: 'windows', label: 'Windows' },
@@ -33,7 +34,7 @@ const DEVICE_OPTIONS: Array<{ value: DeviceType; label: string }> = [
   { value: 'mobile', label: 'Mobile' }
 ]
 
-/** "New profile" dialog: name, browser engine, OS, device, auto-fingerprint toggle. */
+/** New profile dialog. */
 export function NewProfileDialog({
   open,
   onClose,
@@ -52,7 +53,6 @@ export function NewProfileDialog({
   const [fingerprintsAuto, setFingerprintsAuto] = useState(true)
   const [busy, setBusy] = useState(false)
 
-  // Auto-set device type when OS changes (mobile OS → mobile device)
   const handleOsChange = (os: TargetOS): void => {
     setTargetOs(os)
     if (os === 'android' || os === 'ios') {
@@ -62,7 +62,7 @@ export function NewProfileDialog({
 
   const submit = async (): Promise<void> => {
     if (!name.trim()) {
-      toast.error('Give the profile a name.')
+      toast.error('Name required')
       return
     }
     setBusy(true)
@@ -90,7 +90,7 @@ export function NewProfileDialog({
       <DialogContent>
         <Stack spacing={1.5} sx={{ mt: 0.5 }}>
           <TextField
-            label="Profile name"
+            label="Name"
             autoFocus
             fullWidth
             size="small"
@@ -100,11 +100,14 @@ export function NewProfileDialog({
           />
           <Stack direction="row" spacing={1.5}>
             <FormControl size="small" fullWidth>
-              <InputLabel>Browser engine</InputLabel>
-              <Select label="Browser engine" value={browserType} onChange={(e) => setBrowserType(e.target.value as BrowserType)}>
+              <InputLabel>Browser</InputLabel>
+              <Select label="Browser" value={browserType} onChange={(e) => setBrowserType(e.target.value as BrowserType)}>
                 {(Object.keys(BROWSER_LABELS) as BrowserType[]).map((t) => (
                   <MenuItem key={t} value={t}>
-                    {BROWSER_LABELS[t]}
+                    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                      <BrowserIcon type={t} size={16} />
+                      <span>{BROWSER_LABELS[t]}</span>
+                    </Stack>
                   </MenuItem>
                 ))}
               </Select>
@@ -121,8 +124,8 @@ export function NewProfileDialog({
             </FormControl>
           </Stack>
           <FormControl size="small" fullWidth>
-            <InputLabel>Device type</InputLabel>
-            <Select label="Device type" value={deviceType} onChange={(e) => setDeviceType(e.target.value as DeviceType)}>
+            <InputLabel>Device</InputLabel>
+            <Select label="Device" value={deviceType} onChange={(e) => setDeviceType(e.target.value as DeviceType)}>
               {DEVICE_OPTIONS.map((d) => (
                 <MenuItem key={d.value} value={d.value}>
                   {d.label}
@@ -139,8 +142,8 @@ export function NewProfileDialog({
               />
             }
             label={
-              <Typography variant="body2">
-                Auto-generate realistic fingerprint
+              <Typography variant="body2" sx={{ fontSize: 12 }}>
+                Auto-generate fingerprint
               </Typography>
             }
           />

@@ -16,7 +16,7 @@ import { logger, initLogger } from './logger'
 import * as paths from './paths'
 import { loadSettings } from './services/appSettings'
 import { registerIpcHandlers, wireStatusEvents } from './ipcHandlers'
-import { closeAllProfiles } from './services/browserLauncher'
+import { closeAllProfiles } from './services/embeddedBrowserLauncher'
 import { closeTestPageServer } from './services/testPageServer'
 import { runSelfTests } from './selftest'
 

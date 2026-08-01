@@ -25,9 +25,9 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import LockIcon from '@mui/icons-material/Lock'
 import MenuIcon from '@mui/icons-material/Menu'
 import CloseIcon from '@mui/icons-material/Close'
-import DownloadIcon from '@mui/icons-material/Download'
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch'
 import SortIcon from '@mui/icons-material/Sort'
+import FavoriteIcon from '@mui/icons-material/Favorite'
 import type { BrowserType } from '@shared/types'
 import { BROWSER_NAMES } from '@shared/types'
 import { useApp } from '../store'
@@ -37,24 +37,7 @@ import { BrowserIcon } from './BrowserIcon'
 type Filter = 'all' | BrowserType
 type SortMode = 'name' | 'lastUsed' | 'browserType'
 
-/** Highlight matching text in search results. */
-export function HighlightText({ text, query }: { text: string; query: string }): React.JSX.Element {
-  if (!query.trim()) return <>{text}</>
-  const idx = text.toLowerCase().indexOf(query.toLowerCase())
-  if (idx === -1) return <>{text}</>
-  return (
-    <>
-      {text.slice(0, idx)}
-      <Box component="span" sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', borderRadius: 0.5, px: 0.25 }}>
-        {text.slice(idx, idx + query.length)}
-      </Box>
-      {text.slice(idx + query.length)}
-    </>
-  )
-}
-
-/** Left sidebar: searchable, filterable profile list + actions.
- *  Persistent on wide screens, temporary (hamburger) on narrow. */
+/** Left sidebar: searchable, filterable profile list + actions. */
 export function Sidebar({
   width,
   onNewProfile,
@@ -90,7 +73,6 @@ export function Sidebar({
         p.notes.toLowerCase().includes(q)
       )
     })
-    // Sort
     const sorted = [...list]
     switch (sort) {
       case 'name':
@@ -109,12 +91,12 @@ export function Sidebar({
   const content = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header */}
-      <Box sx={{ p: 2, pb: 1 }}>
+      <Box sx={{ p: 2, pb: 1.5 }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Box
             sx={{
-              width: 34,
-              height: 34,
+              width: 36,
+              height: 36,
               borderRadius: '10px',
               bgcolor: 'primary.main',
               color: 'primary.contrastText',
@@ -122,8 +104,9 @@ export function Sidebar({
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: 800,
-              fontSize: 13,
-              letterSpacing: '-0.5px'
+              fontSize: 12,
+              letterSpacing: '-0.5px',
+              boxShadow: '0 2px 8px rgba(103,80,164,0.3)'
             }}
           >
             JB
@@ -146,7 +129,7 @@ export function Sidebar({
                 }}
               />
             </Stack>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
               Anti-detect browser
             </Typography>
           </Box>
@@ -163,7 +146,7 @@ export function Sidebar({
         <TextField
           size="small"
           fullWidth
-          placeholder="Search profiles…"
+          placeholder="Search..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           slotProps={{
@@ -178,7 +161,7 @@ export function Sidebar({
         />
       </Box>
 
-      {/* Browser filter — with borders/separation */}
+      {/* Browser filter */}
       <Box sx={{ px: 2, pb: 1 }}>
         <ToggleButtonGroup
           size="small"
@@ -203,12 +186,12 @@ export function Sidebar({
             }
           }}
         >
-          <ToggleButton value="all" sx={{ fontSize: 12 }}>
+          <ToggleButton value="all" sx={{ fontSize: 11 }}>
             All
           </ToggleButton>
           {BROWSER_NAMES.map((b) => (
             <ToggleButton key={b} value={b}>
-              <BrowserIcon type={b} size={16} />
+              <BrowserIcon type={b} size={14} />
             </ToggleButton>
           ))}
         </ToggleButtonGroup>
@@ -216,18 +199,18 @@ export function Sidebar({
 
       {/* Sort */}
       <Box sx={{ px: 2, pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <SortIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+        <SortIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
         <FormControl size="small" sx={{ flex: 1 }}>
-          <InputLabel sx={{ fontSize: 12 }}>Sort</InputLabel>
+          <InputLabel sx={{ fontSize: 11 }}>Sort</InputLabel>
           <Select
             label="Sort"
             value={sort}
             onChange={(e) => setSort(e.target.value as SortMode)}
-            sx={{ fontSize: 12, '& .MuiSelect-select': { py: 0.5 } }}
+            sx={{ fontSize: 11, '& .MuiSelect-select': { py: 0.5 } }}
           >
-            <MenuItem value="name">By name</MenuItem>
-            <MenuItem value="lastUsed">By last used</MenuItem>
-            <MenuItem value="browserType">By browser</MenuItem>
+            <MenuItem value="name">Name</MenuItem>
+            <MenuItem value="lastUsed">Last used</MenuItem>
+            <MenuItem value="browserType">Browser</MenuItem>
           </Select>
         </FormControl>
       </Box>
@@ -243,12 +226,12 @@ export function Sidebar({
               onNewProfile()
               onMobileClose?.()
             }}
-            sx={{ flex: 1 }}
+            sx={{ flex: 1, fontSize: 13 }}
           >
             New
           </Button>
           {selectedId && !running[selectedId] && (
-            <Tooltip title="Quick launch selected profile">
+            <Tooltip title="Quick launch">
               <Button
                 variant="outlined"
                 onClick={() => void launchProfile(selectedId, {})}
@@ -277,32 +260,47 @@ export function Sidebar({
             />
           ))}
           {filtered.length === 0 && (
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-              {profiles.length === 0 ? 'No profiles yet. Create your first one!' : 'No matching profiles.'}
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3, fontSize: 12 }}>
+              {profiles.length === 0 ? 'No profiles yet' : 'No matches'}
             </Typography>
           )}
         </Stack>
       </Box>
 
-      {/* Footer actions */}
+      {/* Footer with credit */}
       <Box sx={{ p: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
-        <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'center' }}>
-          <Tooltip title="Download EXE">
+        <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'center', mb: 1 }}>
+          <Tooltip title="Download">
             <IconButton size="small" onClick={() => { onDownload(); onMobileClose?.() }}>
-              <DownloadIcon fontSize="small" />
+              <SettingsIcon fontSize="small" sx={{ fontSize: 16 }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Settings">
             <IconButton size="small" onClick={() => { onSettings(); onMobileClose?.() }}>
-              <SettingsIcon fontSize="small" />
+              <SettingsIcon fontSize="small" sx={{ fontSize: 16 }} />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Lock app">
+          <Tooltip title="Lock">
             <IconButton size="small" onClick={() => void lock()}>
-              <LockIcon fontSize="small" />
+              <LockIcon fontSize="small" sx={{ fontSize: 16 }} />
             </IconButton>
           </Tooltip>
         </Stack>
+        <Box sx={{ textAlign: 'center' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.25 }}>
+            Built with <FavoriteIcon sx={{ fontSize: 10, color: '#e91e63' }} /> by{' '}
+            <Box
+              component="a"
+              href="https://t.me/joegoldberg2025"
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{ color: 'primary.main', textDecoration: 'none', fontWeight: 600, '&:hover': { textDecoration: 'underline' } }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              Joe Goldberg
+            </Box>
+          </Typography>
+        </Box>
       </Box>
     </Box>
   )
@@ -310,7 +308,6 @@ export function Sidebar({
   if (isNarrow) {
     return (
       <>
-        {/* Mobile top bar with hamburger */}
         <Box
           sx={{
             position: 'fixed',

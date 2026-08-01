@@ -24,7 +24,7 @@ import { deriveFingerprintFromUA, generateFingerprint, generateForNewProfile } f
 import { detectAllBrowsers } from './services/browserDetector'
 import { testProxy } from './services/proxyTester'
 import { UA_LIBRARY } from './services/uaDatabase'
-import { closeProfile, launchProfile, listRunning, onBrowserStatus } from './services/browserLauncher'
+import { closeProfile, launchProfile, listRunning, onBrowserStatus } from './services/embeddedBrowserLauncher'
 import { getSettings, saveSettings } from './services/appSettings'
 import { logger } from './logger'
 import * as paths from './paths'

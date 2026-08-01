@@ -28,14 +28,13 @@ const PROXY_TYPES: Array<{ value: ProxyType; label: string; icon: React.ReactNod
   { value: 'socks4', label: 'SOCKS4', icon: <VpnLockIcon sx={{ fontSize: 16 }} /> }
 ]
 
-/** Country code → flag emoji lookup. */
 function countryFlag(code: string): string {
   if (!code || code.length !== 2) return ''
   const base = 0x1F1E5
   return String.fromCodePoint(base + code.charCodeAt(0) - 65) + String.fromCodePoint(base + code.charCodeAt(1) - 65)
 }
 
-/** The Proxy tab: configure + test a per-profile proxy. */
+/** Proxy tab: configure + test. */
 export function ProxyTab({
   profile,
   setProfile
@@ -69,10 +68,10 @@ export function ProxyTab({
           latencyMs: res.latencyMs,
           text: `${res.ip}${geo ? ' · ' + geo : ''}${res.isp ? ' · ' + res.isp : ''}`
         })
-        toast.success('Proxy test passed')
+        toast.success('Proxy OK')
       } else {
         setResult({ ok: false, ip: '', country: '', latencyMs: 0, text: `Failed: ${res.error}` })
-        toast.error('Proxy test failed')
+        toast.error('Proxy failed')
       }
     } catch (e) {
       setResult({ ok: false, ip: '', country: '', latencyMs: 0, text: String(e) })
@@ -84,10 +83,7 @@ export function ProxyTab({
 
   return (
     <Box>
-      <SectionCard
-        title="Proxy settings"
-        subtitle="Per-profile proxy"
-      >
+      <SectionCard title="Proxy" subtitle="Per-profile proxy">
         <Stack spacing={1.5}>
           <FormControlLabel
             control={<Switch checked={proxy.enabled} onChange={(e) => setProxy({ enabled: e.target.checked })} size="small" />}
@@ -97,7 +93,7 @@ export function ProxyTab({
           {proxy.enabled && (
             <>
               <Stack direction="row" spacing={1.5}>
-                <FormControl size="small" sx={{ minWidth: 140 }}>
+                <FormControl size="small" sx={{ minWidth: 120 }}>
                   <InputLabel>Type</InputLabel>
                   <Select
                     label="Type"
@@ -129,6 +125,7 @@ export function ProxyTab({
                   type="number"
                   value={proxy.port || ''}
                   onChange={(e) => setProxy({ port: Number(e.target.value) })}
+                  sx={{ maxWidth: 100 }}
                 />
               </Stack>
               <Stack direction="row" spacing={1.5}>
@@ -149,12 +146,12 @@ export function ProxyTab({
                 />
               </Stack>
               <TextField
-                label="PAC URL or file path (optional, overrides all)"
+                label="PAC URL (optional)"
                 size="small"
                 fullWidth
                 value={proxy.pacUrl}
                 onChange={(e) => setProxy({ pacUrl: e.target.value })}
-                placeholder="http://…/proxy.pac  or  C:\proxy.pac"
+                placeholder="http://.../proxy.pac"
               />
 
               <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
@@ -165,7 +162,7 @@ export function ProxyTab({
                   disabled={testing}
                   onClick={() => void runTest()}
                 >
-                  {testing ? 'Testing…' : 'Test'}
+                  {testing ? 'Testing...' : 'Test'}
                 </Button>
                 {result && (
                   <Alert
@@ -185,24 +182,9 @@ export function ProxyTab({
                   </Alert>
                 )}
               </Stack>
-
-              <Alert severity="info" sx={{ borderRadius: 2, py: 0 }}>
-                <Typography variant="caption">
-                  Test resolves exit IP via ip-api.com. WebRTC leaks are blocked by the stealth extension.
-                </Typography>
-              </Alert>
             </>
           )}
         </Stack>
-      </SectionCard>
-
-      <SectionCard title="How proxy deployment works">
-        <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12 }}>
-          <b>HTTP/S no auth</b> → <code>--proxy-server</code> &nbsp;·&nbsp;
-          <b>HTTP/S with auth</b> → local relay &nbsp;·&nbsp;
-          <b>SOCKS</b> → direct; auth via relay &nbsp;·&nbsp;
-          <b>PAC</b> → built-in PAC server
-        </Typography>
       </SectionCard>
     </Box>
   )

@@ -1,12 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
-  Alert,
   Box,
   Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   IconButton,
   Paper,
   Stack,
@@ -56,7 +51,6 @@ export function ProfileEditor({ profile }: { profile: ProfileData }): React.JSX.
   const [importJson, setImportJson] = useState('')
   const lang = settings?.language ?? 'en'
 
-  // Reset to the newly selected profile when it changes.
   useEffect(() => {
     setTab(0)
   }, [profile.id])
@@ -81,19 +75,18 @@ export function ProfileEditor({ profile }: { profile: ProfileData }): React.JSX.
 
   const handleExport = async (): Promise<void> => {
     try {
-      // Flush dirty draft first so export has latest values.
       if (dirty) await save()
       const json = await window.stealth.exportProfile(draft.id, exportPw)
       const blob = new Blob([json], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `stealth-profile-${draft.name.replace(/[^\w.-]+/g, '_')}.json`
+      a.download = `joe-profile-${draft.name.replace(/[^\w.-]+/g, '_')}.json`
       a.click()
       URL.revokeObjectURL(url)
       setExportOpen(false)
       setExportPw('')
-      toastHook.success('Encrypted profile export downloaded')
+      toastHook.success('Exported')
     } catch (e) {
       toastHook.error(String(e))
     }
@@ -106,14 +99,13 @@ export function ProfileEditor({ profile }: { profile: ProfileData }): React.JSX.
       setImportOpen(false)
       setImportPw('')
       setImportJson('')
-      toastHook.success(`Imported profile “${imported.name}”`)
+      toastHook.success(`Imported "${imported.name}"`)
     } catch (e) {
       toastHook.error(String(e))
     }
   }
 
   const pickImportFile = async (): Promise<void> => {
-    // Renderer can't read arbitrary files; use a file input.
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = 'application/json,.json'
@@ -133,46 +125,47 @@ export function ProfileEditor({ profile }: { profile: ProfileData }): React.JSX.
       <Paper
         elevation={0}
         sx={{
-          p: 2,
-          px: 3,
+          p: 1.5,
+          px: 2,
           display: 'flex',
           alignItems: 'center',
-          gap: 1.5,
+          gap: 1,
           borderRadius: 0,
           borderBottom: '1px solid',
           borderColor: 'divider',
-          flexWrap: 'wrap'
+          overflow: 'hidden'
         }}
       >
-        <BrowserIcon type={draft.browserType} size={40} />
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="h6" noWrap sx={{ fontWeight: 700 }}>
+        <Box sx={{ flexShrink: 0 }}>
+          <BrowserIcon type={draft.browserType} size={32} />
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+          <Typography variant="subtitle1" noWrap sx={{ fontWeight: 700, fontSize: 14, lineHeight: 1.3 }}>
             {draft.name}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {draft.browserType} profile · updated {new Date(draft.updatedAt).toLocaleString()}
-            {autoSaving ? ' · saving…' : dirty ? ' · unsaved' : ' · saved'}
+          <Typography variant="caption" color="text.secondary" noWrap sx={{ fontSize: 10 }}>
+            {draft.browserType} · {autoSaving ? 'saving...' : dirty ? 'unsaved' : 'saved'}
           </Typography>
         </Box>
-        <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <Tooltip title="Duplicate profile">
+        <Stack direction="row" spacing={0.25} sx={{ flexShrink: 0 }}>
+          <Tooltip title="Duplicate">
             <IconButton size="small" onClick={() => void duplicateProfile(draft.id)}>
-              <ContentCopyIcon />
+              <ContentCopyIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Export encrypted JSON">
+          <Tooltip title="Export">
             <IconButton size="small" onClick={() => setExportOpen(true)}>
-              <FileDownloadIcon />
+              <FileDownloadIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Import encrypted JSON">
+          <Tooltip title="Import">
             <IconButton size="small" onClick={() => setImportOpen(true)}>
-              <FileUploadIcon />
+              <FileUploadIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Delete profile">
+          <Tooltip title="Delete">
             <IconButton size="small" color="error" onClick={() => setConfirmDelete(true)}>
-              <DeleteOutlinedIcon />
+              <DeleteOutlinedIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </Tooltip>
           <Button
@@ -181,13 +174,14 @@ export function ProfileEditor({ profile }: { profile: ProfileData }): React.JSX.
             startIcon={<SaveIcon />}
             disabled={!dirty || saving || autoSaving}
             onClick={() => void handleSave()}
+            sx={{ fontSize: 12 }}
           >
-            {t('common.save', undefined, lang)}
+            Save
           </Button>
-          <Tooltip title="Discard changes">
+          <Tooltip title="Discard">
             <span>
               <IconButton size="small" disabled={!dirty} onClick={reset}>
-                <UndoIcon />
+                <UndoIcon sx={{ fontSize: 18 }} />
               </IconButton>
             </span>
           </Tooltip>
@@ -199,23 +193,23 @@ export function ProfileEditor({ profile }: { profile: ProfileData }): React.JSX.
         value={tab}
         onChange={(_, v) => setTab(v)}
         variant="scrollable"
-        sx={{ px: 2, borderBottom: '1px solid', borderColor: 'divider' }}
+        scrollButtons="auto"
+        sx={{
+          px: 1,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          minHeight: 36,
+          '& .MuiTab-root': { minHeight: 36, fontSize: 12, px: 1.5 }
+        }}
       >
-        <Tab label={t('tab.fingerprint', undefined, lang)} />
-        <Tab label={t('tab.proxy', undefined, lang)} />
-        <Tab label={t('tab.advanced', undefined, lang)} />
-        <Tab label={t('tab.launch', undefined, lang)} />
+        <Tab label="Fingerprint" />
+        <Tab label="Proxy" />
+        <Tab label="Advanced" />
+        <Tab label="Launch" />
       </Tabs>
 
-      {/* Dirty banner */}
-      {dirty && !autoSaving && (
-        <Alert severity="info" sx={{ borderRadius: 0 }}>
-          Changes auto-save in a moment, or click “Save changes” to persist now.
-        </Alert>
-      )}
-
-      {/* Content — lazy-render only active tab */}
-      <Box sx={{ flex: 1, overflowY: 'auto', p: 3 }}>
+      {/* Content */}
+      <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
         <Box sx={{ maxWidth: 1100, mx: 'auto' }}>
           {tab === 0 && <FingerprintTab profile={draft} setProfile={setDraft} />}
           {tab === 1 && <ProxyTab profile={draft} setProfile={setDraft} />}
@@ -226,76 +220,73 @@ export function ProfileEditor({ profile }: { profile: ProfileData }): React.JSX.
 
       <ConfirmDialog
         open={confirmDelete}
-        title={t('profile.delete', undefined, lang)}
-        message={t('profile.deleteConfirm', { name: draft.name }, lang)}
+        title="Delete profile?"
+        message={`Delete "${draft.name}"? This cannot be undone.`}
         onConfirm={() => void deleteProfile(draft.id)}
         onCancel={() => setConfirmDelete(false)}
       />
 
       {/* Export dialog */}
-      <Dialog open={exportOpen} onClose={() => setExportOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Export encrypted profile</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            The profile is encrypted with AES-256-GCM using a password you choose. Without this
-            password the file is useless.
-          </Typography>
-          <TextField
-            autoFocus
-            fullWidth
-            type="password"
-            label="Export password"
-            size="small"
-            value={exportPw}
-            onChange={(e) => setExportPw(e.target.value)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setExportOpen(false)}>Cancel</Button>
-          <Button variant="contained" disabled={exportPw.length < 4} onClick={() => void handleExport()}>
-            Export
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Import dialog */}
-      <Dialog open={importOpen} onClose={() => setImportOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Import encrypted profile — {draft.name}</DialogTitle>
-        <DialogContent>
-          <Stack spacing={1.5} sx={{ pt: 0.5 }}>
-            <Button variant="outlined" onClick={() => void pickImportFile()}>
-              Choose .json file…
-            </Button>
+      {exportOpen && (
+        <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, bgcolor: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Paper sx={{ p: 3, maxWidth: 400, width: '90%' }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>Export encrypted profile</Typography>
             <TextField
-              fullWidth
-              multiline
-              minRows={4}
-              size="small"
-              label="Or paste export JSON"
-              value={importJson}
-              onChange={(e) => setImportJson(e.target.value)}
-            />
-            <TextField
+              autoFocus
               fullWidth
               type="password"
-              label="Import password"
+              label="Password (min 4 chars)"
               size="small"
-              value={importPw}
-              onChange={(e) => setImportPw(e.target.value)}
+              value={exportPw}
+              onChange={(e) => setExportPw(e.target.value)}
+              sx={{ mb: 2 }}
             />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setImportOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            disabled={!importJson.trim() || !importPw}
-            onClick={() => void handleImport()}
-          >
-            Import
-          </Button>
-        </DialogActions>
-      </Dialog>
+            <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+              <Button size="small" onClick={() => setExportOpen(false)}>Cancel</Button>
+              <Button size="small" variant="contained" disabled={exportPw.length < 4} onClick={() => void handleExport()}>
+                Export
+              </Button>
+            </Stack>
+          </Paper>
+        </Box>
+      )}
+
+      {/* Import dialog */}
+      {importOpen && (
+        <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, bgcolor: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Paper sx={{ p: 3, maxWidth: 500, width: '90%' }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>Import profile</Typography>
+            <Stack spacing={1.5}>
+              <Button variant="outlined" size="small" onClick={() => void pickImportFile()}>
+                Choose .json file
+              </Button>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                size="small"
+                label="Or paste JSON"
+                value={importJson}
+                onChange={(e) => setImportJson(e.target.value)}
+              />
+              <TextField
+                fullWidth
+                type="password"
+                label="Password"
+                size="small"
+                value={importPw}
+                onChange={(e) => setImportPw(e.target.value)}
+              />
+              <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+                <Button size="small" onClick={() => setImportOpen(false)}>Cancel</Button>
+                <Button size="small" variant="contained" disabled={!importJson.trim() || !importPw} onClick={() => void handleImport()}>
+                  Import
+                </Button>
+              </Stack>
+            </Stack>
+          </Paper>
+        </Box>
+      )}
     </Box>
   )
 }

@@ -29,7 +29,7 @@ const DANGEROUS_ARGS = [
   '--no-sandbox'
 ]
 
-/** Advanced tab: executable, flags, extra extensions, overrides. */
+/** Advanced tab: name, tags, flags, extensions, overrides. */
 export function AdvancedTab({
   profile,
   setProfile
@@ -44,7 +44,7 @@ export function AdvancedTab({
 
   useEffect(() => {
     setTagInput('')
-  }, [profile.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profile.id])
 
   const pickExecutable = async (): Promise<void> => {
     const path = await window.stealth.pickFile([
@@ -52,7 +52,7 @@ export function AdvancedTab({
     ])
     if (path) {
       setProfile({ browserExecutablePath: path })
-      toast.success('Executable path set')
+      toast.success('Path set')
     }
   }
 
@@ -60,7 +60,7 @@ export function AdvancedTab({
     try {
       const browsers = await window.stealth.detectBrowsers()
       const b = browsers.find((x) => x.type === profile.browserType)
-      setDetected(b?.found ? b.path : 'Not found on this system')
+      setDetected(b?.found ? b.path : 'Not found')
     } catch (e) {
       setDetected(String(e))
     }
@@ -68,11 +68,11 @@ export function AdvancedTab({
 
   const addExtension = async (): Promise<void> => {
     const path = await window.stealth.pickFile([
-      { name: 'Extension (.crx / .xpi / unpacked dir)', extensions: ['crx', 'xpi'] }
+      { name: 'Extension', extensions: ['crx', 'xpi'] }
     ])
     if (!path) return
     if (path.endsWith('.crx') || path.endsWith('.xpi')) {
-      toast.info('Note: only unpacked directories can be loaded via --load-extension; .crx/.xpi paths are stored for reference.')
+      toast.info('Only unpacked dirs can be loaded; .crx/.xpi stored for reference.')
     }
     setProfile({ customExtensions: [...(profile.customExtensions ?? []), path] })
   }
@@ -81,7 +81,7 @@ export function AdvancedTab({
     const dir = await window.stealth.pickDirectory()
     if (!dir) return
     setProfile({ customExtensions: [...(profile.customExtensions ?? []), dir] })
-    toast.success('Unpacked extension directory added')
+    toast.success('Extension added')
   }
 
   const addTag = (): void => {
@@ -96,23 +96,21 @@ export function AdvancedTab({
     setProfile({ tags: tags.filter((t) => t !== tag) })
   }
 
-  // Check launch args for dangerous flags
   const launchArgs = (profile.extraLaunchArgs ?? '').split('\n').filter(Boolean)
   const dangerousArgs = launchArgs.filter((arg) => DANGEROUS_ARGS.some((d) => arg.trim().startsWith(d)))
 
   return (
     <Box>
       {/* General */}
-      <SectionCard title="General" subtitle="Name, tags, notes">
+      <SectionCard title="General" subtitle="Name & tags">
         <Stack spacing={1.5}>
           <TextField
-            label="Profile name"
+            label="Name"
             size="small"
             fullWidth
             value={profile.name}
             onChange={(e) => setProfile({ name: e.target.value })}
           />
-          {/* Tags as chips */}
           <Box>
             <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', mb: 0.5 }}>
               {tags.map((tag) => (
@@ -122,7 +120,7 @@ export function AdvancedTab({
                   size="small"
                   onDelete={() => removeTag(tag)}
                   variant="outlined"
-                  sx={{ height: 24, fontSize: 12 }}
+                  sx={{ height: 24, fontSize: 11 }}
                 />
               ))}
             </Stack>
@@ -133,7 +131,7 @@ export function AdvancedTab({
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addTag()}
-                placeholder="Add tag…"
+                placeholder="Add tag..."
               />
               <IconButton size="small" onClick={addTag} disabled={!tagInput.trim()}>
                 <AddIcon fontSize="small" />
@@ -152,8 +150,8 @@ export function AdvancedTab({
         </Stack>
       </SectionCard>
 
-      {/* Executable */}
-      <SectionCard title="Browser executable" subtitle="Auto-detect if empty">
+      {/* Executable — optional for embedded browser */}
+      <SectionCard title="Browser path" subtitle="Optional (embedded browser used by default)">
         <Stack spacing={1.5}>
           <Stack direction="row" spacing={1}>
             <TextField
@@ -161,7 +159,7 @@ export function AdvancedTab({
               fullWidth
               value={profile.browserExecutablePath}
               onChange={(e) => setProfile({ browserExecutablePath: e.target.value })}
-              placeholder="C:\Program Files\Google\Chrome\Application\chrome.exe"
+              placeholder="Leave empty for embedded browser"
             />
             <Button size="small" variant="outlined" startIcon={<FolderOpenIcon />} onClick={() => void pickExecutable()}>
               Browse
@@ -179,33 +177,29 @@ export function AdvancedTab({
       </SectionCard>
 
       {/* Launch flags */}
-      <SectionCard title="Extra launch arguments" subtitle="Per-line flags">
+      <SectionCard title="Extra args" subtitle="Per-line flags">
         <Stack spacing={1}>
           <TextField
             size="small"
             fullWidth
             multiline
-            minRows={3}
+            minRows={2}
             value={profile.extraLaunchArgs}
             onChange={(e) => setProfile({ extraLaunchArgs: e.target.value })}
             placeholder={'--disable-blink-features=AutomationControlled\n--window-position=100,100'}
           />
           {dangerousArgs.length > 0 && (
-            <Alert
-              severity="warning"
-              icon={<WarningAmberIcon />}
-              sx={{ borderRadius: 2, py: 0 }}
-            >
+            <Alert severity="warning" icon={<WarningAmberIcon />} sx={{ borderRadius: 2, py: 0 }}>
               <Typography variant="caption">
-                <b>Dangerous flags detected:</b> {dangerousArgs.join(', ')} — these may compromise security or fingerprint isolation.
+                <b>Dangerous:</b> {dangerousArgs.join(', ')}
               </Typography>
             </Alert>
           )}
         </Stack>
       </SectionCard>
 
-      {/* Extra extensions — better display */}
-      <SectionCard title="Custom extensions" subtitle="Extensions">
+      {/* Extensions */}
+      <SectionCard title="Extensions" subtitle="Custom extensions">
         <Stack spacing={1}>
           {(profile.customExtensions ?? []).length > 0 && (
             <Box sx={{ maxHeight: 120, overflowY: 'auto' }}>
@@ -219,7 +213,7 @@ export function AdvancedTab({
                     }
                     variant="outlined"
                     size="small"
-                    sx={{ fontSize: 11, '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }}
+                    sx={{ fontSize: 10, '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }}
                   />
                 ))}
               </Stack>
@@ -227,38 +221,30 @@ export function AdvancedTab({
           )}
           <Stack direction="row" spacing={1}>
             <Button size="small" variant="outlined" onClick={() => void addExtension()}>
-              Add .crx/.xpi…
+              Add .crx/.xpi
             </Button>
             <Button size="small" variant="outlined" startIcon={<FolderOpenIcon />} onClick={() => void addUnpackedExtension()}>
-              Add unpacked…
+              Add unpacked
             </Button>
           </Stack>
-          <Alert severity="info" sx={{ borderRadius: 2, py: 0 }}>
-            <Typography variant="caption">
-              Unpacked dirs are loaded with <code>--load-extension</code>. Firefox .xpi files must be placed manually.
-            </Typography>
-          </Alert>
         </Stack>
       </SectionCard>
 
       {/* Data isolation */}
-      <SectionCard title="Data isolation" subtitle="Data folder">
+      <SectionCard title="Data dir" subtitle="User data folder">
         <Stack spacing={1}>
           <TextField
-            label="User data dir override (empty = app-managed)"
+            label="Override (empty = default)"
             size="small"
             fullWidth
             value={profile.userDataDirOverride}
             onChange={(e) => setProfile({ userDataDirOverride: e.target.value })}
             placeholder="D:\profile-data\my-account"
           />
-          <Typography variant="caption" color="text.secondary">
-            Default: <code>{'<data dir>/profiles/' + profile.id + '/userData'}</code>
-          </Typography>
         </Stack>
       </SectionCard>
 
-      <SectionCard title="Fingerprint engine & anti-automation">
+      <SectionCard title="Engine" subtitle="Anti-automation">
         <Stack spacing={1}>
           <FormControlLabel
             control={
@@ -268,7 +254,7 @@ export function AdvancedTab({
                 size="small"
               />
             }
-            label="Auto-generate fingerprint for new sessions"
+            label="Auto-generate fingerprint"
           />
           <FormControlLabel
             control={
@@ -278,11 +264,8 @@ export function AdvancedTab({
                 size="small"
               />
             }
-            label="Disable automation flags"
+            label="Anti-automation flags"
           />
-          <Typography variant="caption" color="text.secondary">
-            The stealth extension is rebuilt locally on every launch — no data leaves your machine.
-          </Typography>
         </Stack>
       </SectionCard>
     </Box>

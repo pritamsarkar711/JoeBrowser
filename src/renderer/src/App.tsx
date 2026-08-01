@@ -1,5 +1,7 @@
 import { useMemo, useState, useEffect } from 'react'
-import { Box, Typography, useMediaQuery, CssBaseline, ThemeProvider, Button, Paper } from '@mui/material'
+import { Box, Typography, useMediaQuery, CssBaseline, ThemeProvider, Button, Paper, Stack, Divider } from '@mui/material'
+import AddIcon from '@mui/icons-material/Add'
+import FavoriteIcon from '@mui/icons-material/Favorite'
 import { darkTheme, lightTheme } from './theme'
 import { useApp } from './store'
 import { MasterPasswordGate } from './components/MasterPasswordGate'
@@ -33,31 +35,20 @@ export default function App(): React.JSX.Element {
 
   const selectedProfile = profiles.find((p) => p.id === selectedId) ?? null
 
-  // Startup health check: if boot takes >15s, show a diagnostic screen instead
-  // of hanging forever on "Starting JoeBrowser…"
   useEffect(() => {
     if (booted) return
     const timer = setTimeout(() => {
       if (!booted) {
         setBootTimeout(true)
         setBootError(
-          'Joe Browser is taking longer than expected to start.\n\n' +
-          'This usually means one of the following:\n' +
-          '• The native SQLite module failed to load (reinstall the app)\n' +
-          '• Windows Defender / antivirus is blocking the app\n' +
-          '• Another instance is already running (check the system tray)\n' +
-          '• The data directory is locked or permissions are denied\n\n' +
-          'Try: Close all Joe Browser processes in Task Manager, then relaunch.\n' +
-          'If this persists, reinstall from the Releases page or run "npm run dist:win".'
+          'Joe Browser is taking longer than expected.\n\n' +
+          'Try: Close all Joe Browser processes, then relaunch.'
         )
       }
     }, 30000)
     return () => clearTimeout(timer)
   }, [booted])
 
-  // --- boot / auth gates -----------------------------------------------------
-  // BUG FIX: If booted is true but init is null, the IPC call failed — show
-  // an error instead of hanging on "Starting JoeBrowser…" forever.
   if (booted && !init) {
     return (
       <ThemeProvider theme={lightTheme}>
@@ -65,18 +56,13 @@ export default function App(): React.JSX.Element {
         <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3 }}>
           <Paper elevation={3} sx={{ maxWidth: 520, p: 4, borderRadius: 3 }}>
             <Typography variant="h6" sx={{ fontWeight: 700, color: 'error.main', mb: 2 }}>
-              ⚠ Failed to initialize
+              Failed to initialize
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-              Joe Browser started but the initialization IPC call failed. This can happen if:
-              {'\n\n'}• The native SQLite module failed to load
-              {'\n'}• The data directory is inaccessible
-              {'\n'}• The Electron preload bridge is broken
-              {'\n\n'}Try reinstalling or deleting the data folder at:
-              {'\n'}%APPDATA%/JoeBrowser
+              Try reinstalling or deleting %APPDATA%/JoeBrowser
             </Typography>
             <Button variant="contained" onClick={() => window.location.reload()}>
-              Reload App
+              Reload
             </Button>
           </Paper>
         </Box>
@@ -92,12 +78,9 @@ export default function App(): React.JSX.Element {
           <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3 }}>
             <Paper elevation={3} sx={{ maxWidth: 520, p: 4, borderRadius: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 700, color: 'error.main', mb: 2 }}>
-                ⚠ Startup Timeout
+                Startup Timeout
               </Typography>
-              <Typography
-                variant="body2"
-                sx={{ whiteSpace: 'pre-line', mb: 3, color: 'text.secondary' }}
-              >
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-line', mb: 3, color: 'text.secondary' }}>
                 {bootError}
               </Typography>
               <Box sx={{ display: 'flex', gap: 2 }}>
@@ -118,7 +101,7 @@ export default function App(): React.JSX.Element {
       <ThemeProvider theme={lightTheme}>
         <CssBaseline />
         <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography color="text.secondary">Starting Joe Browser…</Typography>
+          <Typography color="text.secondary">Starting Joe Browser...</Typography>
         </Box>
       </ThemeProvider>
     )
@@ -142,7 +125,6 @@ export default function App(): React.JSX.Element {
     )
   }
 
-  // --- main app ---------------------------------------------------------------
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -162,7 +144,6 @@ export default function App(): React.JSX.Element {
             minWidth: 0,
             display: 'flex',
             flexDirection: 'column',
-            // Leave room for the mobile top bar hamburger.
             pt: isNarrow ? '52px' : 0
           }}
         >
@@ -176,30 +157,69 @@ export default function App(): React.JSX.Element {
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 1,
+                gap: 2,
                 p: 4,
                 textAlign: 'center'
               }}
             >
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                {profiles.length === 0 ? 'Welcome to Joe Browser' : 'Select a profile'}
+              <Box
+                sx={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: '20px',
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 800,
+                  fontSize: 28,
+                  letterSpacing: '-1px',
+                  boxShadow: '0 4px 20px rgba(103,80,164,0.4)',
+                  mb: 1
+                }}
+              >
+                JB
+              </Box>
+              <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                {profiles.length === 0 ? 'Joe Browser' : 'Select a profile'}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 480 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 480, fontSize: 13 }}>
                 {profiles.length === 0
-                  ? 'Create your first profile. All data stays local.'
+                  ? 'Create your first profile to start browsing with fingerprint protection.'
                   : 'Pick a profile from the sidebar, or create a new one.'}
               </Typography>
               {profiles.length === 0 && (
-                <Box sx={{ mt: 2 }}>
-                  <Button
-                    variant="contained"
-                    onClick={() => setNewProfileOpen(true)}
-                    sx={{ borderRadius: 6, px: 3, py: 1, fontWeight: 600, fontSize: 15 }}
-                  >
-                    + New profile
-                  </Button>
-                </Box>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => setNewProfileOpen(true)}
+                  sx={{ borderRadius: 6, px: 3, py: 1, fontWeight: 600, fontSize: 14, mt: 1 }}
+                >
+                  New profile
+                </Button>
               )}
+
+              <Divider sx={{ width: 200, my: 2 }} />
+
+              {/* About section */}
+              <Stack spacing={0.5} sx={{ alignItems: 'center' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>
+                  Joe Browser v{init.version ?? 'dev'}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: 9, display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                  Built with <FavoriteIcon sx={{ fontSize: 10, color: '#e91e63' }} /> by{' '}
+                  <Box
+                    component="a"
+                    href="https://t.me/joegoldberg2025"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{ color: 'primary.main', textDecoration: 'none', fontWeight: 600, '&:hover': { textDecoration: 'underline' } }}
+                  >
+                    Joe Goldberg
+                  </Box>
+                </Typography>
+              </Stack>
             </Box>
           )}
         </Box>
@@ -209,7 +229,7 @@ export default function App(): React.JSX.Element {
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <DownloadDialog open={downloadOpen} onClose={() => setDownloadOpen(false)} />
       <Toasts />
-      <LoadingOverlay open={busy} label="Launching profile…" />
+      <LoadingOverlay open={busy} label="Launching..." />
     </ThemeProvider>
   )
 }

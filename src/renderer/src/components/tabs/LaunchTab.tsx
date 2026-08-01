@@ -19,7 +19,7 @@ import { SectionCard } from '../SectionCard'
 import { useApp } from '../../store'
 import { useToast } from '../../hooks/useToasts'
 
-/** Launch tab: big launch button, fingerprint test, running status. */
+/** Launch tab: launch button, fingerprint test, running status. */
 export function LaunchTab({ profile }: { profile: ProfileData }): React.JSX.Element {
   const { launchProfile, closeProfile, running, setBusy } = useApp()
   const toast = useToast()
@@ -39,7 +39,7 @@ export function LaunchTab({ profile }: { profile: ProfileData }): React.JSX.Elem
         devtools,
         fingerprintTest
       })
-      toast.success(fingerprintTest ? 'Opened fingerprint test page' : 'Browser launched')
+      toast.success(fingerprintTest ? 'Fingerprint test opened' : 'Browser launched')
     } catch (e) {
       toast.error(String(e))
     } finally {
@@ -60,10 +60,10 @@ export function LaunchTab({ profile }: { profile: ProfileData }): React.JSX.Elem
   return (
     <Box>
       {/* Launch controls */}
-      <SectionCard title="Launch profile" subtitle="Isolated browser session">
+      <SectionCard title="Launch" subtitle="Embedded browser session">
         <Stack spacing={2}>
           <TextField
-            label="Open URL after launch (optional)"
+            label="Start URL"
             size="small"
             fullWidth
             value={url}
@@ -77,9 +77,9 @@ export function LaunchTab({ profile }: { profile: ProfileData }): React.JSX.Elem
               startIcon={launching ? <CircularProgress size={18} color="inherit" /> : <RocketLaunchIcon />}
               disabled={launching || isRunning}
               onClick={() => void launch(false)}
-              sx={{ minWidth: 200 }}
+              sx={{ minWidth: 180 }}
             >
-              {isRunning ? 'Running…' : 'Launch profile'}
+              {isRunning ? 'Running...' : 'Launch'}
             </Button>
             <Button
               variant="outlined"
@@ -88,7 +88,7 @@ export function LaunchTab({ profile }: { profile: ProfileData }): React.JSX.Elem
               disabled={launching || isRunning}
               onClick={() => void launch(true)}
             >
-              Fingerprint test
+              FP Test
             </Button>
             {isRunning && (
               <Button
@@ -98,49 +98,48 @@ export function LaunchTab({ profile }: { profile: ProfileData }): React.JSX.Elem
                 startIcon={<StopCircleIcon />}
                 onClick={() => void close()}
               >
-                Close browser
+                Stop
               </Button>
             )}
           </Stack>
           <FormControlLabel
-            control={<Switch checked={devtools} onChange={(e) => setDevtools(e.target.checked)} />}
-            label="Launch with DevTools open"
+            control={<Switch checked={devtools} onChange={(e) => setDevtools(e.target.checked)} size="small" />}
+            label="DevTools"
           />
         </Stack>
       </SectionCard>
 
       {/* Running status */}
-      <SectionCard title="Session status">
+      <SectionCard title="Status">
         {isRunning ? (
           <Stack spacing={1}>
             <Chip
-              label={`Running · PID ${session.pid}`}
+              label="Running"
               color="success"
               variant="filled"
               sx={{ width: 'fit-content', fontWeight: 600 }}
             />
-            <Typography variant="body2" color="text.secondary">
-              Started {new Date(session.startedAt).toLocaleTimeString()} · user data:{' '}
-              <code>{session.userDataDir || 'app-managed'}</code>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12 }}>
+              Started {new Date(session.startedAt).toLocaleTimeString()}
             </Typography>
             <Alert severity="info" sx={{ borderRadius: 2, py: 0 }}>
-              <Typography variant="caption">Closing the browser window ends the session and removes the stealth extension.</Typography>
+              <Typography variant="caption">Browser opens in a new window within the app. Close it to end the session.</Typography>
             </Alert>
           </Stack>
         ) : (
           <Alert severity="info" sx={{ borderRadius: 2 }}>
-            No active session for this profile.
+            No active session.
           </Alert>
         )}
       </SectionCard>
 
-      {/* Quick hints */}
-      <SectionCard title="Multi-accounting checklist">
-        <Typography variant="body2" color="text.secondary">
-          1. Each profile has isolated storage — cookies, cache, and IndexedDB stay separate. <br />
-          2. Generate a unique fingerprint per profile. <br />
-          3. Set a proxy per profile and test before launch. <br />
-          4. Verify with the fingerprint test page before real browsing.
+      {/* Tips */}
+      <SectionCard title="Tips">
+        <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12 }}>
+          1. Each profile has isolated storage (cookies, cache, IndexedDB).<br />
+          2. Generate unique fingerprints per profile.<br />
+          3. Set and test proxy before launch.<br />
+          4. Use FP Test to verify fingerprint masking.
         </Typography>
       </SectionCard>
     </Box>

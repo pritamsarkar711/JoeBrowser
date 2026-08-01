@@ -16,15 +16,16 @@ import {
   Switch,
   TextField,
   Typography,
-  FormControlLabel
+  FormControlLabel,
+  Paper
 } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import DownloadIcon from '@mui/icons-material/Download'
-import OpenInNewIcon from '@mui/icons-material/OpenInNew'
+import FavoriteIcon from '@mui/icons-material/Favorite'
 import { useApp } from '../store'
 import { useToast } from '../hooks/useToasts'
 
-/** App-wide settings dialog. */
+/** Settings dialog. */
 export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }): React.JSX.Element {
   const { settings, updateSettings, lock, init } = useApp()
   const toastHook = useToast()
@@ -49,16 +50,16 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
   const changePassword = async (): Promise<void> => {
     setPwMsg(null)
     if (newPw.length < 6) {
-      setPwMsg({ severity: 'error', text: 'Master password must be at least 6 characters.' })
+      setPwMsg({ severity: 'error', text: 'Min 6 characters' })
       return
     }
     if (newPw !== confirmPw) {
-      setPwMsg({ severity: 'error', text: 'Passwords do not match.' })
+      setPwMsg({ severity: 'error', text: 'Passwords do not match' })
       return
     }
     try {
       await window.stealth.changeMasterPassword(oldPw, newPw)
-      setPwMsg({ severity: 'success', text: 'Master password changed.' })
+      setPwMsg({ severity: 'success', text: 'Password changed' })
       setOldPw('')
       setNewPw('')
       setConfirmPw('')
@@ -72,7 +73,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
     if (!dir) return
     try {
       await updateSettings({ dataDir: dir })
-      toastHook.success('Data directory changed. Old data was preserved.')
+      toastHook.success('Data directory changed')
     } catch (e) {
       toastHook.error(String(e))
     }
@@ -85,7 +86,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
         <Stack spacing={2.5}>
           {/* Theme & language */}
           <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, fontSize: 13 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, fontSize: 12 }}>
               Appearance
             </Typography>
             <Stack direction="row" spacing={2}>
@@ -118,95 +119,134 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
 
           {/* Data directory */}
           <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, fontSize: 13 }}>
-              Data directory
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, fontSize: 12 }}>
+              Data
             </Typography>
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
               <TextField
                 size="small"
                 fullWidth
-                value={settings.dataDir || '(default: %APPDATA%/Joe Browser)'}
+                value={settings.dataDir || '(default)'}
                 disabled
               />
-              <Button variant="outlined" startIcon={<FolderOpenIcon />} onClick={() => void pickDataDir()}>
+              <Button variant="outlined" startIcon={<FolderOpenIcon />} onClick={() => void pickDataDir()} size="small">
                 Change
               </Button>
             </Stack>
-            <Typography variant="caption" color="text.secondary">
-              All profiles, fingerprints and the encrypted database live here. The previous directory is kept untouched.
-            </Typography>
           </Box>
 
           {/* Behavior */}
           <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, fontSize: 13 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, fontSize: 12 }}>
               Behavior
             </Typography>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={settings.launchAtStartup}
-                  onChange={(e) => void updateSettings({ launchAtStartup: e.target.checked })}
-                />
-              }
-              label="Launch Joe Browser on system start"
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={settings.closeBrowsersOnQuit}
-                  onChange={(e) => void updateSettings({ closeBrowsersOnQuit: e.target.checked })}
-                />
-              }
-              label="Close launched browsers when the app quits"
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={settings.minimizeToTray}
-                  onChange={(e) => void updateSettings({ minimizeToTray: e.target.checked })}
-                />
-              }
-              label="Minimize to system tray instead of quitting"
-            />
+            <Stack spacing={0.5}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.launchAtStartup}
+                    onChange={(e) => void updateSettings({ launchAtStartup: e.target.checked })}
+                    size="small"
+                  />
+                }
+                label="Launch on startup"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.closeBrowsersOnQuit}
+                    onChange={(e) => void updateSettings({ closeBrowsersOnQuit: e.target.checked })}
+                    size="small"
+                  />
+                }
+                label="Close browsers on quit"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.minimizeToTray}
+                    onChange={(e) => void updateSettings({ minimizeToTray: e.target.checked })}
+                    size="small"
+                  />
+                }
+                label="Minimize to tray"
+              />
+            </Stack>
           </Box>
 
-          {/* Download / Updates */}
+          {/* Updates */}
           <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, fontSize: 13 }}>
-              Download & Updates
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, fontSize: 12 }}>
+              Updates
             </Typography>
-            <Stack spacing={1}>
-              <Typography variant="body2" color="text.secondary">
-                Current version: <b>v{init?.version ?? 'dev'}</b>
-              </Typography>
-              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                <Button size="small" variant="contained" startIcon={<DownloadIcon />} onClick={() => window.stealth.openPath('https://github.com/pritamsarkar711/JoeBrowser/releases')}>
-                  Releases
-                </Button>
-                <Button size="small" variant="outlined" endIcon={<OpenInNewIcon />} onClick={() => window.stealth.openPath('https://github.com/pritamsarkar711/JoeBrowser/actions/workflows/build-windows.yml')}>
-                  CI Builds
-                </Button>
-                <Button size="small" variant="text" onClick={() => window.stealth.openPath('https://github.com/pritamsarkar711/JoeBrowser/archive/refs/heads/main.zip')}>
-                  Source ZIP
-                </Button>
-              </Stack>
-              <Typography variant="caption" color="text.secondary">
-                Check GitHub Releases for Windows .exe installer and portable builds.
-              </Typography>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+              <Button size="small" variant="contained" startIcon={<DownloadIcon />} onClick={() => window.stealth.openPath('https://github.com/pritamsarkar711/JoeBrowser/releases')}>
+                Releases
+              </Button>
+              <Button size="small" variant="outlined" onClick={() => window.stealth.openPath('https://github.com/pritamsarkar711/JoeBrowser')}>
+                GitHub
+              </Button>
             </Stack>
+          </Box>
+
+          <Divider />
+
+          {/* About */}
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, fontSize: 12 }}>
+              About
+            </Typography>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, textAlign: 'center' }}>
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '12px',
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 800,
+                  fontSize: 18,
+                  mx: 'auto',
+                  mb: 1,
+                  boxShadow: '0 2px 8px rgba(103,80,164,0.3)'
+                }}
+              >
+                JB
+              </Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, fontSize: 14 }}>
+                Joe Browser
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                v{init?.version ?? 'dev'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.25 }}>
+                Built with <FavoriteIcon sx={{ fontSize: 10, color: '#e91e63' }} /> by{' '}
+                <Box
+                  component="a"
+                  href="https://t.me/joegoldberg2025"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{ color: 'primary.main', textDecoration: 'none', fontWeight: 600, '&:hover': { textDecoration: 'underline' } }}
+                >
+                  Joe Goldberg
+                </Box>
+              </Typography>
+            </Paper>
           </Box>
 
           <Divider />
 
           {/* Master password */}
           <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, fontSize: 13 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, fontSize: 12 }}>
               Master password
             </Typography>
             <Stack spacing={1.5}>
               <TextField
-                label="Current password"
+                label="Current"
                 type="password"
                 size="small"
                 value={oldPw}
@@ -214,7 +254,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
               />
               <Stack direction="row" spacing={1.5}>
                 <TextField
-                  label="New password"
+                  label="New"
                   type="password"
                   size="small"
                   fullWidth
@@ -222,7 +262,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
                   onChange={(e) => setNewPw(e.target.value)}
                 />
                 <TextField
-                  label="Confirm new password"
+                  label="Confirm"
                   type="password"
                   size="small"
                   fullWidth
@@ -230,19 +270,17 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
                   onChange={(e) => setConfirmPw(e.target.value)}
                 />
               </Stack>
-              {pwMsg && <Alert severity={pwMsg.severity}>{pwMsg.text}</Alert>}
-              <Box>
-                <Button variant="outlined" onClick={() => void changePassword()}>
-                  Change master password
-                </Button>
-              </Box>
+              {pwMsg && <Alert severity={pwMsg.severity} sx={{ py: 0 }}>{pwMsg.text}</Alert>}
+              <Button variant="outlined" size="small" onClick={() => void changePassword()}>
+                Change password
+              </Button>
             </Stack>
           </Box>
         </Stack>
       </DialogContent>
       <DialogActions>
         <Button color="inherit" onClick={() => void lock()}>
-          Lock app
+          Lock
         </Button>
         <Button onClick={onClose}>Close</Button>
       </DialogActions>

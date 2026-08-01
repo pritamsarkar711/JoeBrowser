@@ -34,7 +34,7 @@ interface Props {
   setProfile: (patch: Partial<ProfileData>) => void
 }
 
-/** Validated number field with min/max constraints. */
+/** Validated number field. */
 function FpNum({
   label,
   value,
@@ -67,13 +67,13 @@ function FpNum({
         setError(outOfRange)
         if (!outOfRange) onChange(n)
       }}
-      helperText={error ? `Range: ${min ?? '−∞'} – ${max ?? '∞'}` : undefined}
+      helperText={error ? `${min ?? '...'} – ${max ?? '...'}` : undefined}
       slotProps={step ? { htmlInput: { step } } : undefined}
     />
   )
 }
 
-/** Binds one fingerprint text field to the draft. */
+/** Binds one fingerprint text field. */
 function Fp<T extends keyof FingerprintConfig>({
   label,
   fp,
@@ -105,7 +105,7 @@ function Fp<T extends keyof FingerprintConfig>({
   )
 }
 
-/** The Fingerprint editor tab. */
+/** Fingerprint editor tab. */
 export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Element {
   const toast = useToast()
   const fp = profile.fingerprint
@@ -165,7 +165,7 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
         screenPixelDepth: realValues.colorDepth,
         devicePixelRatio: realValues.dpr
       })
-      toast.success('Filled with real system values.')
+      toast.success('Filled with real values')
     } catch (e) {
       toast.error(String(e))
     } finally {
@@ -175,13 +175,13 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
 
   const deriveFromUA = async (): Promise<void> => {
     if (!fp.userAgent.trim()) {
-      toast.error('Paste a user-agent string first.')
+      toast.error('Paste a UA first')
       return
     }
     try {
       const derived = await window.stealth.deriveFingerprintFromUA(fp.userAgent.trim(), fp.seed)
       setFp(derived)
-      toast.success('Values re-derived from this user-agent.')
+      toast.success('Re-derived from UA')
     } catch (e) {
       toast.error(String(e))
     }
@@ -198,12 +198,12 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
           Real values
         </Button>
         <Button size="small" variant="outlined" startIcon={<SyncIcon />} onClick={() => void deriveFromUA()}>
-          Re-derive from UA
+          Re-derive
         </Button>
       </Stack>
 
       {/* User-Agent & Platform */}
-      <SectionCard title="User-Agent & Platform" subtitle="UA & locale">
+      <SectionCard title="User-Agent" subtitle="UA & locale">
         <Stack spacing={1.5}>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
             <TextField
@@ -214,7 +214,7 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
               minRows={2}
               value={fp.userAgent}
               onChange={(e) => setFp({ userAgent: e.target.value })}
-              placeholder="Mozilla/5.0 (Windows NT 10.0; Win64; x64) …"
+              placeholder="Mozilla/5.0 (Windows NT 10.0; Win64; x64) ..."
             />
             <Button
               size="small"
@@ -228,7 +228,7 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
           </Stack>
           <Stack direction="row" spacing={1.5}>
             <Fp label="Platform" fp={fp} field="platform" onChange={setFp} />
-            <Fp label="oscpu (Firefox)" fp={fp} field="oscpu" onChange={setFp} />
+            <Fp label="oscpu" fp={fp} field="oscpu" onChange={setFp} />
           </Stack>
           <Stack direction="row" spacing={1.5}>
             <Fp label="Language" fp={fp} field="language" onChange={setFp} />
@@ -248,13 +248,13 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
             />
           </Stack>
           <Stack direction="row" spacing={1.5}>
-            <Fp label="Timezone (IANA)" fp={fp} field="timezone" onChange={setFp} />
-            <Fp label="TZ offset (min)" fp={fp} field="timezoneOffset" onChange={setFp} type="number" />
+            <Fp label="Timezone" fp={fp} field="timezone" onChange={setFp} />
+            <Fp label="TZ offset" fp={fp} field="timezoneOffset" onChange={setFp} type="number" />
           </Stack>
         </Stack>
       </SectionCard>
 
-      {/* Screen — with validation */}
+      {/* Screen */}
       <SectionCard title="Screen" subtitle="Resolution & DPR">
         <Stack spacing={1.5}>
           <Stack direction="row" spacing={1.5}>
@@ -262,30 +262,30 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
             <FpNum label="Height" value={fp.screenHeight} onChange={(v) => setFp({ screenHeight: v })} min={240} max={4320} />
           </Stack>
           <Stack direction="row" spacing={1.5}>
-            <FpNum label="Avail width" value={fp.screenAvailWidth} onChange={(v) => setFp({ screenAvailWidth: v })} min={320} max={7680} />
-            <FpNum label="Avail height" value={fp.screenAvailHeight} onChange={(v) => setFp({ screenAvailHeight: v })} min={240} max={4320} />
+            <FpNum label="Avail W" value={fp.screenAvailWidth} onChange={(v) => setFp({ screenAvailWidth: v })} min={320} max={7680} />
+            <FpNum label="Avail H" value={fp.screenAvailHeight} onChange={(v) => setFp({ screenAvailHeight: v })} min={240} max={4320} />
           </Stack>
           <Stack direction="row" spacing={1.5}>
             <FpNum label="Color depth" value={fp.screenColorDepth} onChange={(v) => setFp({ screenColorDepth: v })} min={1} max={48} />
             <FpNum label="Pixel depth" value={fp.screenPixelDepth} onChange={(v) => setFp({ screenPixelDepth: v })} min={1} max={48} />
-            <FpNum label="devicePixelRatio" value={fp.devicePixelRatio} onChange={(v) => setFp({ devicePixelRatio: v })} min={0.25} max={4} step={0.25} />
+            <FpNum label="DPR" value={fp.devicePixelRatio} onChange={(v) => setFp({ devicePixelRatio: v })} min={0.25} max={4} step={0.25} />
           </Stack>
         </Stack>
       </SectionCard>
 
-      {/* Hardware — with validation */}
+      {/* Hardware */}
       <SectionCard title="Hardware" subtitle="CPU & memory">
         <Stack spacing={1.5}>
           <Stack direction="row" spacing={1.5}>
             <FpNum label="CPU cores" value={fp.hardwareConcurrency} onChange={(v) => setFp({ hardwareConcurrency: v })} min={1} max={128} />
             <FpNum label="Memory (GB)" value={fp.deviceMemory} onChange={(v) => setFp({ deviceMemory: v })} min={1} max={256} />
-            <FpNum label="Touch points" value={fp.maxTouchPoints} onChange={(v) => setFp({ maxTouchPoints: v })} min={0} max={10} />
+            <FpNum label="Touch pts" value={fp.maxTouchPoints} onChange={(v) => setFp({ maxTouchPoints: v })} min={0} max={10} />
           </Stack>
         </Stack>
       </SectionCard>
 
       {/* WebGL */}
-      <SectionCard title="WebGL" subtitle="Vendor / renderer spoofing">
+      <SectionCard title="WebGL" subtitle="Vendor / renderer">
         <Stack spacing={1.5}>
           <Fp label="Vendor" fp={fp} field="webglVendor" onChange={setFp} />
           <Fp label="Renderer" fp={fp} field="webglRenderer" onChange={setFp} />
@@ -293,9 +293,9 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
       </SectionCard>
 
       {/* Canvas & Audio */}
-      <SectionCard title="Canvas & Audio" subtitle="Noise & protection">
+      <SectionCard title="Protection" subtitle="Noise & masking">
         <Stack spacing={1}>
-          <Stack direction="row" spacing={2}>
+          <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
             <FormControlLabel
               control={<Switch checked={fp.canvasNoiseEnabled} onChange={(e) => setFp({ canvasNoiseEnabled: e.target.checked })} size="small" />}
               label="Canvas noise"
@@ -321,14 +321,14 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
         <Stack spacing={1}>
           <FormControlLabel
             control={<Switch checked={fp.fontFingerprintProtection} onChange={(e) => setFp({ fontFingerprintProtection: e.target.checked })} size="small" />}
-            label="Font fingerprint protection"
+            label="Font protection"
           />
           <TextField
-            label="Custom fonts (one per line)"
+            label="Custom fonts (per line)"
             size="small"
             fullWidth
             multiline
-            minRows={3}
+            minRows={2}
             value={(fp.customFonts ?? []).join('\n')}
             onChange={(e) =>
               setFp({ customFonts: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) })
@@ -338,9 +338,9 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
       </SectionCard>
 
       {/* Geolocation */}
-      <SectionCard title="Geolocation" subtitle="Location control">
+      <SectionCard title="Geolocation" subtitle="Location">
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <FormControl size="small" sx={{ minWidth: 160 }}>
+          <FormControl size="small" sx={{ minWidth: 140 }}>
             <InputLabel>Mode</InputLabel>
             <Select
               label="Mode"
@@ -359,7 +359,7 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
                 size="small"
                 value={String(fp.geolocation.latitude)}
                 onChange={(e) => setFp({ geolocation: { ...fp.geolocation, latitude: Number(e.target.value) } })}
-                sx={{ width: 120 }}
+                sx={{ width: 110 }}
               />
               <TextField
                 label="Lon"
@@ -367,44 +367,44 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
                 size="small"
                 value={String(fp.geolocation.longitude)}
                 onChange={(e) => setFp({ geolocation: { ...fp.geolocation, longitude: Number(e.target.value) } })}
-                sx={{ width: 120 }}
+                sx={{ width: 110 }}
               />
             </>
           )}
         </Stack>
       </SectionCard>
 
-      {/* Privacy — doNotTrack, window.chrome, pluginsSpoof */}
-      <SectionCard title="Privacy" subtitle="Privacy flags">
+      {/* Privacy */}
+      <SectionCard title="Privacy" subtitle="Flags">
         <Stack spacing={1}>
-          <Stack direction="row" spacing={1.5}>
-            <FormControl size="small" sx={{ minWidth: 180 }}>
-              <InputLabel>Do Not Track</InputLabel>
+          <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel>DNT</InputLabel>
               <Select
-                label="Do Not Track"
+                label="DNT"
                 value={fp.doNotTrack ?? 'null'}
                 onChange={(e) => {
                   const v = e.target.value
                   setFp({ doNotTrack: v === 'null' ? null : v })
                 }}
               >
-                <MenuItem value="null">Not specified</MenuItem>
-                <MenuItem value="1">Enabled (1)</MenuItem>
-                <MenuItem value="0">Disabled (0)</MenuItem>
+                <MenuItem value="null">Off</MenuItem>
+                <MenuItem value="1">On</MenuItem>
+                <MenuItem value="0">Disabled</MenuItem>
               </Select>
             </FormControl>
             <FormControlLabel
               control={<Switch checked={fp.windowChromeSpoof} onChange={(e) => setFp({ windowChromeSpoof: e.target.checked })} size="small" />}
-              label="Spoof window.chrome"
+              label="window.chrome"
             />
             <FormControlLabel
               control={<Switch checked={fp.pluginsSpoof} onChange={(e) => setFp({ pluginsSpoof: e.target.checked })} size="small" />}
-              label="Spoof plugins"
+              label="Plugins spoof"
             />
           </Stack>
           <Alert severity="info" sx={{ borderRadius: 2, py: 0 }}>
             <Typography variant="caption">
-              Seed: <code>{fp.seed}</code> — same seed reproduces the same fingerprint.
+              Seed: <code>{fp.seed}</code>
             </Typography>
           </Alert>
         </Stack>
@@ -415,13 +415,13 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
         onClose={() => setAutoOpen(false)}
         onGenerated={(newFp) => {
           setFp(newFp)
-          toast.success('Fingerprint generated — auto-saved.')
+          toast.success('Fingerprint generated')
         }}
       />
 
       {/* UA Suggest dialog */}
       <Dialog open={suggestOpen} onClose={() => setSuggestOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>Suggest realistic User-Agent</DialogTitle>
+        <DialogTitle>Suggest UA</DialogTitle>
         <DialogContent>
           <Stack direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: 'wrap' }}>
             {['all', 'chrome', 'edge', 'brave', 'firefox'].map((b) => (
@@ -436,8 +436,7 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
             ))}
           </Stack>
           <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-            Pick a real browser UA from the built-in library. Selecting one also re-derives consistent platform /
-            screen / GPU values from the same seed.
+            Pick a real browser UA. Selecting one re-derives consistent values.
           </Typography>
           <List dense sx={{ maxHeight: 360, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
             {filteredUas.map((entry, i) => (
@@ -449,7 +448,7 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
                       const derived = await window.stealth.deriveFingerprintFromUA(entry.ua, fp.seed)
                       setFp(derived)
                       setSuggestOpen(false)
-                      toast.success(`Applied ${entry.browser} ${entry.version} (${entry.os}) UA`)
+                      toast.success(`Applied ${entry.browser} ${entry.version} (${entry.os})`)
                     } catch (e) {
                       toast.error(String(e))
                     }
@@ -458,12 +457,12 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
               >
                 <ListItemText
                   primary={
-                    <Typography component="span" sx={{ fontWeight: 600, fontSize: 13 }}>
+                    <Typography component="span" sx={{ fontWeight: 600, fontSize: 12 }}>
                       {`${entry.browser} ${entry.version} · ${entry.os} · ${entry.device}`}
                     </Typography>
                   }
                   secondary={
-                    <Typography component="span" sx={{ fontSize: 11, wordBreak: 'break-all', display: 'block' }} color="text.secondary">
+                    <Typography component="span" sx={{ fontSize: 10, wordBreak: 'break-all', display: 'block' }} color="text.secondary">
                       {entry.ua}
                     </Typography>
                   }
@@ -472,7 +471,7 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
             ))}
             {filteredUas.length === 0 && (
               <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
-                Loading user-agent library…
+                Loading...
               </Typography>
             )}
           </List>
