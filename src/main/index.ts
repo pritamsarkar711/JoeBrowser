@@ -57,10 +57,10 @@ function showFatalError(title: string, error: unknown): void {
   fatalDialogShown = true
   try {
     dialog.showErrorBox(
-      'JoeBrowser could not start',
+      'Joe Browser could not start',
       `${title}\n\n${detail}\n\n` +
         `Log file: ${join(paths.logsDir(), 'app.log')}\nCrash log: ${join(paths.logsDir(), 'crash.log')}\n\n` +
-        'Fix: reinstall JoeBrowser from the Releases page, or if you built this yourself run "npm run dist:win".\n' +
+        'Fix: reinstall Joe Browser from the Releases page, or if you built this yourself run "npm run dist:win".\n' +
         'If you downloaded the EXE and this happens on first launch, Windows SmartScreen/Defender may have blocked part of the app — see the "Windows won\u2019t open the EXE?" section in the README.'
     )
   } catch {
@@ -120,12 +120,12 @@ function createWindow(): void {
   mainWindow.webContents.on('did-fail-load', (_e, code, desc, url) => {
     if (code === -3) return // ERR_ABORTED — normal during reloads/navigation
     logger.error('Renderer failed to load', code, desc, url)
-    showFatalError('The JoeBrowser window failed to load', `${url}\n(${code}) ${desc}`)
+    showFatalError('The Joe Browser window failed to load', `${url}\n(${code}) ${desc}`)
   })
 
   mainWindow.webContents.on('render-process-gone', (_e, details) => {
     logger.error('Renderer process gone', details)
-    showFatalError('The JoeBrowser window crashed', JSON.stringify(details))
+    showFatalError('The Joe Browser window crashed', JSON.stringify(details))
   })
 
   // External links open in the user's default browser, never in-app.
@@ -158,10 +158,10 @@ function createTray(): void {
   try {
     const icon = nativeImage.createFromPath(appIconPath()).resize({ width: 16, height: 16 })
     tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon)
-    tray.setToolTip('JoeBrowser')
+    tray.setToolTip('Joe Browser')
     tray.setContextMenu(
       Menu.buildFromTemplate([
-        { label: 'Show JoeBrowser', click: () => { mainWindow?.show(); mainWindow?.focus() } },
+        { label: 'Show Joe Browser', click: () => { mainWindow?.show(); mainWindow?.focus() } },
         { type: 'separator' },
         { label: 'Quit', click: () => app.quit() }
       ])
@@ -191,7 +191,7 @@ if (!gotLock) {
   app.whenReady().then(() => {
     try {
       // --- settings & dirs ---------------------------------------------------
-      logger.info('=== JoeBrowser starting (v' + app.getVersion() + ') ===')
+      logger.info('=== Joe Browser starting (v' + app.getVersion() + ') ===')
       logger.info('Platform:', process.platform, process.arch, 'Electron:', process.versions.electron)
       logger.info('App path:', app.getAppPath())
       logger.info('Resources:', process.resourcesPath)
@@ -243,27 +243,41 @@ if (!gotLock) {
       } catch {
         /* logger may not be initialized yet */
       }
-      showFatalError('JoeBrowser failed during startup', err)
+      showFatalError('Joe Browser failed during startup', err)
     }
   })
 
   // --- quit behavior -----------------------------------------------------------
   // Kill every launched browser before exiting so no profile session is orphaned.
+  // A 5-second timeout guards against hung browser processes that would
+  // otherwise prevent the app from ever exiting.
   app.on('before-quit', (e) => {
     if (isQuitting) return
     e.preventDefault()
     isQuitting = true
+    const QUIT_TIMEOUT_MS = 5_000
     void (async () => {
-      try {
-        if (loadSettings().closeBrowsersOnQuit) {
-          await closeAllProfiles()
+      const cleanup = (async () => {
+        try {
+          if (loadSettings().closeBrowsersOnQuit) {
+            await closeAllProfiles()
+          }
+        } catch (err) {
+          logger.warn('closeAllProfiles failed during quit', err)
+        } finally {
+          await closeTestPageServer()
         }
-      } catch (err) {
-        logger.warn('closeAllProfiles failed during quit', err)
-      } finally {
-        await closeTestPageServer()
-        app.exit(0)
-      }
+      })()
+      await Promise.race([
+        cleanup,
+        new Promise<void>((resolve) =>
+          setTimeout(() => {
+            logger.warn('Quit cleanup timed out after', QUIT_TIMEOUT_MS, 'ms — forcing exit')
+            resolve()
+          }, QUIT_TIMEOUT_MS)
+        )
+      ])
+      app.exit(0)
     })()
   })
 

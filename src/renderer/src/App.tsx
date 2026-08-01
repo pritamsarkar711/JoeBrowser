@@ -39,13 +39,13 @@ export default function App(): React.JSX.Element {
       if (!booted) {
         setBootTimeout(true)
         setBootError(
-          'JoeBrowser is taking longer than expected to start.\n\n' +
+          'Joe Browser is taking longer than expected to start.\n\n' +
           'This usually means one of the following:\n' +
           '• The native SQLite module failed to load (reinstall the app)\n' +
           '• Windows Defender / antivirus is blocking the app\n' +
           '• Another instance is already running (check the system tray)\n' +
           '• The data directory is locked or permissions are denied\n\n' +
-          'Try: Close all JoeBrowser processes in Task Manager, then relaunch.\n' +
+          'Try: Close all Joe Browser processes in Task Manager, then relaunch.\n' +
           'If this persists, reinstall from the Releases page or run "npm run dist:win".'
         )
       }
@@ -66,7 +66,7 @@ export default function App(): React.JSX.Element {
               ⚠ Failed to initialize
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-              JoeBrowser started but the initialization IPC call failed. This can happen if:
+              Joe Browser started but the initialization IPC call failed. This can happen if:
               {'\n\n'}• The native SQLite module failed to load
               {'\n'}• The data directory is inaccessible
               {'\n'}• The Electron preload bridge is broken
@@ -116,7 +116,7 @@ export default function App(): React.JSX.Element {
       <ThemeProvider theme={lightTheme}>
         <CssBaseline />
         <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography color="text.secondary">Starting JoeBrowser…</Typography>
+          <Typography color="text.secondary">Starting Joe Browser…</Typography>
         </Box>
       </ThemeProvider>
     )
@@ -180,7 +180,7 @@ export default function App(): React.JSX.Element {
               }}
             >
               <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                {profiles.length === 0 ? 'Welcome to JoeBrowser' : 'Select a profile'}
+                {profiles.length === 0 ? 'Welcome to Joe Browser' : 'Select a profile'}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 480 }}>
                 {profiles.length === 0

@@ -103,7 +103,7 @@ export function AppProvider({ children }: { children: React.ReactNode }): React.
           throw new Error(
             'Preload bridge (window.stealth) is not available. ' +
             'The Electron preload script failed to load. ' +
-            'Try reinstalling JoeBrowser.'
+            'Try reinstalling Joe Browser.'
           )
         }
         const state = await window.stealth.init()

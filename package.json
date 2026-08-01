@@ -1,8 +1,8 @@
 {
   "name": "joebrowser",
   "productName": "JoeBrowser",
-  "version": "2.0.0",
-  "description": "JoeBrowser – open-source anti-detect browser profile manager",
+  "version": "3.0.0",
+  "description": "Joe Browser – open-source anti-detect browser profile manager with advanced fingerprint protection",
   "author": "JoeBrowser",
   "license": "MIT",
   "main": "./out/main/index.js",

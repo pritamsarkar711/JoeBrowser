@@ -64,6 +64,14 @@ export interface FingerprintConfig {
   /** Spoof navigator.plugins / mimeTypes with realistic entries. */
   pluginsSpoof: boolean
   geolocation: GeoLocation
+  /** navigator.connection.downlink (Mbps). */
+  connectionDownlink: number
+  /** navigator.connection.effectiveType (e.g. "4g"). */
+  connectionEffectiveType: string
+  /** navigator.connection.rtt (ms). */
+  connectionRtt: number
+  /** Permissions API policy: maps permission name to state (granted/denied/prompt). */
+  permissionsPolicy: Record<string, string>
 }
 
 export interface ProfileData {
@@ -246,7 +254,15 @@ export function defaultFingerprint(seed = 'seed-' + Math.random().toString(36).s
     fontFingerprintProtection: true,
     customFonts: [],
     pluginsSpoof: true,
-    geolocation: emptyGeoLocation()
+    geolocation: emptyGeoLocation(),
+    connectionDownlink: 10,
+    connectionEffectiveType: '4g',
+    connectionRtt: 50,
+    permissionsPolicy: {
+      notifications: 'prompt',
+      camera: 'prompt',
+      microphone: 'prompt'
+    }
   }
 }
 

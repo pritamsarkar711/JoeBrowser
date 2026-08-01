@@ -5,7 +5,7 @@
 type Dict = Record<string, string>
 
 const en: Dict = {
-  'app.name': 'JoeBrowser',
+  'app.name': 'Joe Browser',
   'app.tagline': 'Local anti-detect browser',
   'nav.newProfile': 'New profile',
   'nav.search': 'Search profiles…',
@@ -79,7 +79,7 @@ const en: Dict = {
   'toast.launched': 'Browser launched',
   'toast.closed': 'Browser closed',
   'toast.error': 'Error: {error}',
-  'welcome.title': 'Welcome to JoeBrowser',
+  'welcome.title': 'Welcome to Joe Browser',
   'welcome.subtitle': 'Create your first isolated browsing profile. Everything stays on this machine — fingerprints, proxies and browser data are yours only.',
   'welcome.selectProfile': 'Select a profile',
   'welcome.selectHint': 'Pick a profile from the sidebar, or create a new one.',

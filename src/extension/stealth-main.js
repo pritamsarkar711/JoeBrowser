@@ -804,17 +804,130 @@
   // ---------------------------------------------------------------------------
 
   if (ENABLED) {
-    // Permissions API: deny geolocation cleanly.
+    // Permissions API: return consistent results based on the permissions policy.
     try {
       if (navigator.permissions && navigator.permissions.query) {
         var origQuery = navigator.permissions.query;
+        var permPolicy = CFG.permissionsPolicy || {};
+        // Default policy: geolocation follows the geo mode, others are 'prompt'.
+        var defaultPermStates = {
+          geolocation: (CFG.geolocation && CFG.geolocation.mode === 'spoof') ? 'granted' : 'denied',
+          notifications: permPolicy.notifications || 'prompt',
+          camera: permPolicy.camera || 'prompt',
+          microphone: permPolicy.microphone || 'prompt',
+          'persistent-storage': 'prompt',
+          midi: 'prompt',
+          'background-sync': 'granted'
+        };
         navigator.permissions.query = nativeWrap('query', function (self, args) {
           var desc = args[0];
-          if (desc && desc.name === 'geolocation') {
-            var state = CFG.geolocation && CFG.geolocation.mode === 'spoof' ? 'granted' : 'denied';
-            return Promise.resolve({ state: state, onchange: null });
+          if (desc && desc.name) {
+            var state = defaultPermStates[desc.name];
+            if (state) {
+              return Promise.resolve({ state: state, onchange: null });
+            }
           }
           return origQuery.call(self, desc);
+        });
+      }
+    } catch (e) {
+      /* ignore */
+    }
+
+    // navigator.connection spoofing — prevent connection type / speed fingerprinting.
+    try {
+      if (navigator.connection) {
+        var connDownlink = CFG.connectionDownlink || 10;
+        var connEffType = CFG.connectionEffectiveType || '4g';
+        var connRtt = CFG.connectionRtt || 50;
+        Object.defineProperty(navigator.connection, 'downlink', {
+          get: function () { return connDownlink; },
+          configurable: true
+        });
+        Object.defineProperty(navigator.connection, 'effectiveType', {
+          get: function () { return connEffType; },
+          configurable: true
+        });
+        Object.defineProperty(navigator.connection, 'rtt', {
+          get: function () { return connRtt; },
+          configurable: true
+        });
+        Object.defineProperty(navigator.connection, 'type', {
+          get: function () { return 'wifi'; },
+          configurable: true
+        });
+        Object.defineProperty(navigator.connection, 'saveData', {
+          get: function () { return false; },
+          configurable: true
+        });
+      }
+    } catch (e) {
+      /* ignore */
+    }
+
+    // MediaDevices enumeration protection — return a consistent, limited set
+    // of devices instead of the real hardware list.
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+        var origEnumerate = navigator.mediaDevices.enumerateDevices;
+        var fakeDevices = [
+          { kind: 'audioinput', deviceId: 'default', groupId: 'default', label: '' },
+          { kind: 'videoinput', deviceId: 'default', groupId: 'default', label: '' },
+          { kind: 'audiooutput', deviceId: 'default', groupId: 'default', label: '' }
+        ];
+        navigator.mediaDevices.enumerateDevices = nativeWrap('enumerateDevices', function (self) {
+          return Promise.resolve(fakeDevices);
+        });
+      }
+    } catch (e) {
+      /* ignore */
+    }
+
+    // navigator.getBattery() spoofing — prevent battery status fingerprinting.
+    try {
+      if (navigator.getBattery) {
+        var fakeBattery = {
+          charging: true,
+          chargingTime: 0,
+          dischargingTime: Infinity,
+          level: 1,
+          addEventListener: function () {},
+          removeEventListener: function () {},
+          dispatchEvent: function () { return true; },
+          onchargingchange: null,
+          onchargingtimechange: null,
+          ondischargingtimechange: null,
+          onlevelchange: null
+        };
+        navigator.getBattery = nativeWrap('getBattery', function () {
+          return Promise.resolve(fakeBattery);
+        });
+      }
+    } catch (e) {
+      /* ignore */
+    }
+
+    // SpeechSynthesis voice enumeration protection — return a consistent
+    // minimal voice set to prevent voice-based fingerprinting.
+    try {
+      if (window.speechSynthesis && window.speechSynthesis.getVoices) {
+        var origGetVoices = window.speechSynthesis.getVoices;
+        var cachedVoices = null;
+        window.speechSynthesis.getVoices = nativeWrap('getVoices', function () {
+          if (!cachedVoices) {
+            try {
+              var real = origGetVoices.call(window.speechSynthesis);
+              // Keep only the first 2 voices to reduce fingerprint surface.
+              if (real && real.length > 2) {
+                cachedVoices = real.slice(0, 2);
+              } else {
+                cachedVoices = real;
+              }
+            } catch (e) {
+              cachedVoices = [];
+            }
+          }
+          return cachedVoices;
         });
       }
     } catch (e) {

@@ -81,13 +81,13 @@ export function DownloadDialog({ open, onClose }: { open: boolean; onClose: () =
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <DownloadIcon /> Download JoeBrowser (.exe)
+        <DownloadIcon /> Download Joe Browser (.exe)
         <Chip label={`v${currentVersion} (local)`} size="small" sx={{ ml: 1 }} />
       </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2.5}>
           <Alert severity="info" icon={<CheckCircleIcon />}>
-            You are running JoeBrowser from source / dev build. Download the Windows .exe installer for easy installation on other PCs.
+            You are running Joe Browser from source / dev build. Download the Windows .exe installer for easy installation on other PCs.
           </Alert>
 
           <Box>

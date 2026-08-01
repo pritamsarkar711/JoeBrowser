@@ -44,7 +44,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
   handleCopyError = (): void => {
     const { error, errorInfo } = this.state
     const text = [
-      'JoeBrowser Error Report',
+      'Joe Browser Error Report',
       '========================',
       `Time: ${new Date().toISOString()}`,
       `Error: ${error?.message ?? 'Unknown'}`,
@@ -98,7 +98,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             }}
           >
             <Typography variant="h5" sx={{ fontWeight: 700, color: '#ffb4ab', mb: 2 }}>
-              ⚠ JoeBrowser encountered an error
+              ⚠ Joe Browser encountered an error
             </Typography>
 
             <Typography variant="body2" sx={{ color: '#cbc2db', mb: 2 }}>
@@ -148,7 +148,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             </Box>
 
             <Typography variant="caption" sx={{ display: 'block', mt: 3, color: '#938f99' }}>
-              If this keeps happening, try reinstalling JoeBrowser or deleting the data
+              If this keeps happening, try reinstalling Joe Browser or deleting the data
               folder at %APPDATA%/JoeBrowser (settings and profiles will be lost).
               Check crash.log in the logs folder for more details.
             </Typography>

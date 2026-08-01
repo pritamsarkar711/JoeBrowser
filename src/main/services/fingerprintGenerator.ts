@@ -68,6 +68,9 @@ const SCREENS_DESKTOP: Array<[number, number]> = [
   [1366, 768],
   [1536, 864],
   [2560, 1440],
+  [2560, 1600],
+  [1920, 1200],
+  [3440, 1440],
   [1440, 900],
   [1280, 720],
   [3840, 2160],
@@ -189,7 +192,12 @@ const GPUS: Record<TargetOS, GpuPair[]> = {
     {
       vendor: 'Google Inc. (NVIDIA)',
       renderer:
-        'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)'
+        'ANGLE (NVIDIA, NVIDIA GeForce RTX 4090 Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (NVIDIA)',
+      renderer:
+        'ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 Direct3D11 vs_5_0 ps_5_0, D3D11)'
     },
     {
       vendor: 'Google Inc. (NVIDIA)',
@@ -199,7 +207,32 @@ const GPUS: Record<TargetOS, GpuPair[]> = {
     {
       vendor: 'Google Inc. (NVIDIA)',
       renderer:
+        'ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (NVIDIA)',
+      renderer:
+        'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (NVIDIA)',
+      renderer:
         'ANGLE (NVIDIA, NVIDIA GeForce GTX 1660 SUPER Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (AMD)',
+      renderer:
+        'ANGLE (AMD, AMD Radeon RX 7800 XT Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (AMD)',
+      renderer:
+        'ANGLE (AMD, AMD Radeon RX 7600 XT Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (AMD)',
+      renderer:
+        'ANGLE (AMD, AMD Radeon RX 6700 XT Direct3D11 vs_5_0 ps_5_0, D3D11)'
     },
     {
       vendor: 'Google Inc. (AMD)',
@@ -207,9 +240,9 @@ const GPUS: Record<TargetOS, GpuPair[]> = {
         'ANGLE (AMD, AMD Radeon(TM) Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)'
     },
     {
-      vendor: 'Google Inc. (AMD)',
+      vendor: 'Google Inc. (Intel)',
       renderer:
-        'ANGLE (AMD, AMD Radeon RX 6700 XT Direct3D11 vs_5_0 ps_5_0, D3D11)'
+        'ANGLE (Intel, Intel(R) Arc(TM) A770 Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)'
     },
     {
       vendor: 'Google Inc. (Intel)',
@@ -223,9 +256,11 @@ const GPUS: Record<TargetOS, GpuPair[]> = {
     }
   ],
   macos: [
+    { vendor: 'Apple Inc.', renderer: 'ANGLE (Apple, Apple M4, OpenGL 4.1)' },
+    { vendor: 'Apple Inc.', renderer: 'ANGLE (Apple, Apple M4 Pro, OpenGL 4.1)' },
+    { vendor: 'Apple Inc.', renderer: 'ANGLE (Apple, Apple M3, OpenGL 4.1)' },
     { vendor: 'Apple Inc.', renderer: 'ANGLE (Apple, Apple M2, OpenGL 4.1)' },
     { vendor: 'Apple Inc.', renderer: 'ANGLE (Apple, Apple M1 Pro, OpenGL 4.1)' },
-    { vendor: 'Apple Inc.', renderer: 'ANGLE (Apple, Apple M3, OpenGL 4.1)' },
     { vendor: 'Apple Inc.', renderer: 'Apple GPU' }
   ],
   linux: [
@@ -633,6 +668,14 @@ function buildFromEntry(entry: UAEntry, seed: string, rng: SeededRng): Fingerpri
       mode: 'block',
       latitude: 0,
       longitude: 0
+    },
+    connectionDownlink: rng.pick([1.4, 2.5, 4.4, 5.6, 8.5, 10]),
+    connectionEffectiveType: rng.pick(['4g', '4g', '4g', '3g']),
+    connectionRtt: rng.pick([50, 50, 100, 150, 200]),
+    permissionsPolicy: {
+      notifications: rng.chance(0.3) ? 'granted' : 'prompt',
+      camera: 'prompt',
+      microphone: 'prompt'
     }
   }
 }

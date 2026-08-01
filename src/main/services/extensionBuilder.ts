@@ -69,6 +69,10 @@ export interface ExtensionConfig {
   fonts: string[]
   pluginsSpoof: boolean
   geolocation: { mode: 'block' | 'spoof'; latitude: number; longitude: number }
+  connectionDownlink: number
+  connectionEffectiveType: string
+  connectionRtt: number
+  permissionsPolicy: Record<string, string>
 }
 
 export function buildExtensionConfig(profile: ProfileData): ExtensionConfig {
@@ -115,7 +119,11 @@ export function buildExtensionConfig(profile: ProfileData): ExtensionConfig {
       mode: fp.geolocation.mode,
       latitude: fp.geolocation.latitude,
       longitude: fp.geolocation.longitude
-    }
+    },
+    connectionDownlink: fp.connectionDownlink,
+    connectionEffectiveType: fp.connectionEffectiveType,
+    connectionRtt: fp.connectionRtt,
+    permissionsPolicy: fp.permissionsPolicy
   }
 }
 

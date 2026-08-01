@@ -3,7 +3,6 @@
  * these values are sensitive (theme, language, data dir, startup behavior).
  * Profile data lives in the encrypted database instead.
  */
-import { app } from 'electron'
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import type { AppSettings } from '@shared/types'
@@ -47,6 +46,9 @@ export async function saveSettings(patch: Partial<AppSettings>): Promise<AppSett
 
   // Startup behavior (Windows/macOS).
   try {
+    // Lazy-require electron so this module can be loaded in non-Electron contexts
+    // (scripts/tests) without crashing.
+    const { app } = require('electron')
     app.setLoginItemSettings({ openAtLogin: next.launchAtStartup })
   } catch (e) {
     logger.warn('setLoginItemSettings failed', e)
