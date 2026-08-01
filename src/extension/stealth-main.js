@@ -415,22 +415,79 @@
     });
 
     // getImageData: per-pixel noise (direct hash changer).
+    // Seeded so repeated reads of the same canvas yield a stable hash.
     var origGetImageData = ctxProto.getImageData;
     if (typeof origGetImageData === 'function') {
       ctxProto.getImageData = nativeWrap('getImageData', function (self, args) {
         var img = origGetImageData.apply(self, args);
         try {
           var d = img.data;
+          // Re-seed from canvasNoiseSeed + dimensions so noise is deterministic
+          // for identical canvas content/size across calls.
+          var localRng = makeRng(
+            ((CFG.canvasNoiseSeed || 1) ^ (d.length * 2654435761)) >>> 0
+          );
           for (var i = 0; i < d.length; i += 4) {
-            d[i] = Math.max(0, Math.min(255, d[i] + canvasRng.int(-3, 3)));
-            d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + canvasRng.int(-3, 3)));
-            d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + canvasRng.int(-3, 3)));
+            d[i] = Math.max(0, Math.min(255, d[i] + localRng.int(-2, 2)));
+            d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + localRng.int(-2, 2)));
+            d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + localRng.int(-2, 2)));
           }
         } catch (e) {
           /* non-writable buffer */
         }
         return img;
       });
+    }
+
+    // toDataURL / toBlob: apply the same seeded pixel noise so canvas
+    // fingerprint hashes (browserleaks, amiunique, etc.) differ from real HW.
+    function noisifyCanvas(canvas) {
+      try {
+        var ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        var w = canvas.width || 0;
+        var h = canvas.height || 0;
+        if (w < 1 || h < 1) return;
+        var img = origGetImageData.call(ctx, 0, 0, w, h);
+        var d = img.data;
+        var localRng = makeRng(
+          ((CFG.canvasNoiseSeed || 1) ^ (d.length * 2654435761)) >>> 0
+        );
+        for (var i = 0; i < d.length; i += 4) {
+          d[i] = Math.max(0, Math.min(255, d[i] + localRng.int(-2, 2)));
+          d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + localRng.int(-2, 2)));
+          d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + localRng.int(-2, 2)));
+        }
+        ctx.putImageData(img, 0, 0);
+      } catch (e) {
+        /* tainted canvas or non-2d */
+      }
+    }
+
+    if (window.HTMLCanvasElement) {
+      var canvasProto = HTMLCanvasElement.prototype;
+      var origToDataURL = canvasProto.toDataURL;
+      if (typeof origToDataURL === 'function') {
+        canvasProto.toDataURL = nativeWrap('toDataURL', function (self, args) {
+          try {
+            noisifyCanvas(self);
+          } catch (e) {
+            /* ignore */
+          }
+          return origToDataURL.apply(self, args);
+        });
+      }
+      var origToBlob = canvasProto.toBlob;
+      if (typeof origToBlob === 'function') {
+        canvasProto.toBlob = nativeWrap('toBlob', function (self, args) {
+          try {
+            noisifyCanvas(self);
+          } catch (e) {
+            /* ignore */
+          }
+          return origToBlob.apply(self, args);
+        });
+      }
     }
 
     // Font probing via measureText: tiny seeded width noise when font

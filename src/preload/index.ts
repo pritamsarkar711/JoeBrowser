@@ -61,12 +61,26 @@ const api = {
     invoke(IPC.ProfilesUpdate, id, patch),
   duplicateProfile: (id: string): Promise<ProfileData> => invoke(IPC.ProfilesDuplicate, id),
   deleteProfile: (id: string): Promise<boolean> => invoke(IPC.ProfilesDelete, id),
+  exportProfile: (id: string, password: string): Promise<string> =>
+    invoke(IPC.ProfilesExport, id, password),
+  importProfile: (json: string, password: string): Promise<ProfileData> =>
+    invoke(IPC.ProfilesImport, json, password),
 
   // --- fingerprint engine ----------------------------------------------------
   generateFingerprint: (options: GenerateFingerprintOptions): Promise<FingerprintConfig> =>
     invoke(IPC.FingerprintGenerate, options),
   deriveFingerprintFromUA: (ua: string, seed: string): Promise<FingerprintConfig> =>
     invoke(IPC.FingerprintDeriveFromUA, ua, seed),
+  listUserAgents: (): Promise<
+    Array<{
+      ua: string
+      browser: string
+      os: string
+      device: string
+      platform: string
+      version: string
+    }>
+  > => invoke(IPC.UaList),
   getSystemInfo: (): Promise<SystemInfo> => invoke(IPC.SystemInfo),
 
   // --- browsers --------------------------------------------------------------

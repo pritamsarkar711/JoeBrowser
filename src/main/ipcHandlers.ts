@@ -139,6 +139,28 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
     })
   )
 
+  ipcMain.handle(IPC.ProfilesExport, (_e, id: string, password: string) =>
+    guard(() => repo.exportProfileEncrypted(id, password))
+  )
+
+  ipcMain.handle(IPC.ProfilesImport, (_e, json: string, password: string) =>
+    guard(() => repo.importProfileEncrypted(json, password))
+  )
+
+  ipcMain.handle(IPC.UaList, () =>
+    guard(() => {
+      const { UA_LIBRARY } = require('./services/uaDatabase') as typeof import('./services/uaDatabase')
+      return UA_LIBRARY.map((e) => ({
+        ua: e.ua,
+        browser: e.browser,
+        os: e.os,
+        device: e.device,
+        platform: e.platform,
+        version: e.version
+      }))
+    })
+  )
+
   // --- Fingerprint engine --------------------------------------------------
   ipcMain.handle(IPC.FingerprintGenerate, (_e, options: GenerateFingerprintOptions) =>
     guard(() => generateFingerprint(options))

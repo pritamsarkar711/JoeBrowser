@@ -20,6 +20,11 @@ export const IPC = {
   ProfilesUpdate: 'profiles:update',
   ProfilesDuplicate: 'profiles:duplicate',
   ProfilesDelete: 'profiles:delete',
+  ProfilesExport: 'profiles:export',
+  ProfilesImport: 'profiles:import',
+
+  // UA library
+  UaList: 'ua:list',
 
   // Fingerprint engine
   FingerprintGenerate: 'fingerprint:generate',
