@@ -41,7 +41,7 @@ export function DownloadDialog({ open, onClose }: { open: boolean; onClose: () =
   const [loading, setLoading] = useState(false)
   const [release, setRelease] = useState<ReleaseInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const currentVersion = '1.0.2' // keep in sync with package.json
+  const currentVersion = '1.0.3' // keep in sync with package.json
 
   const fetchRelease = async () => {
     setLoading(true)
@@ -142,7 +142,7 @@ export function DownloadDialog({ open, onClose }: { open: boolean; onClose: () =
                     Download Installer .exe
                   </Typography>
                   <Typography variant="caption" sx={{ opacity: 0.8, textTransform: 'none' }}>
-                    {installer ? `${installer.name} • ${(installer.size / 1024 / 1024).toFixed(1)} MB` : 'JoeBrowser-Setup-1.0.2.exe • ~110 MB • NSIS installer (recommended)'}
+                    {installer ? `${installer.name} • ${(installer.size / 1024 / 1024).toFixed(1)} MB` : 'JoeBrowser-Setup-1.0.3.exe • ~110 MB • NSIS installer (recommended)'}
                   </Typography>
                 </Box>
               </Button>
@@ -161,7 +161,7 @@ export function DownloadDialog({ open, onClose }: { open: boolean; onClose: () =
                     Download Portable .exe
                   </Typography>
                   <Typography variant="caption" sx={{ opacity: 0.8, textTransform: 'none' }}>
-                    {portable ? `${portable.name} • ${(portable.size / 1024 / 1024).toFixed(1)} MB` : 'JoeBrowser-Portable-1.0.2.exe • ~110 MB • No install needed'}
+                    {portable ? `${portable.name} • ${(portable.size / 1024 / 1024).toFixed(1)} MB` : 'JoeBrowser-Portable-1.0.3.exe • ~110 MB • No install needed'}
                   </Typography>
                 </Box>
               </Button>
@@ -189,7 +189,7 @@ export function DownloadDialog({ open, onClose }: { open: boolean; onClose: () =
                 <b>2) Trigger CI build on GitHub:</b>
               </Typography>
               <Box component="pre" sx={{ bgcolor: '#00000010', p: 1, borderRadius: 1, fontSize: 11, overflowX: 'auto', m: 0 }}>
-                git tag v1.0.2{'\n'}git push origin v1.0.2{'\n'}# Wait 8-12 min → Releases page gets exe
+                git tag v1.0.3{'\n'}git push origin v1.0.3{'\n'}# Wait 8-12 min → Releases page gets exe
               </Box>
 
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mt: 1 }}>

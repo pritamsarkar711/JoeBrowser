@@ -85,7 +85,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a12;color:#e8e8ee;m
 
   <div class="card">
     <div class="version-bar">
-      <div><b id="versionLabel">Latest: v1.0.2</b> <span id="releaseDate" style="margin-left:8px"></span></div>
+      <div><b id="versionLabel">Latest: v1.0.3</b> <span id="releaseDate" style="margin-left:8px"></span></div>
       <div id="releaseStatus"><span class="pulse">●</span> Checking GitHub…</div>
     </div>
 
@@ -93,12 +93,12 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a12;color:#e8e8ee;m
       <a id="btnInstaller" href="https://github.com/pritamsarkar711/JoeBrowser/releases/latest" target="_blank" class="btn btn-primary">
         <small>Recommended for most users</small>
         <strong>⬇ Download Installer (.exe) <span style="font-size:22px">🪟</span></strong>
-        <span class="meta" id="installerMeta">JoeBrowser-Setup-1.0.2.exe • ~110 MB • NSIS installer with shortcuts</span>
+        <span class="meta" id="installerMeta">JoeBrowser-Setup-1.0.3.exe • ~110 MB • NSIS installer with shortcuts</span>
       </a>
       <a id="btnPortable" href="https://github.com/pritamsarkar711/JoeBrowser/releases/latest" target="_blank" class="btn btn-secondary">
         <small>No install needed • run anywhere</small>
         <strong>⬇ Download Portable (.exe)</strong>
-        <span class="meta" id="portableMeta">JoeBrowser-Portable-1.0.2.exe • ~110 MB • USB stick friendly</span>
+        <span class="meta" id="portableMeta">JoeBrowser-Portable-1.0.3.exe • ~110 MB • USB stick friendly</span>
       </a>
     </div>
 
@@ -133,8 +133,8 @@ REM exe will be in /release/</code>
       <div class="step">
         <h4>Method 3 — Trigger CI build</h4>
         <p>Maintainers: push a tag or run workflow manually.</p>
-        <code>git tag v1.0.2
-git push origin v1.0.2
+        <code>git tag v1.0.3
+git push origin v1.0.3
 # wait 8-12 min, check Actions tab
 # exe appears in Releases automatically</code>
       </div>
@@ -171,7 +171,7 @@ async function fetchLatest(){
     const r=await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/releases/latest`, {headers:{'Accept':'application/vnd.github+json'}});
     if(!r.ok) throw new Error('no release yet');
     const data=await r.json();
-    const tag=data.tag_name||'v1.0.2';
+    const tag=data.tag_name||'v1.0.3';
     vLabel.textContent=`Latest: ${tag}`;
     dateEl.textContent=`• ${new Date(data.published_at).toLocaleDateString()}`;
     status.innerHTML=`✅ Release found • ${data.assets?.length||0} files`;
@@ -197,7 +197,7 @@ async function fetchLatest(){
     }
   }catch(e){
     console.warn(e);
-    const fallbackTag='v1.0.2';
+    const fallbackTag='v1.0.3';
     vLabel.textContent=`Latest: ${fallbackTag} (placeholder)`;
     status.innerHTML=`ℹ️ No release yet. <a href="https://github.com/${OWNER}/${REPO}/actions/workflows/build-windows.yml" target="_blank" style="color:#b0b0ff">Trigger a Windows build →</a> or build locally with <code>npm run dist:win</code>`;
     // keep buttons pointing to releases/latest which will redirect when release exists

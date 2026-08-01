@@ -24,12 +24,12 @@ Installers are published on the **Releases** page:
 | **Linux** | `JoeBrowser-<ver>-x86_64.rpm` | Fedora/RHEL: `sudo rpm -i` |
 
 **Direct links (latest):**
-- Installer: `https://github.com/pritamsarkar711/JoeBrowser/releases/latest/download/JoeBrowser-Setup-1.0.2.exe`
-- Portable: `https://github.com/pritamsarkar711/JoeBrowser/releases/latest/download/JoeBrowser-Portable-1.0.2.exe`
+- Installer: `https://github.com/pritamsarkar711/JoeBrowser/releases/latest/download/JoeBrowser-Setup-1.0.3.exe`
+- Portable: `https://github.com/pritamsarkar711/JoeBrowser/releases/latest/download/JoeBrowser-Portable-1.0.3.exe`
 
 > If Releases page is empty, use Method 2 or 3 below to generate the installer.
 
-### 🪟 Windows won't open the EXE? Read this first (v1.0.2 fix)
+### 🪟 Windows won't open the app? Read this first (v1.0.3 fix)
 
 The most common reasons a downloaded JoeBrowser `.exe` "does nothing" on Windows — and what to do:
 
@@ -48,7 +48,7 @@ The most common reasons a downloaded JoeBrowser `.exe` "does nothing" on Windows
 5. **Antivirus deleted the file while downloading** — check **Protection history** / quarantine before re-downloading.
 6. **Still broken?** Open an issue at https://github.com/pritamsarkar711/JoeBrowser/issues and attach `crash.log` — that tells us exactly what happened.
 
-Since **v1.0.2** the app no longer fails silently: startup errors show a dialog with the reason and log paths, the SQLite module gives a clear message instead of an opaque crash, and the EXE version number always matches the release (v1.0.1 shipped EXEs still named `1.0.0` — confusing, fixed).
+Since **v1.0.3** the app no longer fails silently: startup errors show a dialog with the reason and log paths, the SQLite module gives a clear message instead of an opaque crash, renderer crashes are caught by an ErrorBoundary, and a 15-second boot timeout prevents the app from hanging forever. Cross-platform builds (Linux + macOS) are now supported.
 
 ### Local build page
 We added a beautiful landing page for downloading:
@@ -76,7 +76,7 @@ powershell -ExecutionPolicy Bypass -File ./scripts/build-windows.ps1
 git clone https://github.com/pritamsarkar711/JoeBrowser.git
 cd JoeBrowser
 npm ci && npm run dist:win
-# Output: release/JoeBrowser-Setup-1.0.2.exe + release/JoeBrowser-Portable-1.0.2.exe
+# Output: release/JoeBrowser-Setup-1.0.3.exe + release/JoeBrowser-Portable-1.0.3.exe
 ```
 
 **macOS:**
@@ -85,8 +85,8 @@ git clone https://github.com/pritamsarkar711/JoeBrowser.git
 cd JoeBrowser
 bash scripts/build-mac.sh
 # Or manually: npm ci && npm run dist:mac
-# Output: release/JoeBrowser-1.0.2-arm64.dmg (Apple Silicon)
-#         release/JoeBrowser-1.0.2-x64.dmg (Intel)
+# Output: release/JoeBrowser-1.0.3-arm64.dmg (Apple Silicon)
+#         release/JoeBrowser-1.0.3-x64.dmg (Intel)
 ```
 
 **Linux:**
@@ -95,9 +95,9 @@ git clone https://github.com/pritamsarkar711/JoeBrowser.git
 cd JoeBrowser
 bash scripts/build-linux.sh
 # Or manually: npm ci && npm run dist:linux
-# Output: release/JoeBrowser-1.0.2-x64.AppImage
-#         release/JoeBrowser-1.0.2-amd64.deb
-#         release/JoeBrowser-1.0.2-x86_64.rpm
+# Output: release/JoeBrowser-1.0.3-x64.AppImage
+#         release/JoeBrowser-1.0.3-amd64.deb
+#         release/JoeBrowser-1.0.3-x86_64.rpm
 ```
 
 ### Method 2 — Trigger CI build (for maintainers)
@@ -107,7 +107,7 @@ The repo has a GitHub Actions workflow that builds for **Windows, macOS, and Lin
    ```bash
    git tag v1.0.3
    git push origin v1.0.3
-   # Wait 10-15 min, check Actions tab -> Build All Platforms
+   # Wait 10-15 min, check Actions tab -> Build Windows EXE
    # All installers are auto-published to Releases
    ```
 
