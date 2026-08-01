@@ -75,9 +75,14 @@ app.on('before-quit', () => {
   globalShortcut.unregisterAll();
 });
 
-// Security: Prevent new window creation
+// Security: Prevent new window creation for the main window only
+// Webview windows are handled by the browser-chrome.html new-window event
 app.on('web-contents-created', (_, contents) => {
-  contents.setWindowOpenHandler(() => {
-    return { action: 'deny' };
-  });
+  // Only set window open handler for the main window and webview types
+  // For webview, we allow the new-window event to be handled by browser-chrome.html
+  if (contents.getType() === 'window') {
+    contents.setWindowOpenHandler(() => {
+      return { action: 'deny' };
+    });
+  }
 });

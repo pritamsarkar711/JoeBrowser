@@ -1,7 +1,7 @@
 // ============================================================
 // Joe Browser - Embedded Browser Launcher
 // Launches profiles in embedded BrowserWindow with webview
-// Fixes: popup→tab, Brave/Edge/Firefox support, stealth preload
+// ALL bugs fixed: webview loading, stealth injection, browser types
 // ============================================================
 
 import { app, BrowserWindow, session, shell } from 'electron';
@@ -12,367 +12,290 @@ import { ProfileData, BROWSER_THEMES, MOBILE_RESOLUTIONS, BrowserType } from '..
 // Track open browser windows
 const openWindows = new Map<string, BrowserWindow>();
 
-// Directory for stealth preload scripts
+// Store stealth scripts per profile (keyed by profile ID)
+const stealthScripts = new Map<string, string>();
+
+// Directory for proxy PAC files
 const PRELOAD_DIR = path.join(app.getPath('userData'), 'stealth-preloads');
 
+// ===== Register stealth injection handler ONCE at module level =====
+// This intercepts webview webContents creation and injects stealth scripts
+app.on('web-contents-created', (event, contents) => {
+  // Only process webview webContents
+  if (contents.getType() !== 'webview') return;
+
+  const webviewPartition = contents.session?.partition || '';
+  // Only process partitions that belong to our profiles
+  if (!webviewPartition.startsWith('persist:joe-')) return;
+
+  // Extract profile ID from partition name
+  const profileId = webviewPartition.replace('persist:joe-', '');
+
+  console.log(`[JoeBrowser] Webview webContents created for profile: ${profileId}`);
+
+  // Inject stealth script on every navigation
+  contents.on('did-navigate', () => {
+    const script = stealthScripts.get(profileId);
+    if (script) {
+      contents.executeJavaScript(script)
+        .catch((err: Error) => console.error('[JoeBrowser] Stealth injection failed:', err.message));
+    }
+  });
+
+  // Also inject on in-page navigation
+  contents.on('did-navigate-in-page', () => {
+    const script = stealthScripts.get(profileId);
+    if (script) {
+      contents.executeJavaScript(script)
+        .catch((err: Error) => console.error('[JoeBrowser] Stealth injection (in-page) failed:', err.message));
+    }
+  });
+
+  // Inject on dom-ready for the first load
+  contents.on('dom-ready', () => {
+    const script = stealthScripts.get(profileId);
+    if (script) {
+      contents.executeJavaScript(script)
+        .catch((err: Error) => console.error('[JoeBrowser] Stealth injection (dom-ready) failed:', err.message));
+    }
+  });
+});
+
 /**
- * Build the stealth preload script content for a given profile.
- * This script runs BEFORE any page JavaScript, preventing detection.
+ * Build the stealth injection script that runs in the webview.
+ * This script runs AFTER the page loads via executeJavaScript.
+ * It's NOT a preload script - it's injected into the page context.
  */
-function buildStealthPreloadScript(profile: ProfileData): string {
+function buildStealthScript(profile: ProfileData): string {
   const fp = profile.fingerprint;
 
   return `
-// ============================================================
-// Joe Browser Stealth Preload Script
-// Runs before page JS to prevent fingerprint detection
-// Profile: ${profile.name} (${profile.browserType})
-// ============================================================
+(function() {
+  'use strict';
 
-// NOTE: Do NOT use require() here - this runs in a context-isolated preload.
-// The script is loaded via session.setPreloads() and runs before page JS.
+  // ---- Navigator Overrides ----
+  try {
+    var overrides = {
+      userAgent: ${JSON.stringify(fp.userAgent)},
+      platform: ${JSON.stringify(fp.platform)},
+      vendor: ${JSON.stringify(fp.vendor)},
+      language: ${JSON.stringify(fp.language)},
+      languages: ${JSON.stringify(fp.languages)},
+      hardwareConcurrency: ${fp.hardwareConcurrency},
+      deviceMemory: ${fp.deviceMemory},
+      maxTouchPoints: ${fp.maxTouchPoints},
+      appVersion: ${JSON.stringify(fp.userAgent.replace('Mozilla/', ''))},
+    };
 
-// ---- Navigator Overrides ----
-const _origNavigator = window.navigator;
-const _origDefineProperty = Object.defineProperty;
-
-function overrideNavigator() {
-  const overrides = {
-    userAgent: ${JSON.stringify(fp.userAgent)},
-    platform: ${JSON.stringify(fp.platform)},
-    vendor: ${JSON.stringify(fp.vendor)},
-    language: ${JSON.stringify(fp.language)},
-    languages: ${JSON.stringify(fp.languages)},
-    hardwareConcurrency: ${fp.hardwareConcurrency},
-    deviceMemory: ${fp.deviceMemory},
-    maxTouchPoints: ${fp.maxTouchPoints},
-    appVersion: ${JSON.stringify(fp.userAgent.replace('Mozilla/', ''))},
-  };
-
-  for (const [key, value] of Object.entries(overrides)) {
-    try {
-      _origDefineProperty.call(Object, Navigator.prototype, key, {
-        get: () => value,
-        configurable: true,
-      });
-    } catch (e) {
-      // Some properties may be non-configurable, try direct assignment
+    for (var key in overrides) {
       try {
-        _origNavigator[key] = value;
-      } catch (e2) {}
+        Object.defineProperty(Navigator.prototype, key, {
+          get: function() { return overrides[key]; },
+          configurable: true,
+        });
+      } catch (e) {
+        try { navigator[key] = overrides[key]; } catch (e2) {}
+      }
     }
-  }
 
-  // Override plugins for Chrome-based browsers
-  if (${fp.browserType !== 'firefox'}) {
+    ${fp.browserType !== 'firefox' ? `
     try {
       Object.defineProperty(Navigator.prototype, 'plugins', {
-        get: () => {
-          const plugins = [
+        get: function() {
+          var p = [
             { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
             { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
             { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' },
           ];
-          plugins.length = 3;
-          return plugins;
+          p.length = 3;
+          return p;
         },
         configurable: true,
       });
-    } catch (e) {}
-  }
-}
+    } catch (e) {}` : ''}
+  } catch (e) {}
 
-// ---- Screen Overrides ----
-function overrideScreen() {
-  const res = ${JSON.stringify(fp.screenResolution)}.split('x');
-  const availRes = ${JSON.stringify(fp.availableScreenResolution)}.split('x');
-
-  const screenOverrides = {
-    width: parseInt(res[0]),
-    height: parseInt(res[1]),
-    availWidth: parseInt(availRes[0]),
-    availHeight: parseInt(availRes[1]),
-    colorDepth: ${fp.colorDepth},
-    pixelDepth: ${fp.colorDepth},
-  };
-
-  for (const [key, value] of Object.entries(screenOverrides)) {
-    try {
-      Object.defineProperty(Screen.prototype, key, {
-        get: () => value,
-        configurable: true,
-      });
-    } catch (e) {}
-  }
-}
-
-// ---- WebGL Overrides ----
-function overrideWebGL() {
-  const getParameterProxyHandler = {
-    apply: function(target, thisArg, args) {
-      const param = args[0];
-      const gl = thisArg;
-
-      // UNMASKED_VENDOR_WEBGL
-      if (param === 0x9245) return ${JSON.stringify(fp.webglVendor)};
-      // UNMASKED_RENDERER_WEBGL
-      if (param === 0x9246) return ${JSON.stringify(fp.webglRenderer)};
-
-      return Reflect.apply(target, thisArg, args);
-    }
-  };
-
-  const origGetParameter = WebGLRenderingContext.prototype.getParameter;
-  WebGLRenderingContext.prototype.getParameter = new Proxy(origGetParameter, getParameterProxyHandler);
-
-  if (typeof WebGL2RenderingContext !== 'undefined') {
-    const origGetParameter2 = WebGL2RenderingContext.prototype.getParameter;
-    WebGL2RenderingContext.prototype.getParameter = new Proxy(origGetParameter2, getParameterProxyHandler);
-  }
-}
-
-// ---- Canvas Noise ----
-function overrideCanvas() {
-  const noise = ${fp.canvasNoise};
-
-  const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
-  HTMLCanvasElement.prototype.toDataURL = function(...args) {
-    const ctx = this.getContext('2d');
-    if (ctx) {
+  // ---- Screen Overrides ----
+  try {
+    var res = ${JSON.stringify(fp.screenResolution)}.split('x');
+    var availRes = ${JSON.stringify(fp.availableScreenResolution)}.split('x');
+    var screenOverrides = {
+      width: parseInt(res[0]),
+      height: parseInt(res[1]),
+      availWidth: parseInt(availRes[0]),
+      availHeight: parseInt(availRes[1]),
+      colorDepth: ${fp.colorDepth},
+      pixelDepth: ${fp.colorDepth},
+    };
+    for (var key in screenOverrides) {
       try {
-        const imageData = ctx.getImageData(0, 0, this.width, this.height);
-        for (let i = 0; i < imageData.data.length; i += 4) {
-          imageData.data[i] = Math.min(255, Math.max(0, imageData.data[i] + (Math.random() - 0.5) * noise * 255));
-        }
-        ctx.putImageData(imageData, 0, 0);
+        Object.defineProperty(Screen.prototype, key, {
+          get: function() { return screenOverrides[key]; },
+          configurable: true,
+        });
       } catch (e) {}
     }
-    return origToDataURL.apply(this, args);
-  };
+  } catch (e) {}
 
-  const origToBlob = HTMLCanvasElement.prototype.toBlob;
-  HTMLCanvasElement.prototype.toBlob = function(callback, ...args) {
-    const ctx = this.getContext('2d');
-    if (ctx) {
-      try {
-        const imageData = ctx.getImageData(0, 0, this.width, this.height);
-        for (let i = 0; i < imageData.data.length; i += 4) {
-          imageData.data[i] = Math.min(255, Math.max(0, imageData.data[i] + (Math.random() - 0.5) * noise * 255));
-        }
-        ctx.putImageData(imageData, 0, 0);
-      } catch (e) {}
+  // ---- WebGL Overrides ----
+  try {
+    var handler = {
+      apply: function(target, thisArg, args) {
+        if (args[0] === 0x9245) return ${JSON.stringify(fp.webglVendor)};
+        if (args[0] === 0x9246) return ${JSON.stringify(fp.webglRenderer)};
+        return Reflect.apply(target, thisArg, args);
+      }
+    };
+    var orig1 = WebGLRenderingContext.prototype.getParameter;
+    WebGLRenderingContext.prototype.getParameter = new Proxy(orig1, handler);
+    if (typeof WebGL2RenderingContext !== 'undefined') {
+      var orig2 = WebGL2RenderingContext.prototype.getParameter;
+      WebGL2RenderingContext.prototype.getParameter = new Proxy(orig2, handler);
     }
-    return origToBlob.call(this, callback, ...args);
-  };
-}
+  } catch (e) {}
 
-// ---- Audio Noise ----
-function overrideAudio() {
-  const noise = ${fp.audioNoise};
+  // ---- Canvas Noise ----
+  try {
+    var noise = ${fp.canvasNoise};
+    var origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+    HTMLCanvasElement.prototype.toDataURL = function() {
+      var ctx = this.getContext('2d');
+      if (ctx) {
+        try {
+          var img = ctx.getImageData(0, 0, this.width, this.height);
+          for (var i = 0; i < img.data.length; i += 4) {
+            img.data[i] = Math.min(255, Math.max(0, img.data[i] + (Math.random() - 0.5) * noise * 255));
+          }
+          ctx.putImageData(img, 0, 0);
+        } catch (e) {}
+      }
+      return origToDataURL.apply(this, arguments);
+    };
+  } catch (e) {}
 
-  if (typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined') {
-    const OrigAudioContext = window.AudioContext || window.webkitAudioContext;
-    if (OrigAudioContext) {
-      const origGetChannelData = AudioBuffer.prototype.getChannelData;
-      AudioBuffer.prototype.getChannelData = function(channel) {
-        const data = origGetChannelData.call(this, channel);
-        if (this._noised) return data;
-        for (let i = 0; i < data.length; i += 100) {
+  // ---- Audio Noise ----
+  try {
+    var noise = ${fp.audioNoise};
+    var origGetChannelData = AudioBuffer.prototype.getChannelData;
+    AudioBuffer.prototype.getChannelData = function(channel) {
+      var data = origGetChannelData.call(this, channel);
+      if (!this._joeNoised) {
+        for (var i = 0; i < data.length; i += 100) {
           data[i] += (Math.random() - 0.5) * noise;
         }
-        this._noised = true;
-        return data;
-      };
-
-      const origCreateAnalyser = OrigAudioContext.prototype.createAnalyser;
-      OrigAudioContext.prototype.createAnalyser = function() {
-        const analyser = origCreateAnalyser.call(this);
-        const origGetFloatFrequencyData = analyser.getFloatFrequencyData.bind(analyser);
-        analyser.getFloatFrequencyData = function(array) {
-          origGetFloatFrequencyData(array);
-          for (let i = 0; i < array.length; i += 100) {
-            array[i] += (Math.random() - 0.5) * noise * 100;
-          }
-        };
-        return analyser;
-      };
-    }
-  }
-}
-
-// ---- WebRTC Policy ----
-function overrideWebRTC() {
-  const policy = ${JSON.stringify(fp.webRtcPolicy)};
-  if (policy === 'disable') {
-    try {
-      const origRTCPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection;
-      if (origRTCPeerConnection) {
-        window.RTCPeerConnection = function() { return null; };
-        window.webkitRTCPeerConnection = function() { return null; };
+        this._joeNoised = true;
       }
-    } catch (e) {}
-  }
-}
+      return data;
+    };
+  } catch (e) {}
 
-// ---- Timezone Override ----
-function overrideTimezone() {
-  const tz = ${JSON.stringify(fp.timezone)};
+  // ---- WebRTC ----
   try {
-    const origDateTimeFormat = Intl.DateTimeFormat;
+    var policy = ${JSON.stringify(fp.webRtcPolicy)};
+    if (policy === 'disable') {
+      window.RTCPeerConnection = function() { return null; };
+      window.webkitRTCPeerConnection = function() { return null; };
+    }
+  } catch (e) {}
+
+  // ---- Timezone ----
+  try {
+    var tz = ${JSON.stringify(fp.timezone)};
+    var OrigDateTimeFormat = Intl.DateTimeFormat;
     Intl.DateTimeFormat = function(locale, options) {
       options = options || {};
       options.timeZone = options.timeZone || tz;
-      return new origDateTimeFormat(locale, options);
+      return new OrigDateTimeFormat(locale, options);
     };
-    Intl.DateTimeFormat.prototype = origDateTimeFormat.prototype;
-    Intl.DateTimeFormat.supportedLocalesOf = origDateTimeFormat.supportedLocalesOf;
+    Intl.DateTimeFormat.prototype = OrigDateTimeFormat.prototype;
+    Intl.DateTimeFormat.supportedLocalesOf = OrigDateTimeFormat.supportedLocalesOf;
   } catch (e) {}
-}
 
-// ---- Brave-specific overrides ----
-function overrideBrave() {
-  // Make the page think it's running in Brave
-  if (${fp.browserType === 'brave'}) {
-    try {
-      Object.defineProperty(window, 'brave', {
-        value: {
-          isBrave: () => Promise.resolve(true),
-          braveShields: { getDetails: () => Promise.resolve({ shieldsUp: true }) },
-        },
-        configurable: true,
-        writable: true,
-      });
-    } catch (e) {}
-  }
-}
+  // ---- Brave-specific ----
+  ${fp.browserType === 'brave' ? `
+  try {
+    Object.defineProperty(window, 'brave', {
+      value: { isBrave: function() { return Promise.resolve(true); }, braveShields: { getDetails: function() { return Promise.resolve({ shieldsUp: true }); } } },
+      configurable: true, writable: true,
+    });
+  } catch (e) {}` : ''}
 
-// ---- Firefox-specific overrides ----
-function overrideFirefox() {
-  if (${fp.browserType === 'firefox'}) {
-    try {
-      // Firefox doesn't have chrome object
-      if (window.chrome) {
-        delete window.chrome;
-      }
-    } catch (e) {}
-  }
-}
+  // ---- Firefox-specific ----
+  ${fp.browserType === 'firefox' ? `
+  try { if (window.chrome) delete window.chrome; } catch (e) {}` : ''}
 
-// ---- Edge-specific overrides ----
-function overrideEdge() {
-  if (${fp.browserType === 'edge'}) {
-    try {
-      // Add Edge-specific styles
-      Object.defineProperty(Navigator.prototype, 'brave', {
-        get: () => undefined,
-        configurable: true,
-      });
-    } catch (e) {}
-  }
-}
+  // ---- Edge-specific ----
+  ${fp.browserType === 'edge' ? `
+  try {
+    Object.defineProperty(Navigator.prototype, 'brave', { get: function() { return undefined; }, configurable: true });
+  } catch (e) {}` : ''}
 
-// ---- Apply all overrides ----
-try {
-  overrideNavigator();
-  overrideScreen();
-  overrideWebGL();
-  overrideCanvas();
-  overrideAudio();
-  overrideWebRTC();
-  overrideTimezone();
-  overrideBrave();
-  overrideFirefox();
-  overrideEdge();
-} catch (e) {
-  console.error('Stealth preload error:', e);
-}
+})();
 `;
 }
 
 /**
- * Write the stealth preload script to a file for the profile.
- * Returns the file path.
- */
-function writeStealthPreload(profile: ProfileData): string {
-  if (!fs.existsSync(PRELOAD_DIR)) {
-    fs.mkdirSync(PRELOAD_DIR, { recursive: true });
-  }
-
-  const scriptPath = path.join(PRELOAD_DIR, `stealth-${profile.id}.js`);
-  const scriptContent = buildStealthPreloadScript(profile);
-
-  fs.writeFileSync(scriptPath, scriptContent, 'utf-8');
-  return scriptPath;
-}
-
-/**
- * Clean up a specific stealth preload script
+ * Clean up a specific stealth script
  */
 export function cleanupStealthPreload(profileId: string): void {
   try {
-    const scriptPath = path.join(PRELOAD_DIR, `stealth-${profileId}.js`);
-    if (fs.existsSync(scriptPath)) {
-      fs.unlinkSync(scriptPath);
-    }
+    stealthScripts.delete(profileId);
+    const pacPath = path.join(PRELOAD_DIR, `proxy-${profileId}.pac`);
+    if (fs.existsSync(pacPath)) fs.unlinkSync(pacPath);
   } catch (e) {
-    console.error('Failed to cleanup stealth preload:', e);
+    console.error('Failed to cleanup stealth script:', e);
   }
 }
 
 /**
- * Clean up all stealth preload scripts
+ * Clean up all stealth scripts
  */
 export function cleanupAllPreloads(): void {
   try {
+    stealthScripts.clear();
     if (fs.existsSync(PRELOAD_DIR)) {
       const files = fs.readdirSync(PRELOAD_DIR);
       for (const file of files) {
-        if (file.startsWith('stealth-')) {
+        if (file.startsWith('proxy-')) {
           fs.unlinkSync(path.join(PRELOAD_DIR, file));
         }
       }
     }
   } catch (e) {
-    console.error('Failed to cleanup preloads:', e);
+    console.error('Failed to cleanup scripts:', e);
   }
 }
 
 /**
- * Get the browser-chrome.html path
+ * Get the browser-chrome.html path - tries multiple locations
  */
 function getBrowserChromePath(): string {
-  // In development, use the source file directly
+  // 1. Development: relative to the compiled main/index.js
   const devPath = path.join(__dirname, '..', 'assets', 'browser-chrome.html');
-  if (fs.existsSync(devPath)) {
-    return devPath;
-  }
+  if (fs.existsSync(devPath)) return devPath;
 
-  // In production, use the extraResources path
+  // 2. Production: extraResources (electron-builder copies it here)
   const prodPath = path.join(process.resourcesPath, 'browser-chrome.html');
-  if (fs.existsSync(prodPath)) {
-    return prodPath;
-  }
+  if (fs.existsSync(prodPath)) return prodPath;
 
-  // Fallback: try relative to app.asar
-  const asarPath = path.join(__dirname, '..', '..', 'assets', 'browser-chrome.html');
-  if (fs.existsSync(asarPath)) {
-    return asarPath;
-  }
+  // 3. Fallback: try relative to app path
+  const appPath = path.join(app.getAppPath(), 'src', 'main', 'assets', 'browser-chrome.html');
+  if (fs.existsSync(appPath)) return appPath;
 
-  throw new Error('browser-chrome.html not found! Check electron-builder.yml extraResources.');
+  throw new Error('browser-chrome.html not found! Searched: ' + devPath + ', ' + prodPath + ', ' + appPath);
 }
 
 /**
- * Get the page URL for the browser-chrome.html
+ * Get the file:// URL for browser-chrome.html
  */
 function getBrowserChromeUrl(): string {
   const htmlPath = getBrowserChromePath();
-  return `file://${htmlPath.replace(/\\/g, '/')}`;
+  const normalized = htmlPath.replace(/\\/g, '/');
+  return normalized.startsWith('/') ? `file://${normalized}` : `file:///${normalized}`;
 }
 
 /**
- * Get the session partition name for a profile.
- * Each profile gets its own isolated session.
+ * Get the session partition name for a profile
  */
 function getPartitionName(profile: ProfileData): string {
   return `persist:joe-${profile.id}`;
@@ -385,16 +308,9 @@ function getWindowDimensions(profile: ProfileData): { width: number; height: num
   if (profile.deviceType === 'mobile') {
     const deviceKey = profile.os === 'ios' ? 'iphone-15-pro' : 'pixel-8';
     const res = MOBILE_RESOLUTIONS[deviceKey];
-    // Add space for the browser chrome UI
-    return {
-      width: res.width + 40,
-      height: res.height + 120,
-    };
+    return { width: res.width + 40, height: res.height + 120 };
   }
-  return {
-    width: 1280,
-    height: 800,
-  };
+  return { width: 1280, height: 800 };
 }
 
 /**
@@ -406,7 +322,13 @@ function getBrowserTheme(browserType: BrowserType): { primary: string; accent: s
 
 /**
  * Launch a profile in an embedded browser window.
- * This creates a BrowserWindow with an embedded webview (not a popup).
+ * 
+ * Architecture:
+ * - BrowserWindow loads browser-chrome.html (the browser UI)
+ * - browser-chrome.html creates a <webview> tag for the actual page
+ * - The webview uses the profile's isolated session partition
+ * - Stealth injection is done via executeJavaScript from main process
+ *   using the 'did-navigate' event on the webview's webContents
  */
 export async function launchProfile(profile: ProfileData): Promise<{ success: boolean; error?: string; windowId?: number }> {
   try {
@@ -417,41 +339,34 @@ export async function launchProfile(profile: ProfileData): Promise<{ success: bo
       return { success: true, windowId: existing.id };
     }
 
-    // Write stealth preload script
-    const preloadPath = writeStealthPreload(profile);
+    // Build and store the stealth script for this profile
+    const stealthScriptContent = buildStealthScript(profile);
+    stealthScripts.set(profile.id, stealthScriptContent);
 
     // Get the session partition
     const partition = getPartitionName(profile);
 
-    // Set up the session with stealth preload
+    // Set up the session for the webview
     const ses = session.fromPartition(partition);
 
-    // NOTE: We do NOT use ses.setPreloads() here because that would apply
-    // the stealth preload to ALL pages in the session, including the
-    // browser-chrome.html itself. Instead, we pass the preloadPath to
-    // the webview's preload attribute in browser-chrome.html.
-
-    // Set user agent
+    // Set user agent on the session
     ses.setUserAgent(profile.fingerprint.userAgent);
 
     // Configure proxy if set
     if (profile.proxy) {
       const proxyConfig = profile.proxy;
       if (proxyConfig.username && proxyConfig.password) {
-        // Write PAC file for authenticated proxy
-        const pacContent = `
-function FindProxyForURL(url, host) {
-  return "${proxyConfig.type === 'socks5' ? 'SOCKS5' : proxyConfig.type === 'socks4' ? 'SOCKS4' : 'PROXY'} ${proxyConfig.host}:${proxyConfig.port}; DIRECT";
-}`;
+        const pacContent = `function FindProxyForURL(url, host) { return "${proxyConfig.type === 'socks5' ? 'SOCKS5' : proxyConfig.type === 'socks4' ? 'SOCKS4' : 'PROXY'} ${proxyConfig.host}:${proxyConfig.port}; DIRECT"; }`;
+        if (!fs.existsSync(PRELOAD_DIR)) fs.mkdirSync(PRELOAD_DIR, { recursive: true });
         const pacPath = path.join(PRELOAD_DIR, `proxy-${profile.id}.pac`);
         fs.writeFileSync(pacPath, pacContent, 'utf-8');
-        await ses.setProxy({ pacScript: `file://${pacPath.replace(/\\/g, '/')}` });
+        const pacUrl = pacPath.replace(/\\/g, '/');
+        await ses.setProxy({ pacScript: `file://${pacUrl.startsWith('/') ? '' : '/'}${pacUrl}` });
       } else {
         const proxyRule = `${proxyConfig.type}://${proxyConfig.host}:${proxyConfig.port}`;
         await ses.setProxy({ proxyRules: proxyRule });
       }
     } else {
-      // No proxy - direct connection
       await ses.setProxy({ mode: 'direct' });
     }
 
@@ -475,9 +390,6 @@ function FindProxyForURL(url, host) {
     const theme = getBrowserTheme(profile.browserType);
 
     // Create the browser window
-    // IMPORTANT: The BrowserWindow itself uses the default session (no partition).
-    // The webview inside browser-chrome.html uses the profile's partition.
-    // This prevents the stealth preload from running on the browser-chrome.html itself.
     const win = new BrowserWindow({
       width: dims.width,
       height: dims.height,
@@ -490,13 +402,13 @@ function FindProxyForURL(url, host) {
         nodeIntegration: false,
         contextIsolation: true,
         webviewTag: true,
-        // DO NOT set partition here - the BrowserWindow uses the default session.
-        // The webview inside browser-chrome.html uses the profile's partition.
+        // No partition here - BrowserWindow uses default session
       },
     });
 
     // Load the browser-chrome.html with query parameters
     const chromeUrl = getBrowserChromeUrl();
+
     const params = new URLSearchParams({
       url: profile.launchUrl || 'https://iphey.com',
       profile: profile.id,
@@ -506,7 +418,6 @@ function FindProxyForURL(url, host) {
       themePrimary: theme.primary,
       themeAccent: theme.accent,
       isMobile: profile.deviceType === 'mobile' ? 'true' : 'false',
-      preloadPath: preloadPath,
     });
 
     // For mobile, add device resolution
@@ -517,7 +428,12 @@ function FindProxyForURL(url, host) {
       params.set('mobileHeight', res.height.toString());
     }
 
-    await win.loadURL(`${chromeUrl}?${params.toString()}`);
+    const fullUrl = `${chromeUrl}?${params.toString()}`;
+    console.log(`[JoeBrowser] Launching profile: ${profile.name} (${profile.browserType})`);
+    console.log(`[JoeBrowser] Target URL: ${profile.launchUrl || 'https://iphey.com'}`);
+    console.log(`[JoeBrowser] Partition: ${partition}`);
+
+    await win.loadURL(fullUrl);
 
     // Track the window
     openWindows.set(profile.id, win);
@@ -528,7 +444,7 @@ function FindProxyForURL(url, host) {
       cleanupStealthPreload(profile.id);
     });
 
-    // Open external links in system browser
+    // Prevent new windows from the BrowserWindow itself
     win.webContents.setWindowOpenHandler(({ url }) => {
       shell.openExternal(url);
       return { action: 'deny' };
@@ -536,7 +452,7 @@ function FindProxyForURL(url, host) {
 
     return { success: true, windowId: win.id };
   } catch (error: any) {
-    console.error('Failed to launch profile:', error);
+    console.error('[JoeBrowser] Failed to launch profile:', error);
     return { success: false, error: error.message || 'Unknown error' };
   }
 }
