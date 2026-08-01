@@ -226,6 +226,48 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
 
   ipcMain.handle(IPC.AppOpenPath, (_e, p: string) => guard(async () => shell.openPath(p)))
 
+  // --- Health check (diagnostics) -------------------------------------------
+  ipcMain.handle(IPC.AppHealthCheck, () =>
+    guard(() => {
+      const checks: Record<string, boolean | string> = {}
+      // 1. Can we read settings?
+      try {
+        getSettings()
+        checks.settings = true
+      } catch (e) {
+        checks.settings = 'FAIL: ' + (e instanceof Error ? e.message : String(e))
+      }
+      // 2. Can we load the SQLite module?
+      try {
+        require('./db/database')
+        checks.sqliteModule = true
+      } catch (e) {
+        checks.sqliteModule = 'FAIL: ' + (e instanceof Error ? e.message : String(e))
+      }
+      // 3. Can we access the data directory?
+      try {
+        const dir = paths.getDataDir()
+        paths.ensureDirs()
+        checks.dataDir = dir
+      } catch (e) {
+        checks.dataDir = 'FAIL: ' + (e instanceof Error ? e.message : String(e))
+      }
+      // 4. Extension template directory
+      try {
+        const extDir = paths.extensionTemplateDir()
+        checks.extensionTemplate = extDir
+      } catch (e) {
+        checks.extensionTemplate = 'FAIL: ' + (e instanceof Error ? e.message : String(e))
+      }
+      checks.platform = process.platform
+      checks.arch = process.arch
+      checks.electron = process.versions.electron
+      checks.node = process.versions.node
+      checks.appVersion = app.getVersion()
+      return checks
+    })
+  )
+
   logger.info('IPC handlers registered')
 }
 

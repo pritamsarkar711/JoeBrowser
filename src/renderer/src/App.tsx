@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Box, Typography, useMediaQuery, CssBaseline, ThemeProvider } from '@mui/material'
+import { useMemo, useState, useEffect } from 'react'
+import { Box, Typography, useMediaQuery, CssBaseline, ThemeProvider, Button, Paper } from '@mui/material'
 import { darkTheme, lightTheme } from './theme'
 import { useApp } from './store'
 import { MasterPasswordGate } from './components/MasterPasswordGate'
@@ -21,6 +21,8 @@ export default function App(): React.JSX.Element {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [downloadOpen, setDownloadOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [bootTimeout, setBootTimeout] = useState(false)
+  const [bootError, setBootError] = useState<string | null>(null)
 
   const theme = useMemo(() => {
     const mode = settings?.theme ?? 'system'
@@ -29,8 +31,87 @@ export default function App(): React.JSX.Element {
 
   const selectedProfile = profiles.find((p) => p.id === selectedId) ?? null
 
+  // Startup health check: if boot takes >15s, show a diagnostic screen instead
+  // of hanging forever on "Starting JoeBrowser…"
+  useEffect(() => {
+    if (booted) return
+    const timer = setTimeout(() => {
+      if (!booted) {
+        setBootTimeout(true)
+        setBootError(
+          'JoeBrowser is taking longer than expected to start.\n\n' +
+          'This usually means one of the following:\n' +
+          '• The native SQLite module failed to load (reinstall the app)\n' +
+          '• Windows Defender / antivirus is blocking the app\n' +
+          '• Another instance is already running (check the system tray)\n' +
+          '• The data directory is locked or permissions are denied\n\n' +
+          'Try: Close all JoeBrowser processes in Task Manager, then relaunch.\n' +
+          'If this persists, reinstall from the Releases page or run "npm run dist:win".'
+        )
+      }
+    }, 15000)
+    return () => clearTimeout(timer)
+  }, [booted])
+
   // --- boot / auth gates -----------------------------------------------------
+  // BUG FIX: If booted is true but init is null, the IPC call failed — show
+  // an error instead of hanging on "Starting JoeBrowser…" forever.
+  if (booted && !init) {
+    return (
+      <ThemeProvider theme={lightTheme}>
+        <CssBaseline />
+        <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3 }}>
+          <Paper elevation={3} sx={{ maxWidth: 520, p: 4, borderRadius: 3 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: 'error.main', mb: 2 }}>
+              ⚠ Failed to initialize
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
+              JoeBrowser started but the initialization IPC call failed. This can happen if:
+              {'\n\n'}• The native SQLite module failed to load
+              {'\n'}• The data directory is inaccessible
+              {'\n'}• The Electron preload bridge is broken
+              {'\n\n'}Try reinstalling or deleting the data folder at:
+              {'\n'}%APPDATA%/JoeBrowser
+            </Typography>
+            <Button variant="contained" onClick={() => window.location.reload()}>
+              Reload App
+            </Button>
+          </Paper>
+        </Box>
+      </ThemeProvider>
+    )
+  }
+
   if (!booted || !init) {
+    if (bootTimeout) {
+      return (
+        <ThemeProvider theme={lightTheme}>
+          <CssBaseline />
+          <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3 }}>
+            <Paper elevation={3} sx={{ maxWidth: 520, p: 4, borderRadius: 3 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: 'error.main', mb: 2 }}>
+                ⚠ Startup Timeout
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{ whiteSpace: 'pre-line', mb: 3, color: 'text.secondary' }}
+              >
+                {bootError}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Button variant="contained" onClick={() => window.location.reload()}>
+                  Reload
+                </Button>
+                <Button variant="outlined" onClick={() => window.close()}>
+                  Close
+                </Button>
+              </Box>
+            </Paper>
+          </Box>
+        </ThemeProvider>
+      )
+    }
+
     return (
       <ThemeProvider theme={lightTheme}>
         <CssBaseline />

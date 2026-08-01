@@ -29,13 +29,13 @@ You need to create a release first — easiest way:
 # Download this repo as ZIP, unzip, then:
 Double-click -> scripts\build-windows.bat
 # Wait 3-5 min
-# Find EXE in folder: release\JoeBrowser-Setup-1.0.2.exe  <-- HERE IS YOUR EXE!
+# Find EXE in folder: release\JoeBrowser-Setup-1.0.3.exe  <-- HERE IS YOUR EXE!
 ```
 
 **On GitHub (auto-builds EXE for you):**
 ```bash
-git tag v1.0.2
-git push origin v1.0.2
+git tag v1.0.3
+git push origin v1.0.3
 # Go to https://github.com/pritamsarkar711/JoeBrowser/actions
 # Wait 10 minutes
 # Go to https://github.com/pritamsarkar711/JoeBrowser/releases
@@ -87,8 +87,8 @@ npm ci
 npm run dist:win
 ```
 3. Open folder `release` -> you have:
-   - JoeBrowser-Setup-1.0.2.exe (installer, recommended)
-   - JoeBrowser-Portable-1.0.2.exe (no install)
+   - JoeBrowser-Setup-1.0.3.exe (installer, recommended)
+   - JoeBrowser-Portable-1.0.3.exe (no install)
 
 OR just double-click `scripts\build-windows.bat` after downloading repo.
 
@@ -108,7 +108,7 @@ In sidebar after my update:
 In download.html:
 ```
 ┌─────────────────────────────────────────┐
-│  Latest: v1.0.2                         │
+│  Latest: v1.0.3                         │
 │  [ ⬇ Download Installer (.exe)    ]    │
 │  [ ⬇ Download Portable (.exe)     ]    │
 │  Methods to build locally...            │

@@ -1,7 +1,7 @@
 {
   "name": "joebrowser",
   "productName": "JoeBrowser",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "JoeBrowser – open-source anti-detect browser profile manager",
   "author": "JoeBrowser",
   "license": "MIT",
@@ -18,6 +18,8 @@
     "dist:win": "electron-vite build && electron-builder --win",
     "selftest": "tsx scripts/selftest.ts",
     "selftest:electron": "electron-vite build && electron . --selftest",
+    "dist:linux": "electron-vite build && electron-builder --linux",
+    "dist:mac": "electron-vite build && electron-builder --mac",
     "build:extension": "tsx scripts/build-extension.ts",
     "test:extension-dom": "tsx scripts/test-extension-dom.ts",
     "test:generator": "tsx scripts/test-generator.ts"

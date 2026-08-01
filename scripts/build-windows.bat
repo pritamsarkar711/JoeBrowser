@@ -1,69 +1,40 @@
 @echo off
-REM JoeBrowser - One-click Windows EXE builder
-REM Double-click this file on Windows 10/11 to build the .exe installer.
+REM Build script for Windows (NSIS installer + portable EXE)
+REM Requires: Node.js 22+, npm, Windows 10/11
 
 echo ==========================================
-echo   JoeBrowser - Building Windows EXE
+echo  JoeBrowser — Windows Build
 echo ==========================================
 echo.
 
-where node >nul 2>nul
-if %ERRORLEVEL% NEQ 0 (
-  echo [ERROR] Node.js not found!
-  echo Please install Node.js 20+ from https://nodejs.org/
-  echo Then run this file again.
-  pause
-  exit /b 1
-)
-
-echo [1/4] Checking Node version...
-node -v
-npm -v
-
-echo.
-echo [2/4] Installing dependencies (npm ci)...
+echo [1/3] Installing dependencies...
 call npm ci
-if %ERRORLEVEL% NEQ 0 (
-  echo [ERROR] npm ci failed.
-  pause
-  exit /b 1
+if errorlevel 1 (
+    echo ERROR: npm ci failed. Make sure Node.js 22+ is installed.
+    exit /b 1
 )
 
 echo.
-echo [3/4] Running typechecks and tests...
-call npm run typecheck
-if %ERRORLEVEL% NEQ 0 (
-  echo [WARN] Typecheck failed, continuing...
+echo [2/3] Typechecking + building...
+call npm run build
+if errorlevel 1 (
+    echo ERROR: Build failed. Check the errors above.
+    exit /b 1
 )
-call npm run selftest
-call npm run test:generator
 
 echo.
-echo [4/4] Building Windows EXE (NSIS installer + Portable)...
-echo This may take 3-8 minutes depending on your PC.
-call npx electron-vite build
-if %ERRORLEVEL% NEQ 0 (
-  echo [ERROR] Build failed.
-  pause
-  exit /b 1
-)
+echo [3/3] Packaging Windows installer + portable EXE...
 call npx electron-builder --win --publish never
-if %ERRORLEVEL% NEQ 0 (
-  echo [ERROR] electron-builder failed.
-  pause
-  exit /b 1
+if errorlevel 1 (
+    echo ERROR: Packaging failed. Check the errors above.
+    exit /b 1
 )
 
 echo.
 echo ==========================================
-echo   BUILD SUCCESS!
+echo  BUILD COMPLETE
+echo  Output: release\
 echo ==========================================
-echo Your EXE files are in the /release folder:
-dir /B release\*.exe
-echo.
-echo Installer:  JoeBrowser-Setup-*.exe
-echo Portable:   JoeBrowser-Portable-*.exe
-echo.
-echo You can double-click the installer to install JoeBrowser.
+dir /b release\*.exe 2>nul
 echo.
 pause
