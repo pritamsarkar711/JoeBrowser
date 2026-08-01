@@ -41,7 +41,7 @@ export function DownloadDialog({ open, onClose }: { open: boolean; onClose: () =
   const [loading, setLoading] = useState(false)
   const [release, setRelease] = useState<ReleaseInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const currentVersion = '1.0.0' // keep in sync with package.json
+  const currentVersion = '1.0.2' // keep in sync with package.json
 
   const fetchRelease = async () => {
     setLoading(true)
@@ -142,7 +142,7 @@ export function DownloadDialog({ open, onClose }: { open: boolean; onClose: () =
                     Download Installer .exe
                   </Typography>
                   <Typography variant="caption" sx={{ opacity: 0.8, textTransform: 'none' }}>
-                    {installer ? `${installer.name} • ${(installer.size / 1024 / 1024).toFixed(1)} MB` : 'JoeBrowser-Setup-1.0.0.exe • ~110 MB • NSIS installer (recommended)'}
+                    {installer ? `${installer.name} • ${(installer.size / 1024 / 1024).toFixed(1)} MB` : 'JoeBrowser-Setup-1.0.2.exe • ~110 MB • NSIS installer (recommended)'}
                   </Typography>
                 </Box>
               </Button>
@@ -161,7 +161,7 @@ export function DownloadDialog({ open, onClose }: { open: boolean; onClose: () =
                     Download Portable .exe
                   </Typography>
                   <Typography variant="caption" sx={{ opacity: 0.8, textTransform: 'none' }}>
-                    {portable ? `${portable.name} • ${(portable.size / 1024 / 1024).toFixed(1)} MB` : 'JoeBrowser-Portable-1.0.0.exe • ~110 MB • No install needed'}
+                    {portable ? `${portable.name} • ${(portable.size / 1024 / 1024).toFixed(1)} MB` : 'JoeBrowser-Portable-1.0.2.exe • ~110 MB • No install needed'}
                   </Typography>
                 </Box>
               </Button>
@@ -189,7 +189,7 @@ export function DownloadDialog({ open, onClose }: { open: boolean; onClose: () =
                 <b>2) Trigger CI build on GitHub:</b>
               </Typography>
               <Box component="pre" sx={{ bgcolor: '#00000010', p: 1, borderRadius: 1, fontSize: 11, overflowX: 'auto', m: 0 }}>
-                git tag v1.0.1{'\n'}git push origin v1.0.1{'\n'}# Wait 8-12 min → Releases page gets exe
+                git tag v1.0.2{'\n'}git push origin v1.0.2{'\n'}# Wait 8-12 min → Releases page gets exe
               </Box>
 
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mt: 1 }}>
@@ -205,6 +205,13 @@ export function DownloadDialog({ open, onClose }: { open: boolean; onClose: () =
               </Stack>
             </Stack>
           </Box>
+
+          <Alert severity="warning" variant="outlined">
+            <b>Windows shows "Windows protected your PC" or blocks the EXE?</b> The app is not code-signed, so SmartScreen
+            will warn on first run — click <b>More info → Run anyway</b>. If Windows Defender quarantines the file, click
+            <b> Allow on device</b> (or add an exclusion in Windows Security → Virus &amp; threat protection). See the
+            README "Windows won't open the EXE?" section for details.
+          </Alert>
 
           <Alert severity="success" variant="outlined">
             Tip: Portable version needs no admin rights — run from USB stick. Installer version creates desktop & start-menu shortcuts.
