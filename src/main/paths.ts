@@ -1,8 +1,8 @@
 /**
  * Centralized path resolution for the app.
  *
- * Base directory defaults to %APPDATA%/StealthBrowser (or ~/.config/StealthBrowser
- * on Linux, ~/Library/Application Support/StealthBrowser on macOS) and can be
+ * Base directory defaults to %APPDATA%/JoeBrowser (or ~/.config/JoeBrowser
+ * on Linux, ~/Library/Application Support/JoeBrowser on macOS) and can be
  * overridden from Settings.
  *
  * Layout:
@@ -37,7 +37,7 @@ function electronApp(): ElectronAppLike | null {
   }
 }
 
-const APP_NAME = 'StealthBrowser'
+const APP_NAME = 'JoeBrowser'
 let dataDir: string | null = null
 
 export function defaultDataDir(): string {

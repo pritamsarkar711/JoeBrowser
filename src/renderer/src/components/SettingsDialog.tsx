@@ -122,7 +122,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
               <TextField
                 size="small"
                 fullWidth
-                value={settings.dataDir || '(default: %APPDATA%/StealthBrowser)'}
+                value={settings.dataDir || '(default: %APPDATA%/JoeBrowser)'}
                 disabled
               />
               <Button variant="outlined" startIcon={<FolderOpenIcon />} onClick={() => void pickDataDir()}>
@@ -146,7 +146,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
                   onChange={(e) => void updateSettings({ launchAtStartup: e.target.checked })}
                 />
               }
-              label="Launch StealthBrowser on system start"
+              label="Launch JoeBrowser on system start"
             />
             <FormControlLabel
               control={

@@ -44,7 +44,7 @@ function fetchVia(
         path: url.pathname + url.search,
         method: 'GET',
         agent,
-        headers: { 'User-Agent': 'StealthBrowser/1.0 (proxy-test)' },
+        headers: { 'User-Agent': 'JoeBrowser/1.0 (proxy-test)' },
         timeout: timeoutMs
       },
       (res) => {

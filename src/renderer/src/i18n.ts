@@ -5,7 +5,7 @@
 type Dict = Record<string, string>
 
 const en: Dict = {
-  'app.name': 'StealthBrowser',
+  'app.name': 'JoeBrowser',
   'app.tagline': 'Local anti-detect browser',
   'nav.newProfile': 'New profile',
   'nav.search': 'Search profiles…',
