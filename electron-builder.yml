@@ -1,0 +1,56 @@
+# electron-builder configuration — produces the Windows installers uploaded to
+# the GitHub Releases page (https://github.com/pritamsarkar711/JoeBrowser/releases).
+appId: com.joebrowser.app
+productName: JoeBrowser
+copyright: Copyright © 2026 JoeBrowser
+npmRebuild: true
+
+directories:
+  buildResources: build
+  output: release
+
+# The compiled electron-vite output plus production dependencies only.
+files:
+  - out/**
+  - package.json
+  - '!**/*.map'
+  - '!**/*.ts'
+  - '!**/*.tsbuildinfo'
+
+asar: true
+
+# Bundled assets the main process loads at runtime from process.resourcesPath:
+#  - resources/extension  -> stealth extension templates (Chrome + Firefox)
+#  - resources/icon.png   -> window/tray icon
+extraResources:
+  - from: src/extension
+    to: extension
+  - from: build/icon.png
+    to: icon.png
+
+win:
+  icon: build/icon.png
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: JoeBrowser
+  uninstallDisplayName: JoeBrowser
+  deleteAppDataOnUninstall: false
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+portable:
+  artifactName: ${productName}-Portable-${version}.${ext}
+
+publish:
+  provider: github
+  owner: pritamsarkar711
+  repo: JoeBrowser
