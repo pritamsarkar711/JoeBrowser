@@ -38,9 +38,10 @@ const DEVICE_OPTIONS: Array<{ value: DeviceType; label: string }> = [
 interface Props {
   open: boolean
   onClose: () => void
+  onCreated?: (id: string) => void
 }
 
-export function NewProfileDialog({ open, onClose }: Props): React.JSX.Element {
+export function NewProfileDialog({ open, onClose, onCreated }: Props): React.JSX.Element {
   const { createProfile } = useApp()
   const toast = useToast()
   const [name, setName] = useState('')
@@ -55,7 +56,7 @@ export function NewProfileDialog({ open, onClose }: Props): React.JSX.Element {
       return
     }
     try {
-      await createProfile({
+      const created = await createProfile({
         name: name.trim(),
         browserType,
         tags: [],
@@ -64,6 +65,7 @@ export function NewProfileDialog({ open, onClose }: Props): React.JSX.Element {
         device: deviceType
       })
       toast.success('Profile created')
+      onCreated?.(created.id)
       setName('')
       setBrowserType('chrome')
       setTargetOs('windows')
