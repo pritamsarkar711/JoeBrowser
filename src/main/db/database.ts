@@ -13,7 +13,6 @@
  *  - the DB key itself is stored wrapped — the .db file is useless without
  *    the master password.
  */
-import Database from 'better-sqlite3'
 import { existsSync } from 'node:fs'
 import * as paths from '../paths'
 import { logger } from '../logger'
@@ -21,7 +20,22 @@ import { getDbKey, isUnlocked } from '../crypto/masterKey'
 import { encryptJson, decryptJson } from '../crypto/cipher'
 import type { ProfileData } from '@shared/types'
 
-let db: Database.Database | null = null
+// Minimal structural typing for the better-sqlite3 surface we use, so a
+// native-module load failure never breaks the whole module graph.
+interface DbStatement {
+  get(...args: unknown[]): unknown
+  all(...args: unknown[]): unknown[]
+  run(...args: unknown[]): { changes: number }
+}
+
+interface Db {
+  pragma(sql: string): unknown
+  exec(sql: string): unknown
+  prepare(sql: string): DbStatement
+  close(): void
+}
+
+let db: Db | null = null
 
 interface ProfileRow {
   id: string
@@ -31,10 +45,40 @@ interface ProfileRow {
   data: Buffer
 }
 
+// ---------------------------------------------------------------------------
+// Native module loading
+//
+// Lazy-require better-sqlite3 so that a missing / ABI-mismatched binary
+// surfaces as a clear, actionable error (reported by the startup crash
+// dialog + crash.log) instead of an opaque crash at import time.
+// ---------------------------------------------------------------------------
+
+type SqliteCtor = new (file: string) => Db
+
+let SqliteCtorCache: SqliteCtor | null = null
+
+function loadSqlite(): SqliteCtor {
+  if (!SqliteCtorCache) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      SqliteCtorCache = require('better-sqlite3') as unknown as SqliteCtor
+    } catch (e) {
+      const hint = process.versions.electron
+        ? 'The SQLite native module failed to load. Reinstall JoeBrowser from the Releases page, or rebuild locally with "npm run dist:win".'
+        : 'The SQLite native module failed to load. Run "npm ci" with an internet connection, then rebuild with "npm run dist:win".'
+      throw new Error(
+        `${hint} Technical detail: ${e instanceof Error ? e.message : String(e)}`
+      )
+    }
+  }
+  return SqliteCtorCache
+}
+
 export function openDatabase(): void {
   if (db) return
   paths.ensureDirs()
-  db = new Database(paths.dbFile())
+  const ctor = loadSqlite()
+  db = new ctor(paths.dbFile())
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
   db.exec(`
@@ -64,7 +108,7 @@ export function closeDatabase(): void {
   }
 }
 
-function getDb(): Database.Database {
+function getDb(): Db {
   if (!db) throw new Error('Database is not open.')
   return db
 }

@@ -19,6 +19,11 @@ files:
 
 asar: true
 
+# Native .node binaries must live outside the asar archive or they cannot
+# be dlopen()ed on Windows.
+asarUnpack:
+  - node_modules/better-sqlite3/**
+
 # Bundled assets the main process loads at runtime from process.resourcesPath:
 #  - resources/extension  -> stealth extension templates (Chrome + Firefox)
 #  - resources/icon.png   -> window/tray icon

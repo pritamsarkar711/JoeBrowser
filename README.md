@@ -17,10 +17,27 @@ Windows installers are published on the **Releases** page:
 - `JoeBrowser-Portable-<version>.exe` — portable, no installation needed, run from USB
 
 **Direct links (latest):**
-- Installer: `https://github.com/pritamsarkar711/JoeBrowser/releases/latest/download/JoeBrowser-Setup-1.0.0.exe`
-- Portable: `https://github.com/pritamsarkar711/JoeBrowser/releases/latest/download/JoeBrowser-Portable-1.0.0.exe`
+- Installer: `https://github.com/pritamsarkar711/JoeBrowser/releases/latest/download/JoeBrowser-Setup-1.0.2.exe`
+- Portable: `https://github.com/pritamsarkar711/JoeBrowser/releases/latest/download/JoeBrowser-Portable-1.0.2.exe`
 
 > If Releases page is empty, use Method 2 or 3 below to generate the EXE.
+
+### 🪟 Windows won't open the EXE? Read this first (v1.0.2 fix)
+
+The most common reasons a downloaded JoeBrowser `.exe` "does nothing" on Windows — and what to do:
+
+1. **SmartScreen "Windows protected your PC"** — JoeBrowser is **not code-signed** (open source, MIT), so the first time you run a freshly downloaded `.exe`, Windows shows a blue warning. This is normal.
+   - Click **More info → Run anyway** (or on the install screen **Yes / Allow**).
+2. **Windows Defender quarantines the file** — anti-detect tools are sometimes flagged as *PUA* by antivirus engines, even though the source is public.
+   - Open **Windows Security → Virus & threat protection → Protection history**, find JoeBrowser and choose **Allow on device**.
+   - Or add an exclusion: **Virus & threat protection → Exclusions → Add folder/file**.
+3. **The window opens but shows nothing / closes instantly** — the app now writes a crash report:
+   - Log: `%APPDATA%\JoeBrowser\logs\app.log` and `%APPDATA%\JoeBrowser\logs\crash.log`
+   - Reinstall from the Releases page (never copy a half-downloaded `.exe`), then retry.
+4. **Antivirus deleted the file while downloading** — check **Protection history** / quarantine before re-downloading.
+5. **Still broken?** Open an issue at https://github.com/pritamsarkar711/JoeBrowser/issues and attach `crash.log` — that tells us exactly what happened.
+
+Since **v1.0.2** the app no longer fails silently: startup errors show a dialog with the reason and log paths, the SQLite module gives a clear message instead of an opaque crash, and the EXE version number always matches the release (v1.0.1 shipped EXEs still named `1.0.0` — confusing, fixed).
 
 ### Local build page
 We added a beautiful landing page for downloading:
@@ -50,8 +67,8 @@ cd JoeBrowser
 npm ci
 npm run dist:win
 # exe appears in release/ folder:
-# release/JoeBrowser-Setup-1.0.0.exe
-# release/JoeBrowser-Portable-1.0.0.exe
+# release/JoeBrowser-Setup-1.0.2.exe
+# release/JoeBrowser-Portable-1.0.2.exe
 ```
 
 **Option C: PowerShell**
@@ -66,8 +83,8 @@ The repo has a GitHub Actions workflow that builds Windows EXE on `windows-lates
 
 1. **Tag push (auto-release):**
    ```bash
-   git tag v1.0.1
-   git push origin v1.0.1
+   git tag v1.0.2
+   git push origin v1.0.2
    # Wait 8-12 min, check Actions tab -> Build Windows EXE
    # EXE is auto-published to Releases
    ```

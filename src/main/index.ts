@@ -9,7 +9,8 @@
  *  - process lifecycle (kill all launched browsers on quit)
  *  - headless self-test mode (--selftest)
  */
-import { app, BrowserWindow, Tray, Menu, nativeImage, shell } from 'electron'
+import { app, BrowserWindow, Tray, Menu, nativeImage, shell, dialog } from 'electron'
+import { appendFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { logger, initLogger } from './logger'
 import * as paths from './paths'
@@ -22,6 +23,70 @@ import { runSelfTests } from './selftest'
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let isQuitting = false
+
+// ---------------------------------------------------------------------------
+// Fatal-error reporting.
+//
+// If anything goes wrong before the window is visible (native module load,
+// database open, renderer load, ...) the app used to die silently — on
+// Windows that looks exactly like "the EXE does nothing". Instead we always
+// write crash.log next to app.log and, when possible, show a dialog with the
+// reason and the log location so the failure is diagnosable.
+// ---------------------------------------------------------------------------
+
+let fatalDialogShown = false
+
+function writeCrashLog(title: string, detail: string): void {
+  try {
+    const logDir = paths.logsDir()
+    mkdirSync(logDir, { recursive: true })
+    appendFileSync(
+      join(logDir, 'crash.log'),
+      `[${new Date().toISOString()}] ${title}\n${detail}\n\n`,
+      'utf-8'
+    )
+  } catch {
+    /* crash logging must never crash */
+  }
+}
+
+function showFatalError(title: string, error: unknown): void {
+  const detail = error instanceof Error ? (error.stack ?? error.message) : String(error)
+  writeCrashLog(title, detail)
+  if (fatalDialogShown) return
+  fatalDialogShown = true
+  try {
+    dialog.showErrorBox(
+      'JoeBrowser could not start',
+      `${title}\n\n${detail}\n\n` +
+        `Log file: ${join(paths.logsDir(), 'app.log')}\nCrash log: ${join(paths.logsDir(), 'crash.log')}\n\n` +
+        'Fix: reinstall JoeBrowser from the Releases page, or if you built this yourself run "npm run dist:win".\n' +
+        'If you downloaded the EXE and this happens on first launch, Windows SmartScreen/Defender may have blocked part of the app — see the "Windows won\u2019t open the EXE?" section in the README.'
+    )
+  } catch {
+    /* dialog unavailable (e.g. headless) — crash.log still has the detail */
+  }
+}
+
+// Never die invisibly: log + report, then let the app continue (the dialog
+// informs the user; the window may still come up).
+process.on('uncaughtException', (err) => {
+  try {
+    logger.error('Uncaught exception', err)
+  } catch {
+    /* logger may not be initialized yet */
+  }
+  showFatalError('Unexpected error', err)
+})
+
+process.on('unhandledRejection', (reason) => {
+  try {
+    logger.error('Unhandled rejection', reason)
+  } catch {
+    /* logger may not be initialized yet */
+  }
+  showFatalError('Unexpected async error', reason)
+})
 
 function appIconPath(): string {
   return app.isPackaged
@@ -49,6 +114,19 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => mainWindow?.show())
+
+  // If the renderer cannot load (missing/broken install, blocked file), the
+  // user must see a message instead of an empty window or nothing at all.
+  mainWindow.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    if (code === -3) return // ERR_ABORTED — normal during reloads/navigation
+    logger.error('Renderer failed to load', code, desc, url)
+    showFatalError('The JoeBrowser window failed to load', `${url}\n(${code}) ${desc}`)
+  })
+
+  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+    logger.error('Renderer process gone', details)
+    showFatalError('The JoeBrowser window crashed', JSON.stringify(details))
+  })
 
   // External links open in the user's default browser, never in-app.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -111,45 +189,55 @@ if (!gotLock) {
   })
 
   app.whenReady().then(() => {
-    // --- settings & dirs ---------------------------------------------------
-    const settings = loadSettings()
-    if (settings.dataDir) paths.setDataDir(settings.dataDir)
-    paths.ensureDirs()
-    initLogger(paths.logsDir())
-    logger.info('=== JoeBrowser starting (v' + app.getVersion() + ') ===')
-    logger.info('Data dir:', paths.getDataDir())
-
     try {
-      app.setLoginItemSettings({ openAtLogin: settings.launchAtStartup })
-    } catch {
-      /* not supported on this platform */
-    }
+      // --- settings & dirs ---------------------------------------------------
+      const settings = loadSettings()
+      if (settings.dataDir) paths.setDataDir(settings.dataDir)
+      paths.ensureDirs()
+      initLogger(paths.logsDir())
+      logger.info('=== JoeBrowser starting (v' + app.getVersion() + ') ===')
+      logger.info('Data dir:', paths.getDataDir())
 
-    // --- self-test mode ------------------------------------------------------
-    if (process.argv.includes('--selftest')) {
-      void runSelfTests().then((failures) => app.exit(failures === 0 ? 0 : 1))
-      return
-    }
+      try {
+        app.setLoginItemSettings({ openAtLogin: settings.launchAtStartup })
+      } catch {
+        /* not supported on this platform */
+      }
 
-    // --- window + IPC ---------------------------------------------------------
-    registerIpcHandlers(() => mainWindow)
-    wireStatusEvents(() => mainWindow)
-    createWindow()
+      // --- self-test mode ------------------------------------------------------
+      if (process.argv.includes('--selftest')) {
+        void runSelfTests().then((failures) => app.exit(failures === 0 ? 0 : 1))
+        return
+      }
 
-    if (settings.minimizeToTray) {
-      createTray()
-      mainWindow?.on('close', (e) => {
-        // Hide instead of quit when tray mode is on (real quit via tray/Quit).
-        if (!isQuitting && mainWindow) {
-          e.preventDefault()
-          mainWindow.hide()
-        }
+      // --- window + IPC ---------------------------------------------------------
+      registerIpcHandlers(() => mainWindow)
+      wireStatusEvents(() => mainWindow)
+      createWindow()
+
+      if (settings.minimizeToTray) {
+        createTray()
+        mainWindow?.on('close', (e) => {
+          // Hide instead of quit when tray mode is on (real quit via tray/Quit).
+          if (!isQuitting && mainWindow) {
+            e.preventDefault()
+            mainWindow.hide()
+          }
+        })
+      }
+
+      app.on('activate', () => {
+        if (BrowserWindow.getAllWindows().length === 0) createWindow()
       })
+    } catch (err) {
+      // Startup failure must never be silent: log + dialog (see above).
+      try {
+        logger.error('Startup failed', err)
+      } catch {
+        /* logger may not be initialized yet */
+      }
+      showFatalError('JoeBrowser failed during startup', err)
     }
-
-    app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow()
-    })
   })
 
   // --- quit behavior -----------------------------------------------------------
