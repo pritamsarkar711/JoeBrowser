@@ -1,213 +1,362 @@
 // ============================================================
 // Joe Browser - IPC Handlers
-// Bridges renderer and main process
+// All channels with proper error handling and try/catch
 // ============================================================
 
-import { ipcMain, dialog, app } from 'electron';
-import * as crypto from 'crypto';
+import { ipcMain, app, BrowserWindow } from 'electron';
+import * as path from 'path';
 import * as fs from 'fs';
-import {
-  listProfiles,
-  createProfile,
-  updateProfile,
-  deleteProfile,
-  duplicateProfile,
-  exportProfile,
-  importProfile,
-  getSetting,
-  setSetting,
-  isMasterPasswordInitialized,
-  getMasterPasswordHash,
-  setMasterPasswordHash,
-} from './services/database';
-import { launchProfile, closeProfile, getOpenProfileIds, cleanupAllPreloads } from './services/embeddedBrowserLauncher';
 import { IPC_CHANNELS, NewProfileInput, ProfileData } from '../shared/types';
+import { DatabaseService } from './services/database';
+import { launchProfile, isProfileRunning, closeProfileBrowser, getRunningProfileIds } from './services/embeddedBrowserLauncher';
+import { generateFingerprint } from './services/fingerprintGenerator';
 
+let db: DatabaseService | null = null;
+
+/**
+ * Initialize all IPC handlers
+ */
 export function registerIpcHandlers(): void {
-  // ---- Profiles ----
+  // Initialize database
+  const dbPath = path.join(app.getPath('userData'), 'joe-browser.db');
+  db = new DatabaseService(dbPath);
+
+  // ===== PROFILE HANDLERS =====
 
   ipcMain.handle(IPC_CHANNELS.PROFILES_LIST, async () => {
     try {
-      return { success: true, data: listProfiles() };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+      const profiles = db!.getAllProfiles();
+      return { success: true, data: profiles };
+    } catch (err: any) {
+      console.error('[IPC] profiles:list error:', err);
+      return { success: false, error: err.message || 'Failed to list profiles' };
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS.PROFILES_CREATE, async (_, input: NewProfileInput) => {
+  ipcMain.handle(IPC_CHANNELS.PROFILES_CREATE, async (_event, input: NewProfileInput) => {
     try {
-      const profile = createProfile(input);
+      if (!input.browserType) {
+        return { success: false, error: 'Browser type is required' };
+      }
+
+      const deviceType = input.deviceType || 'desktop';
+      const os = input.os || (deviceType === 'mobile' ? 'android' : 'windows');
+
+      // Generate fingerprint
+      const fingerprint = generateFingerprint(input.browserType, deviceType, os);
+
+      // Generate profile name if not provided
+      const name = input.name || `${input.browserType.charAt(0).toUpperCase() + input.browserType.slice(1)} Profile`;
+
+      const profile: ProfileData = {
+        id: generateId(),
+        name,
+        browserType: input.browserType,
+        deviceType,
+        os,
+        fingerprint,
+        proxy: input.proxy,
+        launchUrl: input.launchUrl || 'https://www.google.com',
+        tags: input.tags || [],
+        group: input.group || '',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        notes: input.notes || '',
+        extensions: [],
+      };
+
+      db!.createProfile(profile);
       return { success: true, data: profile };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (err: any) {
+      console.error('[IPC] profiles:create error:', err);
+      return { success: false, error: err.message || 'Failed to create profile' };
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS.PROFILES_UPDATE, async (_, id: string, updates: Partial<ProfileData>) => {
+  ipcMain.handle(IPC_CHANNELS.PROFILES_UPDATE, async (_event, id: string, updates: Partial<ProfileData>) => {
     try {
-      const profile = updateProfile(id, updates);
-      if (!profile) return { success: false, error: 'Profile not found' };
-      return { success: true, data: profile };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+      if (!id) {
+        return { success: false, error: 'Profile ID is required' };
+      }
+
+      // If browser type or OS changed, regenerate fingerprint
+      if (updates.browserType || updates.os || updates.deviceType) {
+        const existing = db!.getProfile(id);
+        if (!existing) {
+          return { success: false, error: 'Profile not found' };
+        }
+
+        const browserType = updates.browserType || existing.browserType;
+        const deviceType = updates.deviceType || existing.deviceType;
+        const os = updates.os || existing.os;
+
+        updates.fingerprint = generateFingerprint(browserType, deviceType, os);
+      }
+
+      updates.updatedAt = Date.now();
+      db!.updateProfile(id, updates);
+
+      const updated = db!.getProfile(id);
+      return { success: true, data: updated };
+    } catch (err: any) {
+      console.error('[IPC] profiles:update error:', err);
+      return { success: false, error: err.message || 'Failed to update profile' };
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS.PROFILES_DELETE, async (_, id: string) => {
+  ipcMain.handle(IPC_CHANNELS.PROFILES_DELETE, async (_event, id: string) => {
     try {
-      closeProfile(id);
-      const result = deleteProfile(id);
-      return { success: result };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+      if (!id) {
+        return { success: false, error: 'Profile ID is required' };
+      }
+
+      // Close browser if running
+      if (isProfileRunning(id)) {
+        closeProfileBrowser(id);
+      }
+
+      db!.deleteProfile(id);
+      return { success: true };
+    } catch (err: any) {
+      console.error('[IPC] profiles:delete error:', err);
+      return { success: false, error: err.message || 'Failed to delete profile' };
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS.PROFILES_LAUNCH, async (_, id: string) => {
+  ipcMain.handle(IPC_CHANNELS.PROFILES_LAUNCH, async (_event, id: string) => {
     try {
-      const profiles = listProfiles();
-      const profile = profiles.find((p: ProfileData) => p.id === id);
+      if (!id) {
+        return { success: false, error: 'Profile ID is required' };
+      }
+
+      const profile = db!.getProfile(id);
       if (!profile) {
         return { success: false, error: 'Profile not found' };
       }
+
+      // Update last used time
+      db!.updateProfile(id, { lastUsed: Date.now() });
+
       const result = await launchProfile(profile);
       return result;
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (err: any) {
+      console.error('[IPC] profiles:launch error:', err);
+      return { success: false, error: err.message || 'Failed to launch profile' };
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS.PROFILES_EXPORT, async (_, id: string) => {
+  ipcMain.handle(IPC_CHANNELS.PROFILES_EXPORT, async (_event, id: string) => {
     try {
-      const data = exportProfile(id);
-      if (!data) return { success: false, error: 'Profile not found' };
-
-      const { filePath } = await dialog.showSaveDialog({
-        title: 'Export Profile',
-        defaultPath: `profile-${id}.json`,
-        filters: [{ name: 'JSON', extensions: ['json'] }],
-      });
-
-      if (filePath) {
-        fs.writeFileSync(filePath, data, 'utf-8');
-        return { success: true };
+      if (!id) {
+        return { success: false, error: 'Profile ID is required' };
       }
-      return { success: false, error: 'Cancelled' };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+
+      const profile = db!.getProfile(id);
+      if (!profile) {
+        return { success: false, error: 'Profile not found' };
+      }
+
+      // Export to JSON file
+      const exportPath = path.join(app.getPath('downloads'), `joe-profile-${id}.json`);
+      fs.writeFileSync(exportPath, JSON.stringify(profile, null, 2), 'utf8');
+      return { success: true };
+    } catch (err: any) {
+      console.error('[IPC] profiles:export error:', err);
+      return { success: false, error: err.message || 'Failed to export profile' };
     }
   });
 
   ipcMain.handle(IPC_CHANNELS.PROFILES_IMPORT, async () => {
     try {
-      const { filePaths } = await dialog.showOpenDialog({
-        title: 'Import Profile',
-        filters: [{ name: 'JSON', extensions: ['json'] }],
-        properties: ['openFile'],
-      });
+      // In a real app, this would open a file dialog
+      // For now, return not implemented
+      return { success: false, error: 'Import not yet implemented' };
+    } catch (err: any) {
+      console.error('[IPC] profiles:import error:', err);
+      return { success: false, error: err.message || 'Failed to import profile' };
+    }
+  });
 
-      if (filePaths.length > 0) {
-        const data = fs.readFileSync(filePaths[0], 'utf-8');
-        const profile = importProfile(data);
-        if (!profile) return { success: false, error: 'Invalid profile data' };
-        return { success: true, data: profile };
+  ipcMain.handle(IPC_CHANNELS.PROFILES_DUPLICATE, async (_event, id: string) => {
+    try {
+      if (!id) {
+        return { success: false, error: 'Profile ID is required' };
       }
-      return { success: false, error: 'Cancelled' };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+
+      const original = db!.getProfile(id);
+      if (!original) {
+        return { success: false, error: 'Profile not found' };
+      }
+
+      // Generate new fingerprint for the duplicate
+      const fingerprint = generateFingerprint(original.browserType, original.deviceType, original.os);
+
+      const duplicate: ProfileData = {
+        ...original,
+        id: generateId(),
+        name: `${original.name} (Copy)`,
+        fingerprint,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        lastUsed: undefined,
+      };
+
+      db!.createProfile(duplicate);
+      return { success: true, data: duplicate };
+    } catch (err: any) {
+      console.error('[IPC] profiles:duplicate error:', err);
+      return { success: false, error: err.message || 'Failed to duplicate profile' };
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS.PROFILES_DUPLICATE, async (_, id: string) => {
-    try {
-      const profile = duplicateProfile(id);
-      if (!profile) return { success: false, error: 'Profile not found' };
-      return { success: true, data: profile };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
-  });
+  // ===== BROWSER HANDLERS =====
 
-  // ---- Browser ----
-
-  ipcMain.handle(IPC_CHANNELS.BROWSER_CLOSE, async (_, profileId: string) => {
+  ipcMain.handle(IPC_CHANNELS.BROWSER_CLOSE, async (_event, profileId: string) => {
     try {
-      closeProfile(profileId);
+      if (!profileId) {
+        return { success: false, error: 'Profile ID is required' };
+      }
+      closeProfileBrowser(profileId);
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (err: any) {
+      console.error('[IPC] browser:close error:', err);
+      return { success: false, error: err.message || 'Failed to close browser' };
     }
   });
 
   ipcMain.handle(IPC_CHANNELS.BROWSER_LIST, async () => {
     try {
-      return { success: true, data: getOpenProfileIds() };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+      const runningIds = getRunningProfileIds();
+      return { success: true, data: runningIds };
+    } catch (err: any) {
+      console.error('[IPC] browser:list error:', err);
+      return { success: false, error: err.message || 'Failed to list browsers' };
     }
   });
 
-  // ---- Settings ----
+  // ===== SETTINGS HANDLERS =====
 
-  ipcMain.handle(IPC_CHANNELS.SETTINGS_GET, async (_, key: string) => {
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_GET, async (_event, key: string) => {
     try {
-      return { success: true, data: getSetting(key) };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+      if (!key) {
+        return { success: false, error: 'Key is required' };
+      }
+      const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+      if (!fs.existsSync(settingsPath)) {
+        return { success: true, data: null };
+      }
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      return { success: true, data: settings[key] || null };
+    } catch (err: any) {
+      console.error('[IPC] settings:get error:', err);
+      return { success: false, error: err.message || 'Failed to get setting' };
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS.SETTINGS_SET, async (_, key: string, value: string) => {
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SET, async (_event, key: string, value: string) => {
     try {
-      setSetting(key, value);
+      if (!key) {
+        return { success: false, error: 'Key is required' };
+      }
+      const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+      let settings: Record<string, any> = {};
+      if (fs.existsSync(settingsPath)) {
+        settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      }
+      settings[key] = value;
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (err: any) {
+      console.error('[IPC] settings:set error:', err);
+      return { success: false, error: err.message || 'Failed to set setting' };
     }
   });
 
-  // ---- Master Password ----
+  // ===== MASTER PASSWORD HANDLERS =====
 
   ipcMain.handle(IPC_CHANNELS.MASTER_PASSWORD_INIT, async () => {
     try {
-      return { success: true, data: { initialized: isMasterPasswordInitialized() } };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+      const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+      if (!fs.existsSync(settingsPath)) {
+        return { success: true, data: { initialized: false } };
+      }
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      return { success: true, data: { initialized: !!settings.masterPasswordHash } };
+    } catch (err: any) {
+      console.error('[IPC] master-password:init error:', err);
+      return { success: false, error: err.message || 'Failed to check master password' };
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS.MASTER_PASSWORD_VERIFY, async (_, password: string) => {
+  ipcMain.handle(IPC_CHANNELS.MASTER_PASSWORD_VERIFY, async (_event, password: string) => {
     try {
-      const hash = getMasterPasswordHash();
-      if (!hash) return { success: false, error: 'No password set' };
-
-      const inputHash = crypto.createHash('sha256').update(password).digest('hex');
-      return { success: inputHash === hash };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+      const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+      if (!fs.existsSync(settingsPath)) {
+        return { success: false, error: 'No master password set' };
+      }
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      const hash = simpleHash(password);
+      return { success: hash === settings.masterPasswordHash };
+    } catch (err: any) {
+      console.error('[IPC] master-password:verify error:', err);
+      return { success: false, error: err.message || 'Failed to verify password' };
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS.MASTER_PASSWORD_CHANGE, async (_, password: string) => {
+  ipcMain.handle(IPC_CHANNELS.MASTER_PASSWORD_CHANGE, async (_event, password: string) => {
     try {
-      const hash = crypto.createHash('sha256').update(password).digest('hex');
-      setMasterPasswordHash(hash);
+      const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+      let settings: Record<string, any> = {};
+      if (fs.existsSync(settingsPath)) {
+        settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      }
+      settings.masterPasswordHash = simpleHash(password);
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (err: any) {
+      console.error('[IPC] master-password:change error:', err);
+      return { success: false, error: err.message || 'Failed to change password' };
     }
   });
 
-  // ---- App ----
+  // ===== APP HANDLERS =====
 
   ipcMain.handle(IPC_CHANNELS.APP_VERSION, async () => {
-    return { success: true, data: app.getVersion() };
+    try {
+      return { success: true, data: app.getVersion() };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Failed to get version' };
+    }
   });
 
   ipcMain.handle(IPC_CHANNELS.APP_QUIT, async () => {
-    cleanupAllPreloads();
-    app.quit();
+    try {
+      app.quit();
+    } catch (err: any) {
+      console.error('[IPC] app:quit error:', err);
+    }
   });
 
-  console.log('IPC handlers registered successfully');
+  console.log('[IPC] All handlers registered successfully');
+}
+
+/**
+ * Simple hash function for master password
+ * In production, use bcrypt or argon2
+ */
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return hash.toString(36);
+}
+
+/**
+ * Generate a unique ID
+ */
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
 }

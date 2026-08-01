@@ -1,9 +1,8 @@
 // ============================================================
 // Joe Browser - New Profile Dialog
-// Create a new browser profile
 // ============================================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -11,59 +10,101 @@ import {
   DialogActions,
   Button,
   TextField,
-  FormControl,
-  InputLabel,
   Select,
   MenuItem,
+  FormControl,
+  InputLabel,
   Box,
   Typography,
-  ToggleButtonGroup,
-  ToggleButton,
   Chip,
-  OutlinedInput,
-  SelectChangeEvent,
+  Autocomplete,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
-import {
-  Computer as DesktopIcon,
-  Smartphone as MobileIcon,
-} from '@mui/icons-material';
 import { BrowserType, DeviceType, OsType, NewProfileInput, BROWSER_THEMES } from '../../../shared/types';
 import BrowserIcon from './BrowserIcon';
+import { useApp } from '../store';
 
-interface NewProfileDialogProps {
-  open: boolean;
-  onClose: () => void;
-  onSubmit: (input: NewProfileInput) => Promise<void>;
-}
+const browserTypes: { value: BrowserType; label: string }[] = [
+  { value: 'chrome', label: 'Chrome' },
+  { value: 'brave', label: 'Brave' },
+  { value: 'firefox', label: 'Firefox' },
+  { value: 'edge', label: 'Edge' },
+  { value: 'chromium', label: 'Chromium' },
+];
 
-const NewProfileDialog: React.FC<NewProfileDialogProps> = ({ open, onClose, onSubmit }) => {
+const deviceTypes: { value: DeviceType; label: string }[] = [
+  { value: 'desktop', label: 'Desktop' },
+  { value: 'mobile', label: 'Mobile' },
+];
+
+const osOptions: { value: OsType; label: string; device: DeviceType }[] = [
+  { value: 'windows', label: 'Windows', device: 'desktop' },
+  { value: 'macos', label: 'macOS', device: 'desktop' },
+  { value: 'linux', label: 'Linux', device: 'desktop' },
+  { value: 'android', label: 'Android', device: 'mobile' },
+  { value: 'ios', label: 'iOS', device: 'mobile' },
+];
+
+const proxyTypes = ['http', 'https', 'socks4', 'socks5'] as const;
+
+const NewProfileDialog: React.FC = () => {
+  const { actions } = useApp();
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // Form state
   const [name, setName] = useState('');
   const [browserType, setBrowserType] = useState<BrowserType>('chrome');
   const [deviceType, setDeviceType] = useState<DeviceType>('desktop');
   const [os, setOs] = useState<OsType>('windows');
-  const [launchUrl, setLaunchUrl] = useState('https://iphey.com');
-  const [proxyHost, setProxyHost] = useState('');
-  const [proxyPort, setProxyPort] = useState('');
-  const [proxyType, setProxyType] = useState<'http' | 'https' | 'socks5'>('http');
-  const [proxyUser, setProxyUser] = useState('');
-  const [proxyPass, setProxyPass] = useState('');
+  const [launchUrl, setLaunchUrl] = useState('https://www.google.com');
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [useProxy, setUseProxy] = useState(false);
+  const [proxyType, setProxyType] = useState<'http' | 'https' | 'socks4' | 'socks5'>('http');
+  const [proxyHost, setProxyHost] = useState('');
+  const [proxyPort, setProxyPort] = useState('');
+  const [proxyUsername, setProxyUsername] = useState('');
+  const [proxyPassword, setProxyPassword] = useState('');
 
-  const osOptions: { value: OsType; label: string; mobile?: boolean }[] = [
-    { value: 'windows', label: 'Windows' },
-    { value: 'macos', label: 'macOS' },
-    { value: 'linux', label: 'Linux' },
-    { value: 'android', label: 'Android', mobile: true },
-    { value: 'ios', label: 'iOS', mobile: true },
-  ];
+  // Listen for open event from Sidebar
+  useEffect(() => {
+    const handler = () => {
+      resetForm();
+      setOpen(true);
+    };
+    window.addEventListener('open-new-profile', handler);
+    return () => window.removeEventListener('open-new-profile', handler);
+  }, []);
 
-  const filteredOsOptions = osOptions.filter(
-    (o) => deviceType === 'mobile' ? !!o.mobile : !o.mobile,
-  );
+  const resetForm = () => {
+    setName('');
+    setBrowserType('chrome');
+    setDeviceType('desktop');
+    setOs('windows');
+    setLaunchUrl('https://www.google.com');
+    setTags([]);
+    setTagInput('');
+    setUseProxy(false);
+    setProxyType('http');
+    setProxyHost('');
+    setProxyPort('');
+    setProxyUsername('');
+    setProxyPassword('');
+  };
 
-  const handleSubmit = async () => {
+  const handleDeviceTypeChange = (device: DeviceType) => {
+    setDeviceType(device);
+    // Auto-select appropriate OS
+    if (device === 'mobile' && (os === 'windows' || os === 'macos' || os === 'linux')) {
+      setOs('android');
+    } else if (device === 'desktop' && (os === 'android' || os === 'ios')) {
+      setOs('windows');
+    }
+  };
+
+  const handleCreate = async () => {
     setLoading(true);
     try {
       const input: NewProfileInput = {
@@ -71,253 +112,158 @@ const NewProfileDialog: React.FC<NewProfileDialogProps> = ({ open, onClose, onSu
         browserType,
         deviceType,
         os,
-        launchUrl: launchUrl || 'https://iphey.com',
+        launchUrl,
         tags,
-        proxy: proxyHost
-          ? {
-              host: proxyHost,
-              port: parseInt(proxyPort) || 8080,
-              type: proxyType,
-              username: proxyUser || undefined,
-              password: proxyPass || undefined,
-            }
-          : undefined,
+        proxy: useProxy && proxyHost && proxyPort ? {
+          host: proxyHost,
+          port: parseInt(proxyPort),
+          username: proxyUsername || undefined,
+          password: proxyPassword || undefined,
+          type: proxyType,
+        } : undefined,
       };
 
-      await onSubmit(input);
-      handleClose();
-    } catch (err) {
-      console.error('Failed to create profile:', err);
-    }
-    setLoading(false);
-  };
-
-  const handleClose = () => {
-    setName('');
-    setBrowserType('chrome');
-    setDeviceType('desktop');
-    setOs('windows');
-    setLaunchUrl('https://iphey.com');
-    setProxyHost('');
-    setProxyPort('');
-    setProxyUser('');
-    setProxyPass('');
-    setTags([]);
-    setTagInput('');
-    onClose();
-  };
-
-  const handleTagAdd = () => {
-    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
-      setTags([...tags, tagInput.trim()]);
-      setTagInput('');
+      const result = await actions.createProfile(input);
+      if (result) {
+        setOpen(false);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleTagRemove = (tag: string) => {
-    setTags(tags.filter((t) => t !== tag));
-  };
+  const filteredOsOptions = osOptions.filter(o => o.device === deviceType);
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ pb: 1 }}>
-        <Typography variant="h5" fontWeight={700}>
-          New Profile
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Create a new browser profile with custom fingerprint
-        </Typography>
+    <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+      <DialogTitle>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <BrowserIcon browser={browserType} size={24} />
+          <Typography variant="h6" fontWeight={600}>Create New Profile</Typography>
+        </Box>
       </DialogTitle>
 
       <DialogContent sx={{ pt: 2 }}>
-        {/* Profile Name */}
-        <TextField
-          fullWidth
-          label="Profile Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Leave empty for auto-generated name"
-          sx={{ mb: 2.5 }}
-          size="small"
-        />
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+          {/* Profile Name */}
+          <TextField
+            label="Profile Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={`${BROWSER_THEMES[browserType].name} Profile`}
+            fullWidth
+            size="small"
+          />
 
-        {/* Browser Type Selection */}
-        <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
-          Browser Type
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1, mb: 2.5, flexWrap: 'wrap' }}>
-          {(Object.keys(BROWSER_THEMES) as BrowserType[]).map((bt) => (
-            <Chip
-              key={bt}
-              icon={<BrowserIcon browser={bt} size={16} />}
-              label={BROWSER_THEMES[bt].name}
-              onClick={() => setBrowserType(bt)}
-              variant={browserType === bt ? 'filled' : 'outlined'}
-              sx={{
-                borderColor: browserType === bt ? BROWSER_THEMES[bt].primary : 'divider',
-                bgcolor: browserType === bt ? `${BROWSER_THEMES[bt].primary}22` : 'transparent',
-                color: browserType === bt ? BROWSER_THEMES[bt].primary : 'text.secondary',
-                fontWeight: browserType === bt ? 600 : 400,
-                '&:hover': {
-                  bgcolor: `${BROWSER_THEMES[bt].primary}15`,
-                  borderColor: BROWSER_THEMES[bt].primary,
-                },
-              }}
-            />
-          ))}
-        </Box>
-
-        {/* Device Type */}
-        <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
-          Device Type
-        </Typography>
-        <ToggleButtonGroup
-          value={deviceType}
-          exclusive
-          onChange={(_, v) => {
-            if (v) {
-              setDeviceType(v);
-              if (v === 'mobile') setOs('android');
-              else setOs('windows');
-            }
-          }}
-          size="small"
-          sx={{ mb: 2.5 }}
-        >
-          <ToggleButton value="desktop" sx={{ px: 3 }}>
-            <DesktopIcon sx={{ mr: 1, fontSize: 18 }} />
-            Desktop
-          </ToggleButton>
-          <ToggleButton value="mobile" sx={{ px: 3 }}>
-            <MobileIcon sx={{ mr: 1, fontSize: 18 }} />
-            Mobile
-          </ToggleButton>
-        </ToggleButtonGroup>
-
-        {/* OS Selection */}
-        <FormControl fullWidth size="small" sx={{ mb: 2.5 }}>
-          <InputLabel>Operating System</InputLabel>
-          <Select
-            value={os}
-            label="Operating System"
-            onChange={(e) => setOs(e.target.value as OsType)}
-          >
-            {filteredOsOptions.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        {/* Launch URL */}
-        <TextField
-          fullWidth
-          label="Launch URL"
-          value={launchUrl}
-          onChange={(e) => setLaunchUrl(e.target.value)}
-          placeholder="https://iphey.com"
-          sx={{ mb: 2.5 }}
-          size="small"
-        />
-
-        {/* Proxy Configuration */}
-        <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
-          Proxy (Optional)
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-          <FormControl size="small" sx={{ minWidth: 100 }}>
-            <InputLabel>Type</InputLabel>
+          {/* Browser Type */}
+          <FormControl size="small" fullWidth>
+            <InputLabel>Browser Type</InputLabel>
             <Select
-              value={proxyType}
-              label="Type"
-              onChange={(e) => setProxyType(e.target.value as any)}
+              value={browserType}
+              label="Browser Type"
+              onChange={(e) => setBrowserType(e.target.value as BrowserType)}
             >
-              <MenuItem value="http">HTTP</MenuItem>
-              <MenuItem value="https">HTTPS</MenuItem>
-              <MenuItem value="socks5">SOCKS5</MenuItem>
+              {browserTypes.map(bt => (
+                <MenuItem key={bt.value} value={bt.value}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <BrowserIcon browser={bt.value} size={18} />
+                    {bt.label}
+                  </Box>
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
-          <TextField
-            size="small"
-            label="Host"
-            value={proxyHost}
-            onChange={(e) => setProxyHost(e.target.value)}
-            placeholder="192.168.1.1"
-            sx={{ flex: 1, minWidth: 120 }}
-          />
-          <TextField
-            size="small"
-            label="Port"
-            value={proxyPort}
-            onChange={(e) => setProxyPort(e.target.value)}
-            placeholder="8080"
-            sx={{ width: 90 }}
-          />
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1, mb: 2.5 }}>
-          <TextField
-            size="small"
-            label="Username"
-            value={proxyUser}
-            onChange={(e) => setProxyUser(e.target.value)}
-            placeholder="Optional"
-            sx={{ flex: 1 }}
-          />
-          <TextField
-            size="small"
-            label="Password"
-            type="password"
-            value={proxyPass}
-            onChange={(e) => setProxyPass(e.target.value)}
-            placeholder="Optional"
-            sx={{ flex: 1 }}
-          />
-        </Box>
 
-        {/* Tags */}
-        <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
-          Tags
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-          {tags.map((tag) => (
-            <Chip
-              key={tag}
-              label={tag}
-              size="small"
-              onDelete={() => handleTagRemove(tag)}
-              sx={{ bgcolor: 'primary.50' }}
-            />
-          ))}
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+          {/* Device Type + OS */}
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <FormControl size="small" sx={{ flex: 1 }}>
+              <InputLabel>Device</InputLabel>
+              <Select
+                value={deviceType}
+                label="Device"
+                onChange={(e) => handleDeviceTypeChange(e.target.value as DeviceType)}
+              >
+                {deviceTypes.map(dt => (
+                  <MenuItem key={dt.value} value={dt.value}>{dt.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ flex: 1 }}>
+              <InputLabel>OS</InputLabel>
+              <Select
+                value={os}
+                label="OS"
+                onChange={(e) => setOs(e.target.value as OsType)}
+              >
+                {filteredOsOptions.map(o => (
+                  <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+
+          {/* Launch URL */}
           <TextField
+            label="Launch URL"
+            value={launchUrl}
+            onChange={(e) => setLaunchUrl(e.target.value)}
+            placeholder="https://www.google.com"
+            fullWidth
             size="small"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleTagAdd()}
-            placeholder="Add tag..."
-            sx={{ flex: 1 }}
           />
-          <Button size="small" onClick={handleTagAdd} disabled={!tagInput.trim()}>
-            Add
-          </Button>
+
+          {/* Tags */}
+          <Autocomplete
+            multiple
+            freeSolo
+            options={[]}
+            value={tags}
+            onChange={(_, newValue) => setTags(newValue)}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => (
+                <Chip label={option} size="small" {...getTagProps({ index })} />
+              ))
+            }
+            renderInput={(params) => (
+              <TextField {...params} label="Tags" placeholder="Add tags" size="small" />
+            )}
+          />
+
+          {/* Proxy */}
+          <Box>
+            <FormControlLabel
+              control={<Switch checked={useProxy} onChange={(e) => setUseProxy(e.target.checked)} size="small" />}
+              label={<Typography variant="body2">Use Proxy</Typography>}
+            />
+            {useProxy && (
+              <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <FormControl size="small" sx={{ minWidth: 100 }}>
+                    <InputLabel>Type</InputLabel>
+                    <Select value={proxyType} label="Type" onChange={(e) => setProxyType(e.target.value as any)}>
+                      {proxyTypes.map(pt => (
+                        <MenuItem key={pt} value={pt}>{pt.toUpperCase()}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <TextField label="Host" value={proxyHost} onChange={(e) => setProxyHost(e.target.value)} size="small" sx={{ flex: 1 }} />
+                  <TextField label="Port" value={proxyPort} onChange={(e) => setProxyPort(e.target.value)} size="small" sx={{ width: 80 }} />
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <TextField label="Username" value={proxyUsername} onChange={(e) => setProxyUsername(e.target.value)} size="small" sx={{ flex: 1 }} />
+                  <TextField label="Password" value={proxyPassword} onChange={(e) => setProxyPassword(e.target.value)} size="small" type="password" sx={{ flex: 1 }} />
+                </Box>
+              </Box>
+            )}
+          </Box>
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={handleClose} color="inherit">
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={loading}
-          sx={{
-            background: `linear-gradient(135deg, ${BROWSER_THEMES[browserType].primary}, ${BROWSER_THEMES[browserType].accent})`,
-          }}
-        >
-          {loading ? 'Creating...' : 'Create Profile'}
+      <DialogActions sx={{ p: 2 }}>
+        <Button onClick={() => setOpen(false)} color="inherit">Cancel</Button>
+        <Button onClick={handleCreate} variant="contained" disabled={loading}>
+          Create Profile
         </Button>
       </DialogActions>
     </Dialog>

@@ -6,6 +6,7 @@ directories:
 files:
   - out/**/*
   - "!out/renderer/**/*"
+  - src/main/assets/**/*
 extraResources:
   - from: src/main/assets/browser-chrome.html
     to: browser-chrome.html

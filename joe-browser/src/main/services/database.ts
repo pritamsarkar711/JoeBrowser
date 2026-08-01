@@ -1,281 +1,236 @@
 // ============================================================
 // Joe Browser - Database Service
-// SQLite-based profile storage using better-sqlite3
+// SQLite-based profile storage with proper error handling
 // ============================================================
 
-import Database from 'better-sqlite3';
-import path from 'path';
-import { app } from 'electron';
-import { ProfileData, NewProfileInput, BrowserType, DeviceType, OsType } from '../../shared/types';
-import { generateForNewProfile, generateProfileName } from './fingerprintGenerator';
-import { v4 as uuidv4 } from 'uuid';
+import * as path from 'path';
+import * as fs from 'fs';
+import { ProfileData, NewProfileInput } from '../../shared/types';
 
-let db: Database.Database | null = null;
-
-function getDbPath(): string {
-  return path.join(app.getPath('userData'), 'joe-browser.db');
+// We use better-sqlite3 for synchronous, fast SQLite access
+let Database: any;
+try {
+  Database = require('better-sqlite3');
+} catch (err) {
+  console.error('[Database] Failed to load better-sqlite3:', err);
+  Database = null;
 }
 
-function getDb(): Database.Database {
-  if (!db) {
-    db = new Database(getDbPath());
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
-    initialize();
-  }
-  return db;
-}
+export class DatabaseService {
+  private db: any;
+  private dbPath: string;
 
-function initialize(): void {
-  const d = getDb();
-  d.exec(`
-    CREATE TABLE IF NOT EXISTS profiles (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      browser_type TEXT NOT NULL DEFAULT 'chrome',
-      device_type TEXT NOT NULL DEFAULT 'desktop',
-      os TEXT NOT NULL DEFAULT 'windows',
-      fingerprint TEXT NOT NULL,
-      proxy TEXT,
-      launch_url TEXT NOT NULL DEFAULT 'https://iphey.com',
-      tags TEXT NOT NULL DEFAULT '[]',
-      profile_group TEXT NOT NULL DEFAULT '',
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL,
-      last_used INTEGER,
-      notes TEXT NOT NULL DEFAULT '',
-      extensions TEXT NOT NULL DEFAULT '[]'
-    )
-  `);
+  constructor(dbPath: string) {
+    this.dbPath = dbPath;
 
-  d.exec(`
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    )
-  `);
+    // Ensure directory exists
+    const dir = path.dirname(dbPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
 
-  d.exec(`
-    CREATE TABLE IF NOT EXISTS master_password (
-      id INTEGER PRIMARY KEY CHECK (id = 1),
-      hash TEXT NOT NULL
-    )
-  `);
-}
+    if (!Database) {
+      throw new Error('better-sqlite3 is not available');
+    }
 
-// ---- Profile CRUD ----
-
-export function listProfiles(): ProfileData[] {
-  const d = getDb();
-  const rows = d.prepare('SELECT * FROM profiles ORDER BY created_at DESC').all() as any[];
-  return rows.map(row => deserializeProfile(row));
-}
-
-export function getProfile(id: string): ProfileData | null {
-  const d = getDb();
-  const row = d.prepare('SELECT * FROM profiles WHERE id = ?').get(id) as any;
-  return row ? deserializeProfile(row) : null;
-}
-
-export function createProfile(input: NewProfileInput): ProfileData {
-  const d = getDb();
-  const now = Date.now();
-  const id = uuidv4();
-
-  const fingerprint = generateForNewProfile(
-    input.browserType,
-    input.os,
-    input.deviceType,
-  );
-
-  // Count existing profiles for this browser type to generate name
-  const count = d.prepare('SELECT COUNT(*) as cnt FROM profiles WHERE browser_type = ?').get(input.browserType) as any;
-  const name = input.name || generateProfileName(input.browserType, (count?.cnt || 0) + 1);
-
-  const profile: ProfileData = {
-    id,
-    name,
-    browserType: input.browserType,
-    deviceType: input.deviceType || 'desktop',
-    os: input.os || 'windows',
-    fingerprint,
-    proxy: input.proxy,
-    launchUrl: input.launchUrl || 'https://iphey.com',
-    tags: input.tags || [],
-    group: input.group || '',
-    createdAt: now,
-    updatedAt: now,
-    notes: input.notes || '',
-    extensions: [],
-  };
-
-  d.prepare(`
-    INSERT INTO profiles (id, name, browser_type, device_type, os, fingerprint, proxy, launch_url, tags, profile_group, created_at, updated_at, notes, extensions)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    id,
-    name,
-    profile.browserType,
-    profile.deviceType,
-    profile.os,
-    JSON.stringify(profile.fingerprint),
-    profile.proxy ? JSON.stringify(profile.proxy) : null,
-    profile.launchUrl,
-    JSON.stringify(profile.tags),
-    profile.group,
-    profile.createdAt,
-    profile.updatedAt,
-    profile.notes,
-    JSON.stringify(profile.extensions),
-  );
-
-  return profile;
-}
-
-export function updateProfile(id: string, updates: Partial<ProfileData>): ProfileData | null {
-  const d = getDb();
-  const existing = getProfile(id);
-  if (!existing) return null;
-
-  const updated = { ...existing, ...updates, updatedAt: Date.now() };
-
-  // Regenerate fingerprint if browser/os/device changed
-  if (updates.browserType || updates.os || updates.deviceType) {
-    updated.fingerprint = generateForNewProfile(
-      updated.browserType,
-      updated.os,
-      updated.deviceType,
-    );
+    try {
+      this.db = new Database(dbPath);
+      this.db.pragma('journal_mode = WAL');
+      this.db.pragma('foreign_keys = ON');
+      this.initialize();
+      console.log('[Database] Initialized at:', dbPath);
+    } catch (err) {
+      console.error('[Database] Failed to initialize:', err);
+      throw err;
+    }
   }
 
-  d.prepare(`
-    UPDATE profiles SET
-      name = ?, browser_type = ?, device_type = ?, os = ?,
-      fingerprint = ?, proxy = ?, launch_url = ?, tags = ?,
-      profile_group = ?, updated_at = ?, notes = ?, extensions = ?, last_used = ?
-    WHERE id = ?
-  `).run(
-    updated.name,
-    updated.browserType,
-    updated.deviceType,
-    updated.os,
-    JSON.stringify(updated.fingerprint),
-    updated.proxy ? JSON.stringify(updated.proxy) : null,
-    updated.launchUrl,
-    JSON.stringify(updated.tags),
-    updated.group,
-    updated.updatedAt,
-    updated.notes,
-    JSON.stringify(updated.extensions),
-    updated.lastUsed || null,
-    id,
-  );
+  /**
+   * Initialize database tables
+   */
+  private initialize(): void {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS profiles (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        browser_type TEXT NOT NULL DEFAULT 'chrome',
+        device_type TEXT NOT NULL DEFAULT 'desktop',
+        os TEXT NOT NULL DEFAULT 'windows',
+        fingerprint TEXT NOT NULL DEFAULT '{}',
+        proxy TEXT,
+        launch_url TEXT DEFAULT 'https://www.google.com',
+        tags TEXT DEFAULT '[]',
+        group_name TEXT DEFAULT '',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        last_used INTEGER,
+        notes TEXT DEFAULT '',
+        extensions TEXT DEFAULT '[]'
+      );
 
-  return updated;
-}
-
-export function deleteProfile(id: string): boolean {
-  const d = getDb();
-  const result = d.prepare('DELETE FROM profiles WHERE id = ?').run(id);
-  return result.changes > 0;
-}
-
-export function duplicateProfile(id: string): ProfileData | null {
-  const existing = getProfile(id);
-  if (!existing) return null;
-
-  return createProfile({
-    name: `${existing.name} (Copy)`,
-    browserType: existing.browserType,
-    deviceType: existing.deviceType,
-    os: existing.os,
-    proxy: existing.proxy,
-    launchUrl: existing.launchUrl,
-    tags: [...existing.tags],
-    group: existing.group,
-    notes: existing.notes,
-  });
-}
-
-export function exportProfile(id: string): string | null {
-  const profile = getProfile(id);
-  if (!profile) return null;
-  return JSON.stringify(profile, null, 2);
-}
-
-export function importProfile(json: string): ProfileData | null {
-  try {
-    const data = JSON.parse(json) as ProfileData;
-    // Create a new profile from the imported data
-    return createProfile({
-      name: data.name,
-      browserType: data.browserType,
-      deviceType: data.deviceType,
-      os: data.os,
-      proxy: data.proxy,
-      launchUrl: data.launchUrl,
-      tags: data.tags,
-      group: data.group,
-      notes: data.notes,
-    });
-  } catch {
-    return null;
+      CREATE INDEX IF NOT EXISTS idx_profiles_browser_type ON profiles(browser_type);
+      CREATE INDEX IF NOT EXISTS idx_profiles_group ON profiles(group_name);
+      CREATE INDEX IF NOT EXISTS idx_profiles_created ON profiles(created_at);
+    `);
   }
-}
 
-function deserializeProfile(row: any): ProfileData {
-  return {
-    id: row.id,
-    name: row.name,
-    browserType: row.browser_type as BrowserType,
-    deviceType: row.device_type as DeviceType,
-    os: row.os as OsType,
-    fingerprint: JSON.parse(row.fingerprint),
-    proxy: row.proxy ? JSON.parse(row.proxy) : undefined,
-    launchUrl: row.launch_url,
-    tags: JSON.parse(row.tags),
-    group: row.profile_group,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    lastUsed: row.last_used || undefined,
-    notes: row.notes,
-    extensions: JSON.parse(row.extensions),
-  };
-}
+  /**
+   * Get all profiles
+   */
+  getAllProfiles(): ProfileData[] {
+    try {
+      const rows = this.db.prepare('SELECT * FROM profiles ORDER BY created_at DESC').all();
+      return rows.map((row: any) => this.rowToProfile(row));
+    } catch (err) {
+      console.error('[Database] Failed to get profiles:', err);
+      return [];
+    }
+  }
 
-// ---- Settings ----
+  /**
+   * Get a single profile by ID
+   */
+  getProfile(id: string): ProfileData | null {
+    try {
+      const row = this.db.prepare('SELECT * FROM profiles WHERE id = ?').get(id);
+      if (!row) return null;
+      return this.rowToProfile(row);
+    } catch (err) {
+      console.error('[Database] Failed to get profile:', err);
+      return null;
+    }
+  }
 
-export function getSetting(key: string): string | null {
-  const d = getDb();
-  const row = d.prepare('SELECT value FROM settings WHERE key = ?').get(key) as any;
-  return row?.value || null;
-}
+  /**
+   * Create a new profile
+   */
+  createProfile(profile: ProfileData): void {
+    try {
+      this.db.prepare(`
+        INSERT INTO profiles (id, name, browser_type, device_type, os, fingerprint, proxy, launch_url, tags, group_name, created_at, updated_at, last_used, notes, extensions)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        profile.id,
+        profile.name,
+        profile.browserType,
+        profile.deviceType,
+        profile.os,
+        JSON.stringify(profile.fingerprint),
+        profile.proxy ? JSON.stringify(profile.proxy) : null,
+        profile.launchUrl,
+        JSON.stringify(profile.tags),
+        profile.group,
+        profile.createdAt,
+        profile.updatedAt,
+        profile.lastUsed || null,
+        profile.notes,
+        JSON.stringify(profile.extensions),
+      );
+    } catch (err) {
+      console.error('[Database] Failed to create profile:', err);
+      throw err;
+    }
+  }
 
-export function setSetting(key: string, value: string): void {
-  const d = getDb();
-  d.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value);
-}
+  /**
+   * Update a profile
+   */
+  updateProfile(id: string, updates: Partial<ProfileData>): void {
+    try {
+      const existing = this.getProfile(id);
+      if (!existing) {
+        throw new Error(`Profile not found: ${id}`);
+      }
 
-// ---- Master Password ----
+      // Build SET clause dynamically
+      const fields: string[] = [];
+      const values: any[] = [];
 
-export function getMasterPasswordHash(): string | null {
-  const d = getDb();
-  const row = d.prepare('SELECT hash FROM master_password WHERE id = 1').get() as any;
-  return row?.hash || null;
-}
+      const fieldMap: Record<string, string> = {
+        name: 'name',
+        browserType: 'browser_type',
+        deviceType: 'device_type',
+        os: 'os',
+        fingerprint: 'fingerprint',
+        proxy: 'proxy',
+        launchUrl: 'launch_url',
+        tags: 'tags',
+        group: 'group_name',
+        updatedAt: 'updated_at',
+        lastUsed: 'last_used',
+        notes: 'notes',
+        extensions: 'extensions',
+      };
 
-export function setMasterPasswordHash(hash: string): void {
-  const d = getDb();
-  d.prepare('INSERT OR REPLACE INTO master_password (id, hash) VALUES (1, ?)').run(hash);
-}
+      for (const [key, column] of Object.entries(fieldMap)) {
+        if ((updates as any)[key] !== undefined) {
+          fields.push(`${column} = ?`);
+          let value = (updates as any)[key];
 
-export function isMasterPasswordInitialized(): boolean {
-  return !!getMasterPasswordHash();
-}
+          // Serialize JSON fields
+          if (key === 'fingerprint' || key === 'proxy' || key === 'tags' || key === 'extensions') {
+            value = value ? JSON.stringify(value) : null;
+          }
 
-export function closeDatabase(): void {
-  if (db) {
-    db.close();
-    db = null;
+          values.push(value);
+        }
+      }
+
+      if (fields.length === 0) return;
+
+      values.push(id);
+      this.db.prepare(`UPDATE profiles SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+    } catch (err) {
+      console.error('[Database] Failed to update profile:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * Delete a profile
+   */
+  deleteProfile(id: string): void {
+    try {
+      this.db.prepare('DELETE FROM profiles WHERE id = ?').run(id);
+    } catch (err) {
+      console.error('[Database] Failed to delete profile:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * Convert a database row to a ProfileData object
+   */
+  private rowToProfile(row: any): ProfileData {
+    return {
+      id: row.id,
+      name: row.name,
+      browserType: row.browser_type,
+      deviceType: row.device_type,
+      os: row.os,
+      fingerprint: typeof row.fingerprint === 'string' ? JSON.parse(row.fingerprint) : row.fingerprint,
+      proxy: row.proxy ? (typeof row.proxy === 'string' ? JSON.parse(row.proxy) : row.proxy) : undefined,
+      launchUrl: row.launch_url || 'https://www.google.com',
+      tags: typeof row.tags === 'string' ? JSON.parse(row.tags) : (row.tags || []),
+      group: row.group_name || '',
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      lastUsed: row.last_used || undefined,
+      notes: row.notes || '',
+      extensions: typeof row.extensions === 'string' ? JSON.parse(row.extensions) : (row.extensions || []),
+    };
+  }
+
+  /**
+   * Close the database connection
+   */
+  close(): void {
+    try {
+      if (this.db) {
+        this.db.close();
+      }
+    } catch (err) {
+      console.error('[Database] Failed to close:', err);
+    }
   }
 }

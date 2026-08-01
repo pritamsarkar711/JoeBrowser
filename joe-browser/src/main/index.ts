@@ -1,11 +1,10 @@
 // ============================================================
-// Joe Browser - Main Process Entry Point
+// Joe Browser - Main Process Entry
 // ============================================================
 
-import { app, BrowserWindow, globalShortcut } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import { registerIpcHandlers } from './ipcHandlers';
-import { cleanupAllPreloads } from './services/embeddedBrowserLauncher';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -17,43 +16,51 @@ function createMainWindow(): BrowserWindow {
     minHeight: 600,
     title: 'Joe Browser',
     backgroundColor: '#0f0f23',
-    icon: path.join(__dirname, '..', 'assets', 'icon.png'),
+    autoHideMenuBar: true,
+    show: false,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: false,
       preload: path.join(__dirname, '..', 'preload', 'index.js'),
     },
   });
 
-  // Load the renderer
+  // Load renderer
   if (process.env.ELECTRON_RENDERER_URL) {
+    // Dev mode
     mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
   } else {
+    // Production mode
     mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   }
+
+  // Show window when ready
+  mainWindow.once('ready-to-show', () => {
+    if (mainWindow) {
+      mainWindow.show();
+    }
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 
-  // Open dev tools in development
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.webContents.openDevTools();
-  }
-
   return mainWindow;
 }
 
-// ---- App Lifecycle ----
-
+// App lifecycle
 app.whenReady().then(() => {
-  // Register IPC handlers
-  registerIpcHandlers();
+  try {
+    // Register IPC handlers
+    registerIpcHandlers();
 
-  // Create main window
-  createMainWindow();
+    // Create main window
+    createMainWindow();
+  } catch (err) {
+    console.error('[Main] Failed to initialize app:', err);
+  }
 
-  // macOS: re-create window when dock icon clicked
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createMainWindow();
@@ -61,28 +68,17 @@ app.whenReady().then(() => {
   });
 });
 
-// Quit when all windows are closed (except on macOS)
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    cleanupAllPreloads();
     app.quit();
   }
 });
 
-// Clean up on quit
-app.on('before-quit', () => {
-  cleanupAllPreloads();
-  globalShortcut.unregisterAll();
+// Handle uncaught errors
+process.on('uncaughtException', (err) => {
+  console.error('[Main] Uncaught exception:', err);
 });
 
-// Security: Prevent new window creation for the main window only
-// Webview windows are handled by the browser-chrome.html new-window event
-app.on('web-contents-created', (_, contents) => {
-  // Only set window open handler for the main window and webview types
-  // For webview, we allow the new-window event to be handled by browser-chrome.html
-  if (contents.getType() === 'window') {
-    contents.setWindowOpenHandler(() => {
-      return { action: 'deny' };
-    });
-  }
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Main] Unhandled rejection:', reason);
 });

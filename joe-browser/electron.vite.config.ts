@@ -1,5 +1,6 @@
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
+import { resolve } from 'path'
 
 export default defineConfig({
   main: {
@@ -10,6 +11,12 @@ export default defineConfig({
         input: {
           index: 'src/main/index.ts'
         }
+      }
+    },
+    resolve: {
+      alias: {
+        '@shared': resolve('src/shared'),
+        '@main': resolve('src/main'),
       }
     }
   },
@@ -32,6 +39,11 @@ export default defineConfig({
         input: {
           index: 'src/renderer/index.html'
         }
+      }
+    },
+    resolve: {
+      alias: {
+        '@shared': resolve('src/shared'),
       }
     }
   }

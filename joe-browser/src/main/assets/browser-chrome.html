@@ -1,584 +1,708 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Joe Browser</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Joe Browser</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #202124; color: #e8eaed; }
 
-    :root {
-      --theme-primary: #4285F4;
-      --theme-accent: #34A853;
-      --bg-dark: #1a1a2e;
-      --bg-chrome: #202124;
-      --bg-input: #35363a;
-      --bg-tab: #2d2e32;
-      --bg-tab-active: #35363a;
-      --text-primary: #e8eaed;
-      --text-secondary: #9aa0a6;
-      --text-dim: #5f6368;
-      --border-color: #3c4043;
-      --hover-bg: #3c4043;
-    }
+  /* ===== TAB BAR ===== */
+  #tab-bar {
+    display: flex;
+    align-items: flex-end;
+    height: 38px;
+    background: #202124;
+    padding: 0 8px;
+    -webkit-app-region: drag;
+    user-select: none;
+  }
+  .tab {
+    display: flex;
+    align-items: center;
+    height: 32px;
+    max-width: 220px;
+    min-width: 60px;
+    padding: 0 8px 0 12px;
+    background: #2d2e30;
+    border-radius: 8px 8px 0 0;
+    margin-right: 1px;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .tab:hover { background: #35363a; }
+  .tab.active {
+    background: #35363a;
+    border-top: 2px solid var(--theme-color, #4285F4);
+    margin-top: -2px;
+  }
+  .tab-favicon {
+    width: 16px; height: 16px; margin-right: 6px; flex-shrink: 0;
+    border-radius: 2px;
+  }
+  .tab-favicon.loading {
+    animation: spin 1s linear infinite;
+    border: 2px solid transparent;
+    border-top-color: var(--theme-color, #4285F4);
+    border-radius: 50%;
+    width: 14px; height: 14px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .tab-title {
+    flex: 1; font-size: 12px; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; color: #9aa0a6; line-height: 32px;
+  }
+  .tab.active .tab-title { color: #e8eaed; }
+  .tab-close {
+    width: 18px; height: 18px; border-radius: 50%; border: none;
+    background: transparent; color: #9aa0a6; font-size: 14px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    margin-left: 4px; flex-shrink: 0; transition: background 0.15s, color 0.15s;
+    line-height: 1;
+  }
+  .tab-close:hover { background: rgba(255,255,255,0.15); color: #fff; }
+  .new-tab-btn {
+    width: 28px; height: 28px; border-radius: 50%; border: none;
+    background: transparent; color: #9aa0a6; font-size: 20px;
+    cursor: pointer; margin-left: 4px; margin-bottom: 4px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s; -webkit-app-region: no-drag;
+  }
+  .new-tab-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      background: var(--bg-dark);
-      color: var(--text-primary);
-      overflow: hidden;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+  /* ===== NAVIGATION BAR ===== */
+  #nav-bar {
+    display: flex;
+    align-items: center;
+    height: 40px;
+    background: #35363a;
+    padding: 0 8px;
+    gap: 4px;
+  }
+  .nav-btn {
+    width: 32px; height: 32px; border-radius: 50%; border: none;
+    background: transparent; color: #9aa0a6; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s; flex-shrink: 0;
+  }
+  .nav-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .nav-btn:disabled { opacity: 0.3; cursor: default; }
+  .nav-btn:disabled:hover { background: transparent; color: #9aa0a6; }
+  .nav-btn svg { width: 18px; height: 18px; }
 
-    /* ========== TAB BAR ========== */
-    .tab-bar {
-      display: flex;
-      align-items: flex-end;
-      background: var(--bg-chrome);
-      padding: 4px 8px 0;
-      gap: 1px;
-      min-height: 36px;
-      -webkit-app-region: drag;
-      user-select: none;
-    }
+  #url-bar {
+    flex: 1; height: 30px; background: #202124; border: 2px solid transparent;
+    border-radius: 16px; padding: 0 14px; color: #e8eaed; font-size: 13px;
+    outline: none; transition: border-color 0.2s, background 0.2s;
+  }
+  #url-bar:focus { border-color: var(--theme-color, #4285F4); background: #1a1b1e; }
+  #url-bar::placeholder { color: #5f6368; }
 
-    .tab {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 12px;
-      background: var(--bg-tab);
-      color: var(--text-secondary);
-      border-radius: 8px 8px 0 0;
-      font-size: 12px;
-      cursor: pointer;
-      max-width: 200px;
-      min-width: 60px;
-      transition: background 0.15s, color 0.15s;
-      -webkit-app-region: no-drag;
-    }
+  .security-icon {
+    width: 18px; height: 18px; margin-right: 6px; flex-shrink: 0;
+  }
 
-    .tab.active {
-      background: var(--bg-tab-active);
-      color: var(--text-primary);
-    }
+  /* ===== WEBVIEW CONTAINER ===== */
+  #webview-container {
+    flex: 1; position: relative; background: #fff;
+  }
+  #webview-container webview {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  }
 
-    .tab:hover:not(.active) { background: var(--hover-bg); }
+  /* ===== NEW TAB PAGE ===== */
+  .newtab-page {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: #202124; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; padding: 40px;
+  }
+  .newtab-logo {
+    font-size: 48px; font-weight: 800; margin-bottom: 24px;
+    background: linear-gradient(135deg, var(--theme-color, #4285F4), #a855f7);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .newtab-search {
+    width: 100%; max-width: 560px; height: 46px; background: #35363a;
+    border: 1px solid #3c4043; border-radius: 24px; padding: 0 20px;
+    color: #e8eaed; font-size: 15px; outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .newtab-search:focus {
+    border-color: var(--theme-color, #4285F4);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .newtab-search::placeholder { color: #5f6368; }
+  .newtab-shortcuts {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    margin-top: 32px; max-width: 560px; width: 100%;
+  }
+  .newtab-shortcut {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 12px 8px; border-radius: 12px; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .newtab-shortcut:hover { background: rgba(255,255,255,0.05); }
+  .newtab-shortcut-icon {
+    width: 48px; height: 48px; border-radius: 50%; background: #35363a;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 700; color: #9aa0a6;
+  }
+  .newtab-shortcut-label {
+    font-size: 12px; color: #9aa0a6; text-align: center;
+    max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
 
-    .tab-favicon {
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 8px;
-      font-weight: 700;
-      color: #fff;
-      flex-shrink: 0;
-    }
+  /* ===== LOADING BAR ===== */
+  #loading-bar {
+    position: absolute; top: 0; left: 0; height: 2px; width: 0;
+    background: var(--theme-color, #4285F4); z-index: 100;
+    transition: width 0.3s ease; opacity: 0;
+  }
+  #loading-bar.active { opacity: 1; }
+  #loading-bar.half { width: 60%; }
+  #loading-bar.done { width: 100%; opacity: 0; transition: width 0.2s, opacity 0.3s 0.2s; }
 
-    .tab-title {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      flex: 1;
-    }
-
-    .tab-close {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      opacity: 0;
-      transition: opacity 0.15s, background 0.15s;
-      flex-shrink: 0;
-      cursor: pointer;
-    }
-
-    .tab:hover .tab-close, .tab.active .tab-close { opacity: 0.6; }
-    .tab-close:hover { background: rgba(255,255,255,0.2); opacity: 1 !important; }
-
-    .tab-new {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      color: var(--text-secondary);
-      cursor: pointer;
-      font-size: 16px;
-      margin-left: 4px;
-      transition: background 0.15s;
-      -webkit-app-region: no-drag;
-    }
-
-    .tab-new:hover { background: var(--hover-bg); color: var(--text-primary); }
-
-    /* ========== NAVIGATION BAR ========== */
-    .nav-bar {
-      display: flex;
-      align-items: center;
-      background: var(--bg-tab-active);
-      padding: 4px 8px;
-      gap: 3px;
-      border-bottom: 1px solid var(--border-color);
-      -webkit-app-region: drag;
-      user-select: none;
-    }
-
-    .nav-btn {
-      width: 28px;
-      height: 28px;
-      border: none;
-      background: transparent;
-      color: var(--text-secondary);
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      transition: background 0.15s, color 0.15s;
-      -webkit-app-region: no-drag;
-      flex-shrink: 0;
-    }
-
-    .nav-btn:hover { background: var(--hover-bg); color: var(--text-primary); }
-    .nav-btn:disabled { opacity: 0.25; cursor: not-allowed; }
-
-    .browser-badge {
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      background: var(--theme-primary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      font-weight: 700;
-      color: white;
-      flex-shrink: 0;
-      -webkit-app-region: no-drag;
-    }
-
-    .url-bar-wrap {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      background: var(--bg-dark);
-      border-radius: 16px;
-      padding: 0 12px;
-      height: 28px;
-      margin: 0 4px;
-      -webkit-app-region: no-drag;
-      border: 2px solid transparent;
-      transition: border-color 0.2s;
-    }
-
-    .url-bar-wrap:focus-within { border-color: var(--theme-primary); }
-
-    .url-bar-icon {
-      font-size: 12px;
-      margin-right: 6px;
-      flex-shrink: 0;
-    }
-
-    .url-bar-icon.secure { color: #34A853; }
-    .url-bar-icon.insecure { color: #FBBC04; }
-
-    .url-bar {
-      flex: 1;
-      border: none;
-      background: transparent;
-      color: var(--text-primary);
-      font-size: 12px;
-      outline: none;
-      font-family: inherit;
-    }
-
-    .url-bar::placeholder { color: var(--text-dim); }
-
-    .profile-badge {
-      padding: 2px 8px;
-      border-radius: 10px;
-      background: var(--theme-primary);
-      color: white;
-      font-size: 10px;
-      font-weight: 600;
-      max-width: 100px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      flex-shrink: 0;
-      -webkit-app-region: no-drag;
-    }
-
-    /* ========== LOADING BAR ========== */
-    .loading-bar {
-      height: 2px;
-      background: transparent;
-      flex-shrink: 0;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .loading-bar.active::after {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      height: 100%;
-      width: 30%;
-      background: var(--theme-primary);
-      animation: loadingSlide 1.2s ease-in-out infinite;
-    }
-
-    @keyframes loadingSlide {
-      0% { left: -30%; }
-      100% { left: 100%; }
-    }
-
-    /* ========== WEBVIEW AREA ========== */
-    .webview-area {
-      flex: 1;
-      position: relative;
-      overflow: hidden;
-      background: var(--bg-dark);
-    }
-
-    .webview-area webview {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      display: inline-flex;
-    }
-
-    .webview-area.mobile-frame {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: #0a0a1a;
-    }
-
-    .webview-area.mobile-frame webview {
-      position: relative;
-      border-radius: 12px;
-      border: 3px solid #333;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-    }
-
-    /* ========== ERROR PAGE ========== */
-    .error-page {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      background: var(--bg-dark);
-      color: var(--text-secondary);
-      gap: 12px;
-      padding: 20px;
-    }
-
-    .error-page.active { display: flex; }
-    .error-page .error-icon { font-size: 48px; color: var(--theme-primary); }
-    .error-page h2 { color: var(--text-primary); font-size: 16px; }
-    .error-page p { font-size: 13px; max-width: 400px; text-align: center; line-height: 1.5; }
-
-    .error-page button {
-      padding: 8px 20px;
-      border: none;
-      border-radius: 6px;
-      background: var(--theme-primary);
-      color: white;
-      cursor: pointer;
-      font-size: 13px;
-      margin-top: 4px;
-    }
-
-    .error-page button:hover { filter: brightness(1.1); }
-  </style>
+  /* ===== MAIN LAYOUT ===== */
+  #app { display: flex; flex-direction: column; height: 100vh; }
+</style>
 </head>
 <body>
+<div id="app">
+  <!-- Loading Bar -->
+  <div id="loading-bar"></div>
+
   <!-- Tab Bar -->
-  <div class="tab-bar">
-    <div class="tab active" id="tab0">
-      <div class="tab-favicon" id="tabFavicon"></div>
-      <span class="tab-title" id="tabTitle">New Tab</span>
-      <div class="tab-close" title="Close">&#10005;</div>
-    </div>
-    <div class="tab-new" title="New Tab" id="btnNewTab">+</div>
+  <div id="tab-bar">
+    <div id="tabs-container"></div>
+    <button class="new-tab-btn" id="new-tab-btn" title="New Tab">+</button>
   </div>
 
   <!-- Navigation Bar -->
-  <div class="nav-bar">
-    <div class="browser-badge" id="browserBadge">J</div>
-    <button class="nav-btn" id="btnBack" title="Back" disabled>&#9664;</button>
-    <button class="nav-btn" id="btnForward" title="Forward" disabled>&#9654;</button>
-    <button class="nav-btn" id="btnRefresh" title="Reload">&#8635;</button>
-    <button class="nav-btn" id="btnHome" title="Home">&#8962;</button>
-    <div class="url-bar-wrap">
-      <span class="url-bar-icon secure" id="urlIcon">&#128274;</span>
-      <input type="text" class="url-bar" id="urlInput" placeholder="Search or enter URL" spellcheck="false" autocomplete="off">
+  <div id="nav-bar">
+    <button class="nav-btn" id="btn-back" title="Back" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    </button>
+    <button class="nav-btn" id="btn-forward" title="Forward" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </button>
+    <button class="nav-btn" id="btn-reload" title="Reload">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+    </button>
+    <button class="nav-btn" id="btn-home" title="Home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    </button>
+    <div style="flex:1; display:flex; align-items:center; position:relative;">
+      <svg class="security-icon" id="security-icon" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>
+      </svg>
+      <input type="text" id="url-bar" placeholder="Search or enter URL" spellcheck="false" autocomplete="off">
     </div>
-    <div class="profile-badge" id="profileBadge">Profile</div>
   </div>
 
-  <!-- Loading Bar -->
-  <div class="loading-bar" id="loadingBar"></div>
+  <!-- Webview Container -->
+  <div id="webview-container"></div>
+</div>
 
-  <!-- Webview Area -->
-  <div class="webview-area" id="webviewArea">
-    <!-- Webview is created dynamically -->
-  </div>
+<script>
+(function() {
+  'use strict';
 
-  <!-- Error Page -->
-  <div class="error-page" id="errorPage">
-    <div class="error-icon">&#9888;</div>
-    <h2>This page can't be reached</h2>
-    <p id="errorMessage">Check your internet connection and try again.</p>
-    <button id="btnRetry">Try Again</button>
-  </div>
+  // ===== PARSE URL PARAMS =====
+  const params = new URLSearchParams(window.location.search);
+  const targetUrl = params.get('targetUrl') || 'https://www.google.com';
+  const profileId = params.get('profileId') || 'default';
+  const browserType = params.get('browserType') || 'chrome';
+  const preloadPath = params.get('preloadPath') || '';
+  const themeColor = params.get('theme') || '#4285F4';
 
-  <script>
-    (function() {
-      'use strict';
+  // Set theme CSS variable
+  document.documentElement.style.setProperty('--theme-color', themeColor);
 
-      // ---- Parse URL parameters ----
-      var params = new URLSearchParams(window.location.search);
-      var targetUrl = params.get('url') || 'https://iphey.com';
-      var profileId = params.get('profile') || '';
-      var profileName = decodeURIComponent(params.get('profileName') || 'Profile');
-      var browserType = params.get('browserType') || 'chrome';
-      var deviceType = params.get('deviceType') || 'desktop';
-      var themePrimary = params.get('themePrimary') || '#4285F4';
-      var themeAccent = params.get('themeAccent') || '#34A853';
-      var isMobile = params.get('isMobile') === 'true';
-      var mobileWidth = parseInt(params.get('mobileWidth') || '390');
-      var mobileHeight = parseInt(params.get('mobileHeight') || '844');
-      var partitionName = 'persist:joe-' + profileId;
+  // ===== STATE =====
+  let tabs = [];
+  let activeTabId = null;
+  let tabIdCounter = 0;
 
-      // ---- Apply theme ----
-      document.documentElement.style.setProperty('--theme-primary', themePrimary);
-      document.documentElement.style.setProperty('--theme-accent', themeAccent);
+  // ===== DOM REFS =====
+  const tabsContainer = document.getElementById('tabs-container');
+  const newTabBtn = document.getElementById('new-tab-btn');
+  const btnBack = document.getElementById('btn-back');
+  const btnForward = document.getElementById('btn-forward');
+  const btnReload = document.getElementById('btn-reload');
+  const btnHome = document.getElementById('btn-home');
+  const urlBar = document.getElementById('url-bar');
+  const webviewContainer = document.getElementById('webview-container');
+  const loadingBar = document.getElementById('loading-bar');
+  const securityIcon = document.getElementById('security-icon');
 
-      // ---- Set browser badge ----
-      var badgeLetters = { chrome: 'C', brave: 'B', firefox: 'F', edge: 'E', chromium: 'C' };
-      var browserBadge = document.getElementById('browserBadge');
-      browserBadge.textContent = badgeLetters[browserType] || 'J';
-      browserBadge.style.background = themePrimary;
+  // ===== TAB MANAGEMENT =====
+  function createTab(url) {
+    const tabId = ++tabIdCounter;
+    const tab = {
+      id: tabId,
+      url: url || 'joe://newtab',
+      title: 'New Tab',
+      favicon: null,
+      loading: false,
+      webview: null,
+      newtabEl: null,
+    };
+    tabs.push(tab);
 
-      // ---- Set tab favicon ----
-      var tabFavicon = document.getElementById('tabFavicon');
-      tabFavicon.textContent = badgeLetters[browserType] || 'J';
-      tabFavicon.style.background = themePrimary;
+    // Create tab DOM element
+    const tabEl = document.createElement('div');
+    tabEl.className = 'tab';
+    tabEl.dataset.tabId = tabId;
+    tabEl.innerHTML = `
+      <div class="tab-favicon" id="favicon-${tabId}"></div>
+      <span class="tab-title" id="title-${tabId}">New Tab</span>
+      <button class="tab-close" data-close="${tabId}">&times;</button>
+    `;
+    tabEl.addEventListener('click', (e) => {
+      if (e.target.classList.contains('tab-close')) return;
+      switchTab(tabId);
+    });
+    tabsContainer.appendChild(tabEl);
 
-      // ---- Set profile badge ----
-      var profileBadge = document.getElementById('profileBadge');
-      profileBadge.textContent = profileName;
-      profileBadge.style.background = themePrimary;
+    // Create webview or newtab page
+    if (tab.url === 'joe://newtab') {
+      createNewTabPage(tab);
+    } else {
+      createWebview(tab, tab.url);
+    }
 
-      // ---- DOM elements ----
-      var urlInput = document.getElementById('urlInput');
-      var urlIcon = document.getElementById('urlIcon');
-      var tabTitle = document.getElementById('tabTitle');
-      var loadingBar = document.getElementById('loadingBar');
-      var webviewArea = document.getElementById('webviewArea');
-      var errorPage = document.getElementById('errorPage');
-      var errorMessage = document.getElementById('errorMessage');
-      var btnBack = document.getElementById('btnBack');
-      var btnForward = document.getElementById('btnForward');
-      var btnRefresh = document.getElementById('btnRefresh');
-      var btnHome = document.getElementById('btnHome');
-      var btnRetry = document.getElementById('btnRetry');
-      var btnNewTab = document.getElementById('btnNewTab');
+    switchTab(tabId);
+    return tab;
+  }
 
-      // ---- Set up mobile frame ----
-      if (isMobile) {
-        webviewArea.classList.add('mobile-frame');
-      }
+  function createNewTabPage(tab) {
+    // Hide webview if any
+    if (tab.webview) {
+      tab.webview.style.display = 'none';
+    }
 
-      // ========== CREATE WEBVIEW ==========
-      // CRITICAL: Create webview, set partition, then add to DOM.
-      // The webview MUST be in the DOM before loading a URL.
-      // Stealth injection is handled by the main process via web-contents-created event.
+    // Create new tab page
+    const newtabEl = document.createElement('div');
+    newtabEl.className = 'newtab-page';
+    newtabEl.innerHTML = `
+      <div class="newtab-logo">JoeBrowser</div>
+      <input type="text" class="newtab-search" placeholder="Search Google or type a URL" spellcheck="false">
+      <div class="newtab-shortcuts">
+        <div class="newtab-shortcut" data-url="https://www.google.com">
+          <div class="newtab-shortcut-icon" style="color:#4285F4">G</div>
+          <div class="newtab-shortcut-label">Google</div>
+        </div>
+        <div class="newtab-shortcut" data-url="https://www.youtube.com">
+          <div class="newtab-shortcut-icon" style="color:#FF0000">Y</div>
+          <div class="newtab-shortcut-label">YouTube</div>
+        </div>
+        <div class="newtab-shortcut" data-url="https://www.facebook.com">
+          <div class="newtab-shortcut-icon" style="color:#1877F2">F</div>
+          <div class="newtab-shortcut-label">Facebook</div>
+        </div>
+        <div class="newtab-shortcut" data-url="https://twitter.com">
+          <div class="newtab-shortcut-icon" style="color:#1DA1F2">X</div>
+          <div class="newtab-shortcut-label">X / Twitter</div>
+        </div>
+        <div class="newtab-shortcut" data-url="https://github.com">
+          <div class="newtab-shortcut-icon" style="color:#f0f6fc">GH</div>
+          <div class="newtab-shortcut-label">GitHub</div>
+        </div>
+        <div class="newtab-shortcut" data-url="https://www.amazon.com">
+          <div class="newtab-shortcut-icon" style="color:#FF9900">A</div>
+          <div class="newtab-shortcut-label">Amazon</div>
+        </div>
+        <div class="newtab-shortcut" data-url="https://www.reddit.com">
+          <div class="newtab-shortcut-icon" style="color:#FF4500">R</div>
+          <div class="newtab-shortcut-label">Reddit</div>
+        </div>
+        <div class="newtab-shortcut" data-url="https://www.wikipedia.org">
+          <div class="newtab-shortcut-icon" style="color:#eee">W</div>
+          <div class="newtab-shortcut-label">Wikipedia</div>
+        </div>
+      </div>
+    `;
 
-      var webview = document.createElement('webview');
+    webviewContainer.appendChild(newtabEl);
+    tab.newtabEl = newtabEl;
 
-      // Set partition BEFORE adding to DOM
-      webview.setAttribute('partition', partitionName);
-
-      // Set mobile dimensions
-      if (isMobile) {
-        webview.style.width = mobileWidth + 'px';
-        webview.style.height = mobileHeight + 'px';
-      }
-
-      // Add webview to the DOM first
-      webviewArea.appendChild(webview);
-
-      // ---- Navigation functions ----
-      function navigateTo(url) {
-        if (!url) return;
-        if (!url.match(/^https?:\/\//i) && !url.startsWith('file://')) {
-          if (url.includes('.') && !url.includes(' ')) {
-            url = 'https://' + url;
-          } else {
-            url = 'https://www.google.com/search?q=' + encodeURIComponent(url);
-          }
-        }
-        urlInput.value = url;
-        hideError();
-        webview.loadURL(url);
-      }
-
-      urlInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-          navigateTo(urlInput.value.trim());
-          urlInput.blur();
-        }
-      });
-
-      urlInput.addEventListener('focus', function() { this.select(); });
-
-      btnBack.addEventListener('click', function() { if (webview.canGoBack()) webview.goBack(); });
-      btnForward.addEventListener('click', function() { if (webview.canGoForward()) webview.goForward(); });
-      btnRefresh.addEventListener('click', function() { webview.reload(); });
-      btnHome.addEventListener('click', function() { navigateTo('https://iphey.com'); });
-      btnRetry.addEventListener('click', function() { navigateTo(urlInput.value); });
-      btnNewTab.addEventListener('click', function() { navigateTo('https://www.google.com'); });
-
-      // ---- Webview event handlers ----
-      webview.addEventListener('did-start-loading', function() {
-        loadingBar.classList.add('active');
-      });
-
-      webview.addEventListener('did-stop-loading', function() {
-        loadingBar.classList.remove('active');
-        updateNavButtons();
-      });
-
-      webview.addEventListener('did-navigate', function(e) {
-        urlInput.value = e.url;
-        updateNavButtons();
-      });
-
-      webview.addEventListener('did-navigate-in-page', function(e) {
-        if (e.url) urlInput.value = e.url;
-        updateNavButtons();
-      });
-
-      webview.addEventListener('did-redirect-navigation', function(e) {
-        urlInput.value = e.url;
-      });
-
-      webview.addEventListener('page-title-updated', function(e) {
-        tabTitle.textContent = e.title;
-        document.title = e.title + ' - Joe Browser';
-      });
-
-      webview.addEventListener('page-favicon-updated', function(e) {
-        if (e.favicons && e.favicons.length > 0) {
-          tabFavicon.style.background = '';
-          tabFavicon.innerHTML = '';
-          var img = document.createElement('img');
-          img.src = e.favicons[0];
-          img.style.width = '14px';
-          img.style.height = '14px';
-          img.style.borderRadius = '2px';
-          tabFavicon.appendChild(img);
-        }
-      });
-
-      webview.addEventListener('did-fail-load', function(e) {
-        if (e.errorCode !== -3 && e.errorCode !== 0) {
-          loadingBar.classList.remove('active');
-          showError('Failed to load: ' + e.errorDescription + ' (Error ' + e.errorCode + ')');
-        }
-      });
-
-      // CRITICAL: Handle new-window - navigate in SAME webview, NOT popup
-      webview.addEventListener('new-window', function(e) {
-        e.preventDefault();
-        navigateTo(e.url);
-      });
-
-      // ---- Update navigation buttons ----
-      function updateNavButtons() {
-        btnBack.disabled = !webview.canGoBack();
-        btnForward.disabled = !webview.canGoForward();
-        updateUrlIcon();
-      }
-
-      function updateUrlIcon() {
-        var url = urlInput.value;
-        if (url.startsWith('https://')) {
-          urlIcon.textContent = '\uD83D\uDD12';
-          urlIcon.className = 'url-bar-icon secure';
-        } else if (url.startsWith('http://')) {
-          urlIcon.textContent = '\u26A0';
-          urlIcon.className = 'url-bar-icon insecure';
-        } else {
-          urlIcon.textContent = '\u2139';
-          urlIcon.className = 'url-bar-icon';
-          urlIcon.style.color = '#9aa0a6';
+    // Search bar handler
+    const searchInput = newtabEl.querySelector('.newtab-search');
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const query = searchInput.value.trim();
+        if (query) {
+          const url = query.includes('.') && !query.includes(' ')
+            ? (query.startsWith('http') ? query : 'https://' + query)
+            : 'https://www.google.com/search?q=' + encodeURIComponent(query);
+          navigateTab(tab.id, url);
         }
       }
+    });
 
-      function showError(msg) {
-        errorMessage.textContent = msg;
-        errorPage.classList.add('active');
-        webviewArea.style.display = 'none';
-      }
+    // Shortcut click handlers
+    newtabEl.querySelectorAll('.newtab-shortcut').forEach(shortcut => {
+      shortcut.addEventListener('click', () => {
+        const url = shortcut.dataset.url;
+        if (url) navigateTab(tab.id, url);
+      });
+    });
+  }
 
-      function hideError() {
-        errorPage.classList.remove('active');
-        webviewArea.style.display = '';
-      }
+  function createWebview(tab, url) {
+    // Remove newtab page if exists
+    if (tab.newtabEl) {
+      tab.newtabEl.remove();
+      tab.newtabEl = null;
+    }
 
-      // ========== LOAD THE INITIAL URL ==========
-      // CRITICAL FIX: Wait for the webview to be attached to the DOM
-      // before loading a URL. The 'did-attach' event fires when the
-      // webview's internal process is ready.
+    // Create webview element
+    const webview = document.createElement('webview');
+    webview.setAttribute('partition', 'persist:joe-' + profileId);
 
-      urlInput.value = targetUrl;
+    // CRITICAL: Set contextIsolation=no so stealth preload can override page JS objects
+    // Without this, the anti-detect script CANNOT modify navigator, screen, WebGL etc.
+    if (preloadPath) {
+      webview.setAttribute('preload', preloadPath);
+      webview.setAttribute('webpreferences', 'contextIsolation=no,sandbox=no,nodeIntegration=no');
+    }
 
-      webview.addEventListener('did-attach', function() {
-        console.log('[JoeBrowser] Webview attached, loading: ' + targetUrl);
+    webview.style.display = 'none'; // Hidden until dom-ready
+    webviewContainer.appendChild(webview);
+
+    tab.webview = webview;
+    tab.url = url;
+    tab.loading = true;
+
+    // Update favicon to loading spinner
+    updateTabFavicon(tab.id, null, true);
+
+    // ===== CRITICAL: Wait for dom-ready before loading URL =====
+    // This is the #1 fix for the blank screen issue
+    webview.addEventListener('dom-ready', () => {
+      // Now the webview is ready — load the URL
+      if (url && url !== 'joe://newtab') {
         try {
-          webview.loadURL(targetUrl);
+          webview.loadURL(url);
         } catch (err) {
-          console.error('[JoeBrowser] loadURL failed:', err);
-          // Fallback: try src attribute
-          webview.src = targetUrl;
+          console.error('Failed to load URL:', err);
         }
-      });
+      }
+    });
 
-      // Fallback: if did-attach doesn't fire (some Electron versions),
-      // try loading after a short delay
-      setTimeout(function() {
-        try {
-          var currentUrl = webview.getURL();
-          if (!currentUrl || currentUrl === '' || currentUrl === 'about:blank') {
-            console.log('[JoeBrowser] Fallback: loading URL after timeout');
-            webview.loadURL(targetUrl);
-          }
-        } catch (err) {
-          console.log('[JoeBrowser] Fallback loadURL error:', err);
-          webview.src = targetUrl;
+    // Navigation events
+    webview.addEventListener('did-start-loading', () => {
+      tab.loading = true;
+      updateTabFavicon(tab.id, null, true);
+      showLoadingBar();
+    });
+
+    webview.addEventListener('did-stop-loading', () => {
+      tab.loading = false;
+      updateTabFavicon(tab.id, null, false);
+      hideLoadingBar();
+    });
+
+    webview.addEventListener('did-navigate', (e) => {
+      tab.url = e.url;
+      if (tab.id === activeTabId) {
+        urlBar.value = e.url;
+        updateSecurityIcon(e.url);
+        updateNavButtons();
+      }
+    });
+
+    webview.addEventListener('did-navigate-in-page', (e) => {
+      tab.url = e.url;
+      if (tab.id === activeTabId) {
+        urlBar.value = e.url;
+        updateSecurityIcon(e.url);
+      }
+    });
+
+    webview.addEventListener('page-title-updated', (e) => {
+      tab.title = e.title;
+      updateTabTitle(tab.id, e.title);
+    });
+
+    webview.addEventListener('page-favicon-updated', (e) => {
+      if (e.favicons && e.favicons.length > 0) {
+        tab.favicon = e.favicons[0];
+        updateTabFavicon(tab.id, e.favicons[0], tab.loading);
+      }
+    });
+
+    // Handle new window — open in same tab instead of popup
+    webview.addEventListener('new-window', (e) => {
+      e.preventDefault();
+      // Open in new tab instead of blocking
+      createTab(e.url);
+    });
+
+    // Error handling
+    webview.addEventListener('did-fail-load', (e) => {
+      if (e.errorCode === -3) return; // Aborted, not a real error
+      console.error('Failed to load:', e.errorDescription);
+      tab.loading = false;
+      updateTabFavicon(tab.id, null, false);
+      hideLoadingBar();
+    });
+  }
+
+  function navigateTab(tabId, url) {
+    const tab = tabs.find(t => t.id === tabId);
+    if (!tab) return;
+
+    // If current tab is showing newtab page, convert to webview
+    if (tab.newtabEl || !tab.webview) {
+      createWebview(tab, url);
+      // Show the webview if it's the active tab
+      if (tab.id === activeTabId) {
+        tab.webview.style.display = 'flex';
+      }
+    } else {
+      // Navigate existing webview
+      try {
+        tab.webview.loadURL(url);
+      } catch (err) {
+        console.error('Navigation failed:', err);
+      }
+    }
+    tab.url = url;
+    urlBar.value = url;
+    updateSecurityIcon(url);
+  }
+
+  function closeTab(tabId) {
+    const index = tabs.findIndex(t => t.id === tabId);
+    if (index === -1) return;
+
+    const tab = tabs[index];
+
+    // Clean up webview
+    if (tab.webview) {
+      tab.webview.remove();
+    }
+    // Clean up newtab page
+    if (tab.newtabEl) {
+      tab.newtabEl.remove();
+    }
+
+    // Remove tab DOM
+    const tabEl = tabsContainer.querySelector(`[data-tab-id="${tabId}"]`);
+    if (tabEl) tabEl.remove();
+
+    tabs.splice(index, 1);
+
+    // If no tabs left, create a new one
+    if (tabs.length === 0) {
+      createTab('joe://newtab');
+      return;
+    }
+
+    // If closed tab was active, switch to nearest
+    if (activeTabId === tabId) {
+      const newIndex = Math.min(index, tabs.length - 1);
+      switchTab(tabs[newIndex].id);
+    }
+  }
+
+  function switchTab(tabId) {
+    activeTabId = tabId;
+
+    // Update tab UI
+    tabsContainer.querySelectorAll('.tab').forEach(el => {
+      el.classList.toggle('active', parseInt(el.dataset.tabId) === tabId);
+    });
+
+    // Show/hide webviews and newtab pages
+    tabs.forEach(tab => {
+      const isActive = tab.id === tabId;
+      if (tab.webview) {
+        tab.webview.style.display = isActive ? 'flex' : 'none';
+      }
+      if (tab.newtabEl) {
+        tab.newtabEl.style.display = isActive ? 'flex' : 'none';
+      }
+    });
+
+    // Update URL bar and nav buttons
+    const activeTab = tabs.find(t => t.id === tabId);
+    if (activeTab) {
+      urlBar.value = activeTab.url === 'joe://newtab' ? '' : activeTab.url;
+      updateSecurityIcon(activeTab.url);
+      updateNavButtons();
+    }
+  }
+
+  // ===== UI UPDATES =====
+  function updateTabTitle(tabId, title) {
+    const titleEl = document.getElementById('title-' + tabId);
+    if (titleEl) titleEl.textContent = title || 'New Tab';
+  }
+
+  function updateTabFavicon(tabId, faviconUrl, loading) {
+    const faviconEl = document.getElementById('favicon-' + tabId);
+    if (!faviconEl) return;
+
+    if (loading) {
+      faviconEl.className = 'tab-favicon loading';
+      faviconEl.style.backgroundImage = '';
+      faviconEl.innerHTML = '';
+    } else {
+      faviconEl.className = 'tab-favicon';
+      if (faviconUrl) {
+        faviconEl.style.backgroundImage = 'url(' + faviconUrl + ')';
+        faviconEl.style.backgroundSize = 'cover';
+        faviconEl.style.backgroundPosition = 'center';
+      } else {
+        faviconEl.style.backgroundImage = '';
+        // Default icon — first letter
+        const tab = tabs.find(t => t.id === tabId);
+        if (tab && tab.title) {
+          faviconEl.textContent = tab.title.charAt(0).toUpperCase();
+          faviconEl.style.fontSize = '10px';
+          faviconEl.style.display = 'flex';
+          faviconEl.style.alignItems = 'center';
+          faviconEl.style.justifyContent = 'center';
+          faviconEl.style.color = '#9aa0a6';
         }
-      }, 1000);
+      }
+    }
+  }
 
-    })();
-  </script>
+  function updateSecurityIcon(url) {
+    if (!url || url === 'joe://newtab') {
+      securityIcon.innerHTML = '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>';
+      securityIcon.setAttribute('stroke', '#9aa0a6');
+    } else if (url.startsWith('https://')) {
+      securityIcon.innerHTML = '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>';
+      securityIcon.setAttribute('stroke', '#34A853');
+    } else {
+      securityIcon.innerHTML = '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>';
+      securityIcon.setAttribute('stroke', '#ea4335');
+    }
+  }
+
+  function updateNavButtons() {
+    const activeTab = tabs.find(t => t.id === activeTabId);
+    if (!activeTab || !activeTab.webview) {
+      btnBack.disabled = true;
+      btnForward.disabled = true;
+      return;
+    }
+    try {
+      btnBack.disabled = !activeTab.webview.canGoBack();
+      btnForward.disabled = !activeTab.webview.canGoForward();
+    } catch (e) {
+      btnBack.disabled = true;
+      btnForward.disabled = true;
+    }
+  }
+
+  function showLoadingBar() {
+    loadingBar.className = 'active half';
+  }
+
+  function hideLoadingBar() {
+    loadingBar.className = 'done';
+    setTimeout(() => { loadingBar.className = ''; }, 500);
+  }
+
+  // ===== EVENT HANDLERS =====
+  newTabBtn.addEventListener('click', () => createTab('joe://newtab'));
+
+  tabsContainer.addEventListener('click', (e) => {
+    if (e.target.classList.contains('tab-close')) {
+      const tabId = parseInt(e.target.dataset.close);
+      closeTab(tabId);
+    }
+  });
+
+  btnBack.addEventListener('click', () => {
+    const tab = tabs.find(t => t.id === activeTabId);
+    if (tab && tab.webview) {
+      try { tab.webview.goBack(); } catch (e) {}
+    }
+  });
+
+  btnForward.addEventListener('click', () => {
+    const tab = tabs.find(t => t.id === activeTabId);
+    if (tab && tab.webview) {
+      try { tab.webview.goForward(); } catch (e) {}
+    }
+  });
+
+  btnReload.addEventListener('click', () => {
+    const tab = tabs.find(t => t.id === activeTabId);
+    if (tab && tab.webview) {
+      try { tab.webview.reload(); } catch (e) {}
+    }
+  });
+
+  btnHome.addEventListener('click', () => {
+    navigateTab(activeTabId, 'https://www.google.com');
+  });
+
+  urlBar.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      let query = urlBar.value.trim();
+      if (!query) return;
+
+      // Smart URL detection
+      let url;
+      if (query.startsWith('http://') || query.startsWith('https://')) {
+        url = query;
+      } else if (query.includes('.') && !query.includes(' ')) {
+        url = 'https://' + query;
+      } else {
+        url = 'https://www.google.com/search?q=' + encodeURIComponent(query);
+      }
+
+      navigateTab(activeTabId, url);
+      urlBar.blur();
+    }
+  });
+
+  urlBar.addEventListener('focus', () => {
+    urlBar.select();
+  });
+
+  // ===== KEYBOARD SHORTCUTS =====
+  document.addEventListener('keydown', (e) => {
+    // Ctrl+T: New Tab
+    if (e.ctrlKey && e.key === 't') {
+      e.preventDefault();
+      createTab('joe://newtab');
+    }
+    // Ctrl+W: Close Tab
+    if (e.ctrlKey && e.key === 'w') {
+      e.preventDefault();
+      closeTab(activeTabId);
+    }
+    // Ctrl+L: Focus URL bar
+    if (e.ctrlKey && e.key === 'l') {
+      e.preventDefault();
+      urlBar.focus();
+      urlBar.select();
+    }
+    // Ctrl+R or F5: Reload
+    if ((e.ctrlKey && e.key === 'r') || e.key === 'F5') {
+      e.preventDefault();
+      const tab = tabs.find(t => t.id === activeTabId);
+      if (tab && tab.webview) {
+        try { tab.webview.reload(); } catch (err) {}
+      }
+    }
+  });
+
+  // ===== INIT: Create first tab with target URL =====
+  createTab(targetUrl);
+
+})();
+</script>
 </body>
 </html>
