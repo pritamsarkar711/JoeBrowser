@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Joe Browser</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --theme-primary: #4285F4;
+      --theme-accent: #34A853;
+      --bg-dark: #1a1a2e;
+      --bg-chrome: #202124;
+      --bg-input: #35363a;
+      --text-primary: #e8eaed;
+      --text-secondary: #9aa0a6;
+      --border-color: #3c4043;
+      --hover-bg: #3c4043;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-primary);
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- Browser Chrome Bar ---- */
+    .browser-chrome {
+      display: flex;
+      align-items: center;
+      background: var(--bg-chrome);
+      padding: 6px 8px;
+      gap: 4px;
+      border-bottom: 1px solid var(--border-color);
+      -webkit-app-region: drag;
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .browser-badge {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--theme-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: white;
+      flex-shrink: 0;
+      -webkit-app-region: no-drag;
+    }
+
+    .nav-buttons {
+      display: flex;
+      gap: 2px;
+      -webkit-app-region: no-drag;
+    }
+
+    .nav-btn {
+      width: 30px;
+      height: 30px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .nav-btn:hover {
+      background: var(--hover-bg);
+      color: var(--text-primary);
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .url-bar-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      background: var(--bg-input);
+      border-radius: 20px;
+      padding: 0 12px;
+      height: 32px;
+      margin: 0 4px;
+      -webkit-app-region: no-drag;
+      border: 2px solid transparent;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .url-bar-container:focus-within {
+      border-color: var(--theme-primary);
+      background: var(--bg-dark);
+    }
+
+    .url-bar-icon {
+      color: var(--text-secondary);
+      margin-right: 8px;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .url-bar {
+      flex: 1;
+      border: none;
+      background: transparent;
+      color: var(--text-primary);
+      font-size: 13px;
+      outline: none;
+      font-family: inherit;
+    }
+
+    .url-bar::placeholder {
+      color: var(--text-secondary);
+    }
+
+    .profile-badge {
+      padding: 2px 10px;
+      border-radius: 12px;
+      background: var(--theme-primary);
+      color: white;
+      font-size: 11px;
+      font-weight: 600;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex-shrink: 0;
+      -webkit-app-region: no-drag;
+    }
+
+    /* ---- Loading Bar ---- */
+    .loading-bar {
+      height: 2px;
+      background: transparent;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .loading-bar.active {
+      background: linear-gradient(90deg, transparent, var(--theme-primary), transparent);
+      animation: loading 1.5s ease-in-out infinite;
+    }
+
+    @keyframes loading {
+      0% { opacity: 0.3; }
+      50% { opacity: 1; }
+      100% { opacity: 0.3; }
+    }
+
+    /* ---- Webview Container ---- */
+    .webview-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .webview-container webview {
+      width: 100%;
+      height: 100%;
+      display: inline-flex;
+    }
+
+    /* ---- Mobile Frame ---- */
+    .mobile-frame {
+      display: none;
+      width: 100%;
+      height: 100%;
+      justify-content: center;
+      align-items: center;
+      background: var(--bg-dark);
+    }
+
+    .mobile-frame.active {
+      display: flex;
+    }
+
+    .mobile-frame webview {
+      border-radius: 8px;
+      border: 2px solid #333;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+      display: inline-flex;
+    }
+
+    /* ---- Footer ---- */
+    .browser-footer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3px 8px;
+      background: var(--bg-chrome);
+      border-top: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+
+    .browser-footer span {
+      font-size: 10px;
+      color: var(--text-secondary);
+      opacity: 0.7;
+    }
+
+    .browser-footer .heart {
+      color: #e74c3c;
+    }
+
+    /* ---- Error Page ---- */
+    .error-page {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      background: var(--bg-dark);
+      color: var(--text-secondary);
+      gap: 12px;
+    }
+
+    .error-page.active {
+      display: flex;
+    }
+
+    .error-page .error-icon {
+      font-size: 48px;
+      color: var(--theme-primary);
+    }
+
+    .error-page h2 {
+      color: var(--text-primary);
+      font-size: 18px;
+    }
+
+    .error-page p {
+      font-size: 13px;
+      max-width: 400px;
+      text-align: center;
+    }
+
+    .error-page button {
+      padding: 8px 24px;
+      border: none;
+      border-radius: 6px;
+      background: var(--theme-primary);
+      color: white;
+      cursor: pointer;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    .error-page button:hover {
+      filter: brightness(1.1);
+    }
+  </style>
+</head>
+<body>
+  <!-- Browser Chrome Navigation Bar -->
+  <div class="browser-chrome">
+    <div class="browser-badge" id="browserBadge">J</div>
+
+    <div class="nav-buttons">
+      <button class="nav-btn" id="btnBack" title="Back" disabled>&#9664;</button>
+      <button class="nav-btn" id="btnForward" title="Forward" disabled>&#9654;</button>
+      <button class="nav-btn" id="btnRefresh" title="Refresh">&#8635;</button>
+      <button class="nav-btn" id="btnHome" title="Home">&#8962;</button>
+    </div>
+
+    <div class="url-bar-container">
+      <span class="url-bar-icon">&#128274;</span>
+      <input type="text" class="url-bar" id="urlInput" placeholder="Search or enter URL" spellcheck="false" autocomplete="off">
+    </div>
+
+    <div class="profile-badge" id="profileBadge">Profile</div>
+  </div>
+
+  <!-- Loading Indicator -->
+  <div class="loading-bar" id="loadingBar"></div>
+
+  <!-- Desktop Webview Container -->
+  <div class="webview-container" id="desktopContainer">
+    <!-- Webview will be created dynamically -->
+  </div>
+
+  <!-- Mobile Webview Container -->
+  <div class="mobile-frame" id="mobileContainer">
+    <!-- Webview will be created dynamically -->
+  </div>
+
+  <!-- Error Page -->
+  <div class="error-page" id="errorPage">
+    <div class="error-icon">&#9888;</div>
+    <h2>Unable to load page</h2>
+    <p id="errorMessage">The page could not be loaded. Check your internet connection and try again.</p>
+    <button id="btnRetry">Try Again</button>
+  </div>
+
+  <!-- Footer -->
+  <div class="browser-footer">
+    <span>Built with <span class="heart">&#10084;</span> by Joe Goldberg</span>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      // ---- Parse URL parameters ----
+      const params = new URLSearchParams(window.location.search);
+      const targetUrl = params.get('url') || 'https://iphey.com';
+      const profileId = params.get('profile') || '';
+      const profileName = decodeURIComponent(params.get('profileName') || 'Profile');
+      const browserType = params.get('browserType') || 'chrome';
+      const deviceType = params.get('deviceType') || 'desktop';
+      const themePrimary = params.get('themePrimary') || '#4285F4';
+      const themeAccent = params.get('themeAccent') || '#34A853';
+      const isMobile = params.get('isMobile') === 'true';
+      const mobileWidth = parseInt(params.get('mobileWidth') || '390');
+      const mobileHeight = parseInt(params.get('mobileHeight') || '844');
+      const partitionName = 'persist:joe-' + profileId;
+      const preloadPath = params.get('preloadPath') || '';
+
+      // ---- Apply theme ----
+      document.documentElement.style.setProperty('--theme-primary', themePrimary);
+      document.documentElement.style.setProperty('--theme-accent', themeAccent);
+
+      // ---- Set browser badge ----
+      const badgeLetters = {
+        chrome: 'C',
+        brave: 'B',
+        firefox: 'F',
+        edge: 'E',
+        chromium: 'C'
+      };
+      document.getElementById('browserBadge').textContent = badgeLetters[browserType] || 'J';
+      document.getElementById('browserBadge').style.background = themePrimary;
+
+      // ---- Set profile badge ----
+      const profileBadge = document.getElementById('profileBadge');
+      profileBadge.textContent = profileName;
+      profileBadge.style.background = themePrimary;
+
+      // ---- Set URL input ----
+      const urlInput = document.getElementById('urlInput');
+      urlInput.value = targetUrl;
+
+      // ---- Create webview dynamically (critical fix for blank screen) ----
+      // Creating webview dynamically ensures proper partition and event binding
+      const desktopContainer = document.getElementById('desktopContainer');
+      const mobileContainer = document.getElementById('mobileContainer');
+
+      const webview = document.createElement('webview');
+      webview.setAttribute('partition', partitionName);
+      // Set the preload script for stealth injection (runs before page JS)
+      if (preloadPath) {
+        webview.setAttribute('preload', preloadPath);
+      }
+      // Do NOT set allowpopups - this prevents popup windows
+      // All new windows will be handled by the 'new-window' event
+
+      let activeContainer;
+
+      if (isMobile) {
+        // Mobile mode
+        desktopContainer.style.display = 'none';
+        mobileContainer.classList.add('active');
+        webview.style.width = mobileWidth + 'px';
+        webview.style.height = mobileHeight + 'px';
+        mobileContainer.appendChild(webview);
+        activeContainer = mobileContainer;
+      } else {
+        // Desktop mode
+        desktopContainer.appendChild(webview);
+        activeContainer = desktopContainer;
+      }
+
+      // ---- Navigation functions ----
+      const btnBack = document.getElementById('btnBack');
+      const btnForward = document.getElementById('btnForward');
+      const btnRefresh = document.getElementById('btnRefresh');
+      const btnHome = document.getElementById('btnHome');
+      const loadingBar = document.getElementById('loadingBar');
+      const errorPage = document.getElementById('errorPage');
+      const errorMessage = document.getElementById('errorMessage');
+      const btnRetry = document.getElementById('btnRetry');
+
+      // Navigate to URL
+      function navigateTo(url) {
+        if (!url) return;
+
+        // Add https:// if no protocol
+        if (!url.match(/^https?:\/\//i) && !url.startsWith('file://')) {
+          if (url.includes('.') && !url.includes(' ')) {
+            url = 'https://' + url;
+          } else {
+            url = 'https://www.google.com/search?q=' + encodeURIComponent(url);
+          }
+        }
+
+        urlInput.value = url;
+        hideError();
+        webview.loadURL(url);
+      }
+
+      // URL input handler
+      urlInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          navigateTo(urlInput.value.trim());
+          urlInput.blur();
+        }
+      });
+
+      // Focus URL input - select all text
+      urlInput.addEventListener('focus', function() {
+        this.select();
+      });
+
+      // Navigation buttons
+      btnBack.addEventListener('click', function() {
+        if (webview.canGoBack()) webview.goBack();
+      });
+
+      btnForward.addEventListener('click', function() {
+        if (webview.canGoForward()) webview.goForward();
+      });
+
+      btnRefresh.addEventListener('click', function() {
+        if (webview.getURL()) {
+          webview.reload();
+        }
+      });
+
+      btnHome.addEventListener('click', function() {
+        navigateTo('https://iphey.com');
+      });
+
+      btnRetry.addEventListener('click', function() {
+        navigateTo(urlInput.value);
+      });
+
+      // ---- Webview events ----
+      webview.addEventListener('did-start-loading', function() {
+        loadingBar.classList.add('active');
+      });
+
+      webview.addEventListener('did-stop-loading', function() {
+        loadingBar.classList.remove('active');
+        updateNavButtons();
+      });
+
+      webview.addEventListener('did-navigate', function(e) {
+        urlInput.value = e.url;
+        updateNavButtons();
+      });
+
+      webview.addEventListener('did-navigate-in-page', function(e) {
+        if (e.url) urlInput.value = e.url;
+        updateNavButtons();
+      });
+
+      webview.addEventListener('did-redirect-navigation', function(e) {
+        urlInput.value = e.url;
+      });
+
+      webview.addEventListener('page-title-updated', function(e) {
+        document.title = e.title + ' - Joe Browser';
+      });
+
+      webview.addEventListener('did-fail-load', function(e) {
+        if (e.errorCode !== -3 && e.errorCode !== 0) {
+          loadingBar.classList.remove('active');
+          showError('Failed to load: ' + e.errorDescription + ' (Error ' + e.errorCode + ')');
+        }
+      });
+
+      // Handle new window requests - navigate in the SAME webview (not popup!)
+      webview.addEventListener('new-window', function(e) {
+        e.preventDefault();
+        // Open the new URL in the same webview instead of a popup window
+        navigateTo(e.url);
+      });
+
+      // Update URL bar icon based on security
+      function updateUrlIcon() {
+        const icon = document.querySelector('.url-bar-icon');
+        const url = urlInput.value;
+        if (url.startsWith('https://')) {
+          icon.textContent = '\uD83D\uDD12'; // lock emoji
+          icon.style.color = '#34A853';
+        } else if (url.startsWith('http://')) {
+          icon.textContent = '\u26A0'; // warning
+          icon.style.color = '#FBBC04';
+        } else {
+          icon.textContent = '\uD83D\uDD11'; // key
+          icon.style.color = '#9aa0a6';
+        }
+      }
+
+      function updateNavButtons() {
+        btnBack.disabled = !webview.canGoBack();
+        btnForward.disabled = !webview.canGoForward();
+        updateUrlIcon();
+      }
+
+      function showError(msg) {
+        errorMessage.textContent = msg;
+        errorPage.classList.add('active');
+        activeContainer.style.display = 'none';
+      }
+
+      function hideError() {
+        errorPage.classList.remove('active');
+        if (isMobile) {
+          activeContainer.style.display = '';
+          activeContainer.classList.add('active');
+        } else {
+          activeContainer.style.display = '';
+        }
+      }
+
+      // ---- Load the initial URL after webview is ready ----
+      webview.addEventListener('dom-ready', function() {
+        updateNavButtons();
+      });
+
+      // Use loadURL instead of src attribute for reliable loading
+      webview.loadURL(targetUrl);
+    })();
+  </script>
+</body>
+</html>

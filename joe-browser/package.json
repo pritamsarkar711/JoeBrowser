@@ -1,0 +1,45 @@
+{
+  "name": "joe-browser",
+  "version": "8.0.0",
+  "description": "Anti-Detect Browser - Joe Browser",
+  "main": "./out/main/index.js",
+  "author": "Joe Goldberg",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "distwin": "npm run build && electron-builder --win",
+    "distmac": "npm run build && electron-builder --mac",
+    "distlinux": "npm run build && electron-builder --linux"
+  },
+  "dependencies": {
+    "@electron/remote": "^2.1.2",
+    "better-sqlite3": "^11.7.0",
+    "electron-store": "^10.0.0",
+    "electron-updater": "^6.3.9",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.1",
+    "@electron-toolkit/utils": "^3.0.0",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "eslint": "^9.15.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.7.2",
+    "@mui/material": "^6.3.0",
+    "@mui/icons-material": "^6.3.0",
+    "@emotion/react": "^11.13.5",
+    "@emotion/styled": "^11.13.5",
+    "notistack": "^3.0.1"
+  }
+}
