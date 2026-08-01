@@ -80,7 +80,7 @@ function createTray(): void {
   try {
     const icon = nativeImage.createFromPath(appIconPath()).resize({ width: 16, height: 16 })
     tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon)
-    tray.setToolTip('StealthBrowser')
+    tray.setToolTip('JoeBrowser')
     tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: 'Show StealthBrowser', click: () => { mainWindow?.show(); mainWindow?.focus() } },
