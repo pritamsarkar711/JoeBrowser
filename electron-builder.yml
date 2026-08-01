@@ -32,6 +32,8 @@ extraResources:
     to: extension
   - from: build/icon.png
     to: icon.png
+  - from: src/main/assets/browser-chrome.html
+    to: browser-chrome.html
 
 win:
   icon: build/icon.png

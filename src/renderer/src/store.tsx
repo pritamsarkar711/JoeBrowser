@@ -43,6 +43,7 @@ interface AppActions {
   updateProfile: (id: string, patch: Partial<ProfileData>) => Promise<ProfileData>
   duplicateProfile: (id: string) => Promise<void>
   deleteProfile: (id: string) => Promise<void>
+  exportProfile: (id: string, password: string) => Promise<string>
   launchProfile: (id: string, opts: LaunchOptions) => Promise<void>
   closeProfile: (id: string) => Promise<void>
   updateSettings: (patch: Partial<AppSettings>) => Promise<AppSettings>
@@ -200,11 +201,16 @@ export function AppProvider({ children }: { children: React.ReactNode }): React.
     await refreshProfiles()
   }, [refreshProfiles])
 
+  const exportProfile = useCallback(async (id: string, password: string): Promise<string> => {
+    return await window.stealth.exportProfile(id, password)
+  }, [])
+
   const launchProfile = useCallback(async (id: string, opts: LaunchOptions) => {
-    // Optimistic UI: show running immediately
+    // Optimistic UI: show running immediately with correct browser type
+    const profile = profiles.find((p) => p.id === id)
     setRunning((prev) => ({
       ...prev,
-      [id]: { profileId: id, pid: 0, browserType: 'chrome', startedAt: Date.now(), userDataDir: '' } as RunningSession
+      [id]: { profileId: id, pid: 0, browserType: profile?.browserType ?? 'chrome', startedAt: Date.now(), userDataDir: '' } as RunningSession
     }))
     try {
       await window.stealth.launch(id, opts)
@@ -235,12 +241,12 @@ export function AppProvider({ children }: { children: React.ReactNode }): React.
     () => ({
       booted, init, settings, profiles, running, selectedId, toasts, busy,
       setMasterPassword, unlock, lock, refreshProfiles, selectProfile: setSelectedId,
-      createProfile, updateProfile, duplicateProfile, deleteProfile,
+      createProfile, updateProfile, duplicateProfile, deleteProfile, exportProfile,
       launchProfile, closeProfile, updateSettings, toast, dismissToast, setBusy
     }),
     [booted, init, settings, profiles, running, selectedId, toasts, busy,
       setMasterPassword, unlock, lock, refreshProfiles, createProfile, updateProfile,
-      duplicateProfile, deleteProfile, launchProfile, closeProfile, updateSettings,
+      duplicateProfile, deleteProfile, exportProfile, launchProfile, closeProfile, updateSettings,
       toast, dismissToast]
   )
 

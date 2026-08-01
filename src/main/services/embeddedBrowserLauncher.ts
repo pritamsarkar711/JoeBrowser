@@ -1,15 +1,15 @@
 /**
- * Embedded browser launcher — opens profiles INSIDE the app.
+ * Embedded browser launcher — opens profiles INSIDE the app with a full
+ * browser chrome (address bar, navigation, back/forward/refresh).
  *
- * Uses Electron's BrowserWindow with a unique session partition per profile
- * so cookies, localStorage, IndexedDB, cache and extensions are completely
- * separate — multi-accounting safe by construction.
+ * Uses Electron's BrowserWindow + webview tag inside a custom HTML page.
+ * Each profile gets a unique session partition for isolation.
  *
- * This is how AdsPower and GoLogin work: the browser is embedded within
- * the application, not launched as an external process.
+ * The stealth injection runs BEFORE any page JS via session.setPreloads(),
+ * which eliminates the race condition that existed with executeJavaScript().
  */
-import { BrowserWindow } from 'electron'
-import { existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { BrowserWindow, session, app } from 'electron'
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import type { BrowserStatusEvent, LaunchOptions, ProfileData, RunningSession } from '@shared/types'
 import { buildExtensionConfig, type ExtensionConfig } from './extensionBuilder'
@@ -68,284 +68,317 @@ export function isRunning(profileId: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Stealth injection script builder
+// Stealth preload script builder — runs BEFORE any page JavaScript
 // ---------------------------------------------------------------------------
 
-function buildStealthInjectionScript(config: ExtensionConfig): string {
-  // This script runs in the MAIN world of every page loaded in the browser window.
-  // It overrides navigator properties, screen, WebGL, canvas, audio, etc.
+function buildStealthPreloadScript(config: ExtensionConfig): string {
   const json = JSON.stringify(config)
     .replace(/</g, '\\u003c')
     .replace(/\u2028/g, '\\u2028')
     .replace(/\u2029/g, '\\u2029')
 
   return `
-    (function() {
-      'use strict';
-      var CFG = ${json};
-      if (!CFG || typeof CFG !== 'object') return;
-      var ENABLED = typeof CFG.userAgent === 'string' && CFG.userAgent.length > 0;
-      if (!ENABLED) return;
+    'use strict';
+    // This preload runs in the ISOLATED world before any page JS.
+    // It overrides navigator, screen, WebGL, canvas, audio, etc.
+    const CFG = ${json};
+    if (!CFG || typeof CFG !== 'object') return;
+    const ENABLED = typeof CFG.userAgent === 'string' && CFG.userAgent.length > 0;
+    if (!ENABLED) return;
 
-      // Seeded RNG
-      function mulberry32(seed) {
-        var a = seed >>> 0;
-        return function() {
-          a |= 0;
-          a = (a + 0x6d2b79f5) | 0;
-          var t = Math.imul(a ^ (a >>> 15), 1 | a);
-          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-        };
-      }
+    // Seeded RNG
+    function mulberry32(seed) {
+      let a = seed >>> 0;
+      return function() {
+        a |= 0;
+        a = (a + 0x6d2b79f5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
 
-      // Make fn.toString() look native
-      function makeNative(fn, name) {
-        var str = 'function ' + name + '() { [native code] }';
-        fn.toString = function() { return str; };
-        fn.toLocaleString = function() { return str; };
-        return fn;
-      }
+    // Make fn.toString() look native
+    function makeNative(fn, name) {
+      const str = 'function ' + name + '() { [native code] }';
+      fn.toString = function() { return str; };
+      fn.toLocaleString = function() { return str; };
+      return fn;
+    }
 
-      // Override a property on an object
-      function override(obj, prop, getter, setter) {
-        try {
-          Object.defineProperty(obj, prop, {
-            get: makeNative(getter, 'get ' + prop),
-            set: setter ? makeNative(setter, 'set ' + prop) : undefined,
-            configurable: true,
-            enumerable: true
-          });
-        } catch(e) {}
-      }
+    // Override a property on an object
+    function override(obj, prop, getter, setter) {
+      try {
+        Object.defineProperty(obj, prop, {
+          get: makeNative(getter, 'get ' + prop),
+          set: setter ? makeNative(setter, 'set ' + prop) : undefined,
+          configurable: true,
+          enumerable: true
+        });
+      } catch(e) {}
+    }
 
-      // User-Agent
-      if (CFG.userAgent) {
-        override(Navigator.prototype, 'userAgent', function() { return CFG.userAgent; });
-        override(Navigator.prototype, 'appVersion', function() { return CFG.userAgent.substring(CFG.userAgent.indexOf('/') + 1); });
-      }
+    // User-Agent
+    if (CFG.userAgent) {
+      override(Navigator.prototype, 'userAgent', function() { return CFG.userAgent; });
+      override(Navigator.prototype, 'appVersion', function() { return CFG.userAgent.substring(CFG.userAgent.indexOf('/') + 1); });
+    }
 
-      // Platform
-      if (CFG.platform) {
-        override(Navigator.prototype, 'platform', function() { return CFG.platform; });
-      }
+    // Platform
+    if (CFG.platform) {
+      override(Navigator.prototype, 'platform', function() { return CFG.platform; });
+    }
 
-      // oscpu (Firefox)
-      if (CFG.oscpu) {
-        override(Navigator.prototype, 'oscpu', function() { return CFG.oscpu; });
-      }
+    // oscpu (Firefox)
+    if (CFG.oscpu) {
+      override(Navigator.prototype, 'oscpu', function() { return CFG.oscpu; });
+    }
 
-      // Language
-      if (CFG.language) {
-        override(Navigator.prototype, 'language', function() { return CFG.language; });
-      }
-      if (CFG.languages && CFG.languages.length) {
-        override(Navigator.prototype, 'languages', function() { return CFG.languages.slice(); });
-      }
+    // Language
+    if (CFG.language) {
+      override(Navigator.prototype, 'language', function() { return CFG.language; });
+    }
+    if (CFG.languages && CFG.languages.length) {
+      override(Navigator.prototype, 'languages', function() { return CFG.languages.slice(); });
+    }
 
-      // Hardware
-      if (CFG.hardwareConcurrency) {
-        override(Navigator.prototype, 'hardwareConcurrency', function() { return CFG.hardwareConcurrency; });
-      }
-      if (CFG.deviceMemory) {
-        override(Navigator.prototype, 'deviceMemory', function() { return CFG.deviceMemory; });
-      }
-      if (CFG.maxTouchPoints !== undefined) {
-        override(Navigator.prototype, 'maxTouchPoints', function() { return CFG.maxTouchPoints; });
-      }
+    // Hardware
+    if (CFG.hardwareConcurrency) {
+      override(Navigator.prototype, 'hardwareConcurrency', function() { return CFG.hardwareConcurrency; });
+    }
+    if (CFG.deviceMemory) {
+      override(Navigator.prototype, 'deviceMemory', function() { return CFG.deviceMemory; });
+    }
+    if (CFG.maxTouchPoints !== undefined) {
+      override(Navigator.prototype, 'maxTouchPoints', function() { return CFG.maxTouchPoints; });
+    }
 
-      // Connection
-      if (CFG.connectionDownlink && navigator.connection) {
-        try {
-          override(navigator.connection, 'downlink', function() { return CFG.connectionDownlink; });
-          override(navigator.connection, 'effectiveType', function() { return CFG.connectionEffectiveType; });
-          override(navigator.connection, 'rtt', function() { return CFG.connectionRtt; });
-        } catch(e) {}
+    // Connection
+    if (CFG.connectionDownlink && navigator.connection) {
+      try {
+        override(navigator.connection, 'downlink', function() { return CFG.connectionDownlink; });
+        override(navigator.connection, 'effectiveType', function() { return CFG.connectionEffectiveType; });
+        override(navigator.connection, 'rtt', function() { return CFG.connectionRtt; });
+      } catch(e) {}
+    }
+
+    // Do Not Track
+    if (CFG.doNotTrack !== undefined && CFG.doNotTrack !== null) {
+      override(Navigator.prototype, 'doNotTrack', function() { return CFG.doNotTrack; });
+    }
+
+    // webdriver
+    override(Navigator.prototype, 'webdriver', function() { return false; });
+
+    // Screen
+    if (CFG.screen) {
+      const s = CFG.screen;
+      override(Screen.prototype, 'width', function() { return s.width; });
+      override(Screen.prototype, 'height', function() { return s.height; });
+      override(Screen.prototype, 'availWidth', function() { return s.availWidth; });
+      override(Screen.prototype, 'availHeight', function() { return s.availHeight; });
+      override(Screen.prototype, 'colorDepth', function() { return s.colorDepth; });
+      override(Screen.prototype, 'pixelDepth', function() { return s.pixelDepth; });
+      if (s.dpr) {
+        override(window, 'devicePixelRatio', function() { return s.dpr; });
       }
+    }
 
-      // Do Not Track
-      if (CFG.doNotTrack !== undefined && CFG.doNotTrack !== null) {
-        override(Navigator.prototype, 'doNotTrack', function() { return CFG.doNotTrack; });
-      }
+    // Timezone
+    if (CFG.timezone) {
+      try {
+        const origDateTimeFormat = Intl.DateTimeFormat;
+        const tzOverride = CFG.timezone;
+        override(origDateTimeFormat.prototype, 'resolvedOptions', function() {
+          const opts = origDateTimeFormat.prototype.resolvedOptions.call(this);
+          opts.timeZone = tzOverride;
+          return opts;
+        });
+      } catch(e) {}
+    }
 
-      // webdriver
-      override(Navigator.prototype, 'webdriver', function() { return false; });
-
-      // Screen
-      if (CFG.screen) {
-        var s = CFG.screen;
-        override(Screen.prototype, 'width', function() { return s.width; });
-        override(Screen.prototype, 'height', function() { return s.height; });
-        override(Screen.prototype, 'availWidth', function() { return s.availWidth; });
-        override(Screen.prototype, 'availHeight', function() { return s.availHeight; });
-        override(Screen.prototype, 'colorDepth', function() { return s.colorDepth; });
-        override(Screen.prototype, 'pixelDepth', function() { return s.pixelDepth; });
-        if (s.dpr) {
-          override(window, 'devicePixelRatio', function() { return s.dpr; });
-        }
-      }
-
-      // Timezone
-      if (CFG.timezone) {
-        try {
-          var origDateTimeFormat = Intl.DateTimeFormat;
-          var tzOverride = CFG.timezone;
-          override(origDateTimeFormat.prototype, 'resolvedOptions', function() {
-            var opts = origDateTimeFormat.prototype.resolvedOptions.call(this);
-            opts.timeZone = tzOverride;
-            return opts;
-          });
-        } catch(e) {}
-      }
-
-      // WebGL
-      if (CFG.webglVendor || CFG.webglRenderer) {
-        var origGetParam = WebGLRenderingContext.prototype.getParameter;
-        WebGLRenderingContext.prototype.getParameter = makeNative(function(param) {
-          if (param === 0x1F00) return CFG.webglVendor; // UNMASKED_VENDOR_WEBGL
-          if (param === 0x1F01) return CFG.webglRenderer; // UNMASKED_RENDERER_WEBGL
-          return origGetParam.call(this, param);
+    // WebGL
+    if (CFG.webglVendor || CFG.webglRenderer) {
+      const origGetParam = WebGLRenderingContext.prototype.getParameter;
+      WebGLRenderingContext.prototype.getParameter = makeNative(function(param) {
+        if (param === 0x1F00) return CFG.webglVendor;
+        if (param === 0x1F01) return CFG.webglRenderer;
+        return origGetParam.call(this, param);
+      }, 'getParameter');
+      if (typeof WebGL2RenderingContext !== 'undefined') {
+        const origGetParam2 = WebGL2RenderingContext.prototype.getParameter;
+        WebGL2RenderingContext.prototype.getParameter = makeNative(function(param) {
+          if (param === 0x1F00) return CFG.webglVendor;
+          if (param === 0x1F01) return CFG.webglRenderer;
+          return origGetParam2.call(this, param);
         }, 'getParameter');
-        if (typeof WebGL2RenderingContext !== 'undefined') {
-          var origGetParam2 = WebGL2RenderingContext.prototype.getParameter;
-          WebGL2RenderingContext.prototype.getParameter = makeNative(function(param) {
-            if (param === 0x1F00) return CFG.webglVendor;
-            if (param === 0x1F01) return CFG.webglRenderer;
-            return origGetParam2.call(this, param);
-          }, 'getParameter');
+      }
+    }
+
+    // Canvas noise
+    if (CFG.canvasNoiseEnabled) {
+      const canvasRng = mulberry32(CFG.canvasNoiseSeed || 1);
+      const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+      HTMLCanvasElement.prototype.toDataURL = makeNative(function() {
+        const ctx = this.getContext('2d');
+        if (ctx && this.width > 0 && this.height > 0) {
+          try {
+            const imgData = ctx.getImageData(0, 0, Math.min(this.width, 2), Math.min(this.height, 2));
+            for (let i = 0; i < imgData.data.length; i += 4) {
+              imgData.data[i] = Math.min(255, Math.max(0, imgData.data[i] + Math.floor(canvasRng() * 3 - 1)));
+            }
+            ctx.putImageData(imgData, 0, 0);
+          } catch(e) {}
         }
-      }
+        return origToDataURL.apply(this, arguments);
+      }, 'toDataURL');
+    }
 
-      // Canvas noise
-      if (CFG.canvasNoiseEnabled) {
-        var canvasRng = mulberry32(CFG.canvasNoiseSeed || 1);
-        var origToDataURL = HTMLCanvasElement.prototype.toDataURL;
-        HTMLCanvasElement.prototype.toDataURL = makeNative(function() {
-          var ctx = this.getContext('2d');
-          if (ctx && this.width > 0 && this.height > 0) {
-            try {
-              var imgData = ctx.getImageData(0, 0, Math.min(this.width, 2), Math.min(this.height, 2));
-              for (var i = 0; i < imgData.data.length; i += 4) {
-                imgData.data[i] = Math.min(255, Math.max(0, imgData.data[i] + Math.floor(canvasRng() * 3 - 1)));
-              }
-              ctx.putImageData(imgData, 0, 0);
-            } catch(e) {}
-          }
-          return origToDataURL.apply(this, arguments);
-        }, 'toDataURL');
-      }
-
-      // Audio noise
-      if (CFG.audioNoiseEnabled) {
-        var audioRng = mulberry32(CFG.audioNoiseSeed || 1);
-        var origCreateOscillator = AudioContext.prototype.createOscillator;
-        AudioContext.prototype.createOscillator = makeNative(function() {
-          var osc = origCreateOscillator.call(this);
-          var origGetFreq = Object.getOwnPropertyDescriptor(OscillatorNode.prototype, 'frequency');
-          if (origGetFreq && origGetFreq.get) {
-            // Add subtle noise to frequency
-          }
-          return osc;
-        }, 'createOscillator');
-      }
-
-      // WebRTC leak protection
-      if (CFG.webRTCLeakProtect) {
-        try {
-          var origRTCPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
-          if (origRTCPeerConnection) {
-            window.RTCPeerConnection = makeNative(function(config, constraints) {
-              if (config && config.iceServers) {
-                config.iceServers = config.iceServers.filter(function(s) {
-                  return !s.urls || s.urls.indexOf('stun:') === -1;
-                });
-              }
-              return new origRTCPeerConnection(config, constraints);
-            }, 'RTCPeerConnection');
-            window.webkitRTCPeerConnection = window.RTCPeerConnection;
-          }
-        } catch(e) {}
-      }
-
-      // Permissions
-      if (CFG.permissionsPolicy) {
-        var origQuery = Permissions.prototype.query;
-        Permissions.prototype.query = makeNative(function(desc) {
-          var override = CFG.permissionsPolicy[desc.name];
-          if (override) {
-            return Promise.resolve({ state: override, onchange: null });
-          }
-          return origQuery.call(this, desc);
-        }, 'query');
-      }
-
-      // Geolocation
-      if (CFG.geolocation && CFG.geolocation.mode === 'block') {
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition = makeNative(function(success, error) {
-            if (error) error({ code: 1, message: 'User denied Geolocation' });
-          }, 'getCurrentPosition');
-          navigator.geolocation.watchPosition = makeNative(function(success, error) {
-            if (error) error({ code: 1, message: 'User denied Geolocation' });
-            return 0;
-          }, 'watchPosition');
+    // Audio noise — real noise injection
+    if (CFG.audioNoiseEnabled) {
+      const audioRng = mulberry32(CFG.audioNoiseSeed || 1);
+      const origGetFloatFreqData = AnalyserNode.prototype.getFloatFrequencyData;
+      AnalyserNode.prototype.getFloatFrequencyData = makeNative(function(array) {
+        origGetFloatFreqData.call(this, array);
+        for (let i = 0; i < array.length; i++) {
+          array[i] += (audioRng() - 0.5) * 0.01;
         }
-      } else if (CFG.geolocation && CFG.geolocation.mode === 'spoof') {
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition = makeNative(function(success) {
-            if (success) success({ coords: { latitude: CFG.geolocation.latitude, longitude: CFG.geolocation.longitude, accuracy: 100 }, timestamp: Date.now() });
-          }, 'getCurrentPosition');
-          navigator.geolocation.watchPosition = makeNative(function(success) {
-            if (success) success({ coords: { latitude: CFG.geolocation.latitude, longitude: CFG.geolocation.longitude, accuracy: 100 }, timestamp: Date.now() });
-            return 0;
-          }, 'watchPosition');
+      }, 'getFloatFrequencyData');
+      const origGetByteFreqData = AnalyserNode.prototype.getByteFrequencyData;
+      AnalyserNode.prototype.getByteFrequencyData = makeNative(function(array) {
+        origGetByteFreqData.call(this, array);
+        for (let i = 0; i < array.length; i++) {
+          array[i] = Math.min(255, Math.max(0, array[i] + Math.floor(audioRng() * 2 - 1)));
         }
+      }, 'getByteFrequencyData');
+    }
+
+    // WebRTC leak protection
+    if (CFG.webRTCLeakProtect) {
+      try {
+        const origRTCPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
+        if (origRTCPeerConnection) {
+          window.RTCPeerConnection = makeNative(function(config, constraints) {
+            if (config && config.iceServers) {
+              config.iceServers = config.iceServers.filter(function(s) {
+                return !s.urls || s.urls.indexOf('stun:') === -1;
+              });
+            }
+            return new origRTCPeerConnection(config, constraints);
+          }, 'RTCPeerConnection');
+          window.webkitRTCPeerConnection = window.RTCPeerConnection;
+        }
+      } catch(e) {}
+    }
+
+    // Permissions
+    if (CFG.permissionsPolicy) {
+      const origQuery = Permissions.prototype.query;
+      Permissions.prototype.query = makeNative(function(desc) {
+        const ov = CFG.permissionsPolicy[desc.name];
+        if (ov) {
+          return Promise.resolve({ state: ov, onchange: null });
+        }
+        return origQuery.call(this, desc);
+      }, 'query');
+    }
+
+    // Geolocation
+    if (CFG.geolocation && CFG.geolocation.mode === 'block') {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition = makeNative(function(success, error) {
+          if (error) error({ code: 1, message: 'User denied Geolocation' });
+        }, 'getCurrentPosition');
+        navigator.geolocation.watchPosition = makeNative(function(success, error) {
+          if (error) error({ code: 1, message: 'User denied Geolocation' });
+          return 0;
+        }, 'watchPosition');
       }
-
-      // window.chrome
-      if (CFG.windowChromeSpoof && !window.chrome) {
-        window.chrome = { runtime: {}, loadTimes: function(){}, csi: function(){} };
+    } else if (CFG.geolocation && CFG.geolocation.mode === 'spoof') {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition = makeNative(function(success) {
+          if (success) success({ coords: { latitude: CFG.geolocation.latitude, longitude: CFG.geolocation.longitude, accuracy: 100 }, timestamp: Date.now() });
+        }, 'getCurrentPosition');
+        navigator.geolocation.watchPosition = makeNative(function(success) {
+          if (success) success({ coords: { latitude: CFG.geolocation.latitude, longitude: CFG.geolocation.longitude, accuracy: 100 }, timestamp: Date.now() });
+          return 0;
+        }, 'watchPosition');
       }
+    }
 
-      // Plugins spoof
-      if (CFG.pluginsSpoof) {
-        override(Navigator.prototype, 'plugins', function() {
-          return {
-            length: 3,
-            item: function(i) { return [null,null,null][i]; },
-            namedItem: function() { return null; },
-            refresh: function() {},
-            0: null, 1: null, 2: null
-          };
-        });
-        override(Navigator.prototype, 'mimeTypes', function() {
-          return { length: 0, item: function(){}, namedItem: function(){} };
-        });
-      }
+    // window.chrome
+    if (CFG.windowChromeSpoof && !window.chrome) {
+      window.chrome = { runtime: {}, loadTimes: function(){}, csi: function(){} };
+    }
 
-      // Font fingerprint protection
-      if (CFG.fontFingerprintProtection && CFG.fonts && CFG.fonts.length) {
-        // This is handled via the extension's CSS/font loading overrides
-      }
+    // Plugins spoof
+    if (CFG.pluginsSpoof) {
+      override(Navigator.prototype, 'plugins', function() {
+        return {
+          length: 3,
+          item: function(i) { return [null,null,null][i]; },
+          namedItem: function() { return null; },
+          refresh: function() {},
+          0: null, 1: null, 2: null
+        };
+      });
+      override(Navigator.prototype, 'mimeTypes', function() {
+        return { length: 0, item: function(){}, namedItem: function(){} };
+      });
+    }
 
-      // Remove automation indicators
-      delete navigator.__proto__.webdriver;
+    // Remove automation indicators
+    try { delete navigator.__proto__.webdriver; } catch(e) {}
 
-      console.log('[JoeBrowser] Stealth fingerprint injected: ' + CFG.userAgent.substring(0, 60) + '...');
-    })();
+    console.log('[JoeBrowser] Stealth fingerprint injected (preload): ' + CFG.userAgent.substring(0, 60) + '...');
   `
+}
+
+// ---------------------------------------------------------------------------
+// Write stealth preload to temp file for session.setPreloads()
+// ---------------------------------------------------------------------------
+
+function writeStealthPreload(profileId: string, script: string): string {
+  const dir = join(app.getPath('temp'), 'joebrowser-preloads')
+  mkdirSync(dir, { recursive: true })
+  const filePath = join(dir, `stealth-${profileId}.js`)
+  writeFileSync(filePath, script, 'utf-8')
+  return filePath
+}
+
+function cleanupStealthPreload(profileId: string): void {
+  try {
+    const dir = join(app.getPath('temp'), 'joebrowser-preloads')
+    const filePath = join(dir, `stealth-${profileId}.js`)
+    if (existsSync(filePath)) unlinkSync(filePath)
+  } catch {
+    /* ignore cleanup errors */
+  }
+}
+
+// ---------------------------------------------------------------------------
+// App icon path
+// ---------------------------------------------------------------------------
+
+function appIconPath(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, 'icon.png')
+    : join(__dirname, '../../build/icon.png')
+}
+
+// ---------------------------------------------------------------------------
+// Browser chrome HTML path
+// ---------------------------------------------------------------------------
+
+function browserChromePath(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, 'browser-chrome.html')
+    : join(__dirname, '../assets/browser-chrome.html')
 }
 
 // ---------------------------------------------------------------------------
 // Launch
 // ---------------------------------------------------------------------------
-
-function appIconPath(): string {
-  const { app } = require('electron')
-  return app.isPackaged
-    ? join(process.resourcesPath, 'icon.png')
-    : join(__dirname, '../../build/icon.png')
-}
 
 export async function launchProfile(
   profile: ProfileData,
@@ -357,7 +390,7 @@ export async function launchProfile(
 
   emitStatus({ profileId: profile.id, status: 'starting' })
 
-  // 1. Target URL
+  // 1. Target URL — default to iphey.com for fingerprint check
   let targetUrl = opts.url ?? ''
   if (opts.fingerprintTest) {
     const server = await startTestPageServer()
@@ -366,7 +399,7 @@ export async function launchProfile(
     targetUrl = profile.launchUrl
   }
   if (!targetUrl) {
-    targetUrl = 'https://www.google.com'
+    targetUrl = 'https://iphey.com'
   }
 
   // 2. Proxy
@@ -394,16 +427,64 @@ export async function launchProfile(
   const userDataDir = profile.userDataDirOverride || paths.profileUserDataDir(profile.id)
   mkdirSync(userDataDir, { recursive: true })
 
-  // 4. Build stealth config
+  // 4. Build stealth config and write preload script
   const config = buildExtensionConfig(profile)
+  const stealthScript = buildStealthPreloadScript(config)
+  const stealthPreloadPath = writeStealthPreload(profile.id, stealthScript)
 
-  // 5. Create the embedded browser window
+  // 5. Set up session with preloads, proxy, UA, and extensions
+  const ses = session.fromPartition(partition)
+  
+  // Clear any previous preloads and set the stealth preload
+  ses.setPreloads([stealthPreloadPath])
+
+  // Set proxy
+  if (profile.proxy.enabled && pacUrl) {
+    await ses.setProxy({ pacScript: pacUrl })
+  } else if (profile.proxy.enabled && proxy) {
+    await ses.setProxy({ proxyRules: proxy.proxyServer })
+  } else {
+    await ses.setProxy({ proxyRules: 'direct://' })
+  }
+
+  // Set User-Agent
   const fp = profile.fingerprint
-  const isMobile = (fp.screenWidth ?? 0) < 800
-  const windowWidth = isMobile ? Math.min(fp.screenWidth + 40, 480) : Math.min(fp.screenWidth ?? 1280, 1400)
-  const windowHeight = isMobile ? Math.min(fp.screenHeight + 80, 900) : Math.min(fp.screenHeight ?? 800, 900)
+  if (fp.userAgent) {
+    ses.setUserAgent(fp.userAgent)
+  }
 
-  const stealthScript = buildStealthInjectionScript(config)
+  // Load extensions
+  if (profile.customExtensions && profile.customExtensions.length > 0) {
+    for (const extPath of profile.customExtensions) {
+      try {
+        if (existsSync(extPath)) {
+          await ses.loadExtension(extPath)
+          logger.info(`Extension loaded: ${extPath}`)
+        }
+      } catch (e) {
+        logger.warn(`Failed to load extension: ${extPath}`, e)
+      }
+    }
+  }
+
+  // 6. Create the embedded browser window with browser chrome
+  const isMobile = fp.deviceType === 'mobile' || fp.deviceType === 'tablet' || (fp.screenWidth ?? 0) < 800
+  const windowWidth = isMobile ? Math.min(Math.max(fp.screenWidth + 80, 480), 560) : Math.min(fp.screenWidth ?? 1280, 1400)
+  const windowHeight = isMobile ? Math.min(Math.max(fp.screenHeight + 120, 900), 1000) : Math.min(fp.screenHeight ?? 800, 960)
+
+  // Build the browser chrome URL with query params
+  const chromeHtml = browserChromePath()
+  const chromeParams = new URLSearchParams({
+    pid: profile.id,
+    pname: profile.name,
+    btype: profile.browserType,
+    url: targetUrl,
+    partition,
+    mobile: isMobile ? 'true' : 'false',
+    mw: String(fp.screenWidth ?? 375),
+    mh: String(fp.screenHeight ?? 812)
+  })
+  const chromeUrl = `file://${chromeHtml}?${chromeParams.toString()}`
 
   const browserWin = new BrowserWindow({
     width: windowWidth,
@@ -416,14 +497,13 @@ export async function launchProfile(
     title: `Joe Browser — ${profile.name}`,
     icon: appIconPath(),
     webPreferences: {
-      partition,
+      partition, // Same partition so the webview can use it
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
       spellcheck: false,
       webviewTag: true,
-      // Allow popups within the browser window
       allowRunningInsecureContent: false
     }
   })
@@ -441,50 +521,9 @@ export async function launchProfile(
       sessions.delete(profile.id)
       void s.cleanup()
     }
+    cleanupStealthPreload(profile.id)
     emitStatus({ profileId: profile.id, status: 'exited' })
   })
-
-  // Set up proxy for the session
-  const ses = browserWin.webContents.session
-  if (profile.proxy.enabled && pacUrl) {
-    await ses.setProxy({ pacScript: pacUrl })
-  } else if (profile.proxy.enabled && proxy) {
-    await ses.setProxy({ proxyRules: proxy.proxyServer })
-  } else {
-    await ses.setProxy({ proxyRules: 'direct://' })
-  }
-
-  // Set User-Agent
-  if (fp.userAgent) {
-    ses.setUserAgent(fp.userAgent)
-  }
-
-  // Inject stealth script on every page load
-  browserWin.webContents.on('did-start-navigation', () => {
-    try {
-      browserWin.webContents.executeJavaScript(stealthScript)
-    } catch (e) {
-      logger.debug('Stealth injection error (page not ready):', e)
-    }
-  })
-
-  // Also inject when DOM is ready
-  browserWin.webContents.on('dom-ready', () => {
-    try {
-      browserWin.webContents.executeJavaScript(stealthScript)
-    } catch (e) {
-      logger.debug('Stealth injection error (dom-ready):', e)
-    }
-  })
-
-  // Handle new window requests (open in same window)
-  browserWin.webContents.setWindowOpenHandler(({ url }) => {
-    browserWin.webContents.loadURL(url)
-    return { action: 'deny' }
-  })
-
-  // Prevent navigation to our own app
-  // Allow all navigation within the browser window
 
   const sessionObj: EmbeddedSession = {
     profileId: profile.id,
@@ -497,17 +536,18 @@ export async function launchProfile(
     cleanup: async () => {
       await proxy?.close()
       await pacServer?.close()
+      cleanupStealthPreload(profile.id)
     }
   }
 
   sessions.set(profile.id, sessionObj)
   touchLastLaunched(profile.id)
 
-  // Load the target URL
+  // Load the browser chrome HTML
   try {
-    await browserWin.loadURL(targetUrl)
+    await browserWin.loadURL(chromeUrl)
   } catch (e) {
-    logger.error('Failed to load URL:', e)
+    logger.error('Failed to load browser chrome:', e)
   }
 
   emitStatus({
@@ -547,6 +587,7 @@ export async function closeProfile(profileId: string): Promise<boolean> {
   s.exited = true
   sessions.delete(profileId)
   await s.cleanup()
+  cleanupStealthPreload(profileId)
   emitStatus({ profileId: s.profileId, status: 'exited' })
   return true
 }
@@ -554,5 +595,17 @@ export async function closeProfile(profileId: string): Promise<boolean> {
 export async function closeAllProfiles(): Promise<void> {
   for (const id of [...sessions.keys()]) {
     await closeProfile(id)
+  }
+}
+
+// Clean up all temp preloads on app quit
+export function cleanupAllPreloads(): void {
+  try {
+    const dir = join(app.getPath('temp'), 'joebrowser-preloads')
+    if (existsSync(dir)) {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  } catch {
+    /* ignore */
   }
 }

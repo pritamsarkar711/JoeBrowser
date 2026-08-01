@@ -115,7 +115,7 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
     guard(() => {
       const profile = repo.createProfile(input)
       if (input.fingerprintsAuto) {
-        const fp = generateForNewProfile(input.browserType)
+        const fp = generateForNewProfile(input.browserType, input.os, input.device)
         repo.updateProfile(profile.id, { fingerprint: fp })
         return repo.getProfile(profile.id) as ProfileData
       }

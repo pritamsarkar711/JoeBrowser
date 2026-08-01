@@ -10,6 +10,7 @@
  */
 import type {
   BrowserType,
+  DeviceType,
   FingerprintConfig,
   GenerateFingerprintOptions,
   TargetOS
@@ -854,14 +855,17 @@ function buildFromEntry(entry: UAEntry, seed: string, rng: SeededRng): Fingerpri
 }
 
 /** Convenience: generate a fingerprint for a fresh profile (called at create time). */
-export function generateForNewProfile(browser: BrowserType): FingerprintConfig {
-  const os = guessOSForBrowser()
-  return generateFingerprint({
-    device: 'desktop',
-    os,
+export function generateForNewProfile(browser: BrowserType, os?: TargetOS, device?: DeviceType): FingerprintConfig {
+  const targetOs = os || guessOSForBrowser()
+  const targetDevice = device || 'desktop'
+  const fp = generateFingerprint({
+    device: targetDevice,
+    os: targetOs,
     browser,
     seed: 'fp-' + Math.random().toString(36).slice(2) + Date.now().toString(36)
   })
+  // Add deviceType and targetOs to fingerprint
+  return { ...fp, deviceType: targetDevice, targetOs }
 }
 
 function guessOSForBrowser(): TargetOS {

@@ -1,262 +1,220 @@
 import { useState } from 'react'
 import {
   Box,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Button,
-  Menu,
-  MenuItem,
+  IconButton,
+  ListItemButton,
   ListItemIcon,
   ListItemText,
-  IconButton,
-  Tooltip,
+  Menu,
+  MenuItem,
   Typography,
-  TextField,
-  alpha
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField
 } from '@mui/material'
+import MoreVertIcon from '@mui/icons-material/MoreVert'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
-import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
-import RocketLaunchIcon from '@mui/icons-material/RocketLaunch'
+import DeleteIcon from '@mui/icons-material/Delete'
+import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import type { ProfileData } from '@shared/types'
+import { BROWSER_LABELS } from '@shared/types'
 import { BrowserIcon } from './BrowserIcon'
 import { useApp } from '../store'
 import { useToast } from '../hooks/useToasts'
 
-function timeAgo(ts: number | null): string {
-  if (!ts) return 'Never'
-  const s = Math.floor((Date.now() - ts) / 1000)
-  if (s < 60) return 'just now'
-  const m = Math.floor(s / 60)
-  if (m < 60) return `${m}m ago`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
-  const d = Math.floor(h / 24)
-  if (d < 30) return `${d}d ago`
-  return new Date(ts).toLocaleDateString()
-}
-
-/** One profile row in the sidebar (with right-click context menu). */
-export function ProfileCard({
-  profile,
-  selected,
-  running,
-  onSelect
-}: {
+interface Props {
   profile: ProfileData
   selected: boolean
-  running: boolean
-  onSelect?: () => void
-}): React.JSX.Element {
-  const { selectProfile, duplicateProfile, deleteProfile, launchProfile } = useApp()
-  const toast = useToast()
-  const proxyEnabled = profile.proxy.enabled
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
-  const [exportOpen, setExportOpen] = useState(false)
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
-  const [exportPw, setExportPw] = useState('')
-  const [hovered, setHovered] = useState(false)
+  onSelect: () => void
+  onLaunch: () => void
+}
 
-  const handleExport = async (): Promise<void> => {
+export function ProfileCard({ profile, selected, onSelect, onLaunch }: Props): React.JSX.Element {
+  const { duplicateProfile, deleteProfile, exportProfile, running } = useApp()
+  const toast = useToast()
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null)
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exportPw, setExportPw] = useState('')
+
+  const session = running[profile.id]
+  const isRunning = !!session
+
+  const handleDuplicate = async (): Promise<void> => {
     try {
-      const json = await window.stealth.exportProfile(profile.id, exportPw)
-      const blob = new Blob([json], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `stealth-profile-${profile.name.replace(/[^\w.-]+/g, '_')}.json`
-      a.click()
-      URL.revokeObjectURL(url)
-      setExportOpen(false)
-      setExportPw('')
-      toast.success('Encrypted profile export downloaded')
+      await duplicateProfile(profile.id)
+      toast.success('Profile duplicated')
     } catch (e) {
       toast.error(String(e))
     }
+    setMenuAnchor(null)
+  }
+
+  const handleExport = async (): Promise<void> => {
+    if (!exportPw) {
+      toast.error('Enter a password')
+      return
+    }
+    try {
+      const json = await exportProfile(profile.id, exportPw)
+      await navigator.clipboard.writeText(json)
+      toast.success('Exported (copied to clipboard)')
+    } catch (e) {
+      toast.error(String(e))
+    }
+    setExportOpen(false)
+    setExportPw('')
+    setMenuAnchor(null)
+  }
+
+  const handleDelete = async (): Promise<void> => {
+    try {
+      await deleteProfile(profile.id)
+      toast.success('Profile deleted')
+    } catch (e) {
+      toast.error(String(e))
+    }
+    setMenuAnchor(null)
   }
 
   return (
     <>
-      <Box
-        onClick={() => {
-          selectProfile(profile.id)
-          onSelect?.()
-        }}
-        onContextMenu={(e) => {
-          e.preventDefault()
-          setMenu({ x: e.clientX, y: e.clientY })
-        }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
+      <ListItemButton
+        selected={selected}
+        onClick={onSelect}
         sx={{
+          borderRadius: 2,
+          mb: 0.5,
+          py: 1,
+          px: 1.5,
+          border: '1px solid transparent',
+          '&.Mui-selected': {
+            bgcolor: 'action.selected',
+            borderColor: 'primary.main',
+          },
+          '&:hover': {
+            bgcolor: 'action.hover',
+          },
           display: 'flex',
           alignItems: 'center',
           gap: 1,
-          p: 0.75,
-          borderRadius: 2,
-          cursor: 'pointer',
-          border: '1px solid',
-          borderColor: selected ? 'primary.main' : 'transparent',
-          bgcolor: selected ? alpha('#6750a4', 0.12) : 'transparent',
-          '&:hover': {
-            bgcolor: (t) => alpha(t.palette.primary.main, t.palette.mode === 'dark' ? 0.15 : 0.08)
-          },
-          transition: 'background-color .15s ease, border-color .15s ease'
+          minHeight: 52,
         }}
       >
-        {/* Browser icon with running indicator */}
-        <Box sx={{ position: 'relative', flexShrink: 0 }}>
-          <BrowserIcon type={profile.browserType} size={28} />
-          {running && (
-            <Box
-              sx={{
-                position: 'absolute',
-                right: -2,
-                bottom: -2,
-                width: 10,
-                height: 10,
-                borderRadius: '50%',
-                bgcolor: 'success.main',
-                border: '2px solid',
-                borderColor: 'background.paper',
-                animation: 'pulse 2s infinite',
-                '@keyframes pulse': {
-                  '0%': { boxShadow: '0 0 0 0 rgba(46,125,50,0.4)' },
-                  '70%': { boxShadow: '0 0 0 6px rgba(46,125,50,0)' },
-                  '100%': { boxShadow: '0 0 0 0 rgba(46,125,50,0)' }
-                }
-              }}
-            />
-          )}
-          {!running && proxyEnabled && (
-            <Box
-              sx={{
-                position: 'absolute',
-                right: -2,
-                bottom: -2,
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                bgcolor: 'action.disabled',
-                border: '1.5px solid',
-                borderColor: 'background.paper'
-              }}
-            />
-          )}
-        </Box>
+        {/* Browser icon */}
+        <ListItemIcon sx={{ minWidth: 28 }}>
+          <BrowserIcon type={profile.browserType} size={22} />
+        </ListItemIcon>
 
-        {/* Name + meta */}
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography variant="body2" noWrap sx={{ fontWeight: 600, lineHeight: 1.3 }}>
-            {profile.name}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" noWrap sx={{ fontSize: 10 }}>
-            {timeAgo(profile.lastLaunchedAt)}
-            {proxyEnabled && ` · ${profile.proxy.type.toUpperCase()}`}
-          </Typography>
-        </Box>
-
-        {/* Quick-launch on hover, or running chip */}
-        {hovered && !running ? (
-          <Tooltip title="Launch" arrow>
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation()
-                void launchProfile(profile.id, {})
+        {/* Profile name & info */}
+        <ListItemText
+          primary={
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 600,
+                fontSize: 13,
+                lineHeight: 1.3,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: 140,
               }}
-              sx={{ p: 0.5 }}
             >
-              <RocketLaunchIcon sx={{ fontSize: 16 }} />
-            </IconButton>
-          </Tooltip>
-        ) : running ? (
-          <Chip
-            size="small"
-            label="● ON"
-            color="success"
-            sx={{ height: 18, fontSize: 10, '& .MuiChip-label': { px: 0.5 } }}
-          />
-        ) : null}
-      </Box>
+              {profile.name}
+            </Typography>
+          }
+          secondary={
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontSize: 10, lineHeight: 1.2, display: 'block' }}
+            >
+              {BROWSER_LABELS[profile.browserType]}
+            </Typography>
+          }
+          sx={{ ml: 0.5, my: 0 }}
+        />
 
+        {/* Running indicator */}
+        {isRunning && (
+          <Box
+            sx={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              bgcolor: 'success.main',
+              animation: 'pulse 2s ease-in-out infinite',
+              '@keyframes pulse': {
+                '0%, 100%': { opacity: 1, transform: 'scale(1)' },
+                '50%': { opacity: 0.6, transform: 'scale(1.3)' },
+              },
+              flexShrink: 0,
+            }}
+          />
+        )}
+
+        {/* Quick launch button */}
+        <IconButton
+          size="small"
+          onClick={(e) => {
+            e.stopPropagation()
+            onLaunch()
+          }}
+          sx={{
+            flexShrink: 0,
+            width: 28,
+            height: 28,
+            '&:hover': { color: 'primary.main' },
+          }}
+        >
+          <PlayArrowIcon sx={{ fontSize: 18 }} />
+        </IconButton>
+
+        {/* More menu */}
+        <IconButton
+          size="small"
+          onClick={(e) => {
+            e.stopPropagation()
+            setMenuAnchor(e.currentTarget)
+          }}
+          sx={{ flexShrink: 0, width: 28, height: 28 }}
+        >
+          <MoreVertIcon sx={{ fontSize: 16 }} />
+        </IconButton>
+      </ListItemButton>
+
+      {/* Context menu */}
       <Menu
-        open={!!menu}
-        onClose={() => setMenu(null)}
-        anchorReference="anchorPosition"
-        anchorPosition={menu ? { top: menu.y, left: menu.x } : undefined}
+        anchorEl={menuAnchor}
+        open={!!menuAnchor}
+        onClose={() => setMenuAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <MenuItem
-          onClick={() => {
-            setMenu(null)
-            void duplicateProfile(profile.id)
-          }}
-        >
-          <ListItemIcon>
-            <ContentCopyIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Duplicate</ListItemText>
+        <MenuItem onClick={() => void handleDuplicate()}>
+          <ContentCopyIcon sx={{ mr: 1, fontSize: 18 }} /> Duplicate
         </MenuItem>
-        <MenuItem
-          onClick={() => {
-            setMenu(null)
-            setExportOpen(true)
-          }}
-        >
-          <ListItemIcon>
-            <FileDownloadIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Export (encrypted JSON)</ListItemText>
+        <MenuItem onClick={() => { setExportOpen(true) }}>
+          <FileDownloadIcon sx={{ mr: 1, fontSize: 18 }} /> Export
         </MenuItem>
-        <MenuItem
-          onClick={() => {
-            setMenu(null)
-            setConfirmDeleteOpen(true)
-          }}
-        >
-          <ListItemIcon>
-            <DeleteOutlinedIcon fontSize="small" color="error" />
-          </ListItemIcon>
-          <ListItemText>Delete</ListItemText>
+        <MenuItem onClick={() => void handleDelete()} sx={{ color: 'error.main' }}>
+          <DeleteIcon sx={{ mr: 1, fontSize: 18 }} /> Delete
         </MenuItem>
       </Menu>
 
-      {/* Confirm delete dialog */}
-      <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} maxWidth="xs">
-        <DialogTitle>Delete profile?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            This will permanently delete "{profile.name}" and all its browser data. This cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmDeleteOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={() => {
-              setConfirmDeleteOpen(false)
-              void deleteProfile(profile.id)
-            }}
-          >
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={exportOpen} onClose={() => setExportOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Export encrypted profile</DialogTitle>
+      {/* Export dialog */}
+      <Dialog open={exportOpen} onClose={() => setExportOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Export Profile</DialogTitle>
         <DialogContent>
           <TextField
-            autoFocus
-            fullWidth
+            label="Encryption password"
             type="password"
-            label="Export password"
             size="small"
+            fullWidth
             value={exportPw}
             onChange={(e) => setExportPw(e.target.value)}
             sx={{ mt: 1 }}
@@ -264,9 +222,7 @@ export function ProfileCard({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setExportOpen(false)}>Cancel</Button>
-          <Button variant="contained" disabled={exportPw.length < 4} onClick={() => void handleExport()}>
-            Export
-          </Button>
+          <Button variant="contained" onClick={() => void handleExport()}>Export</Button>
         </DialogActions>
       </Dialog>
     </>

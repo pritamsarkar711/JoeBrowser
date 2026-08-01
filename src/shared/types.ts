@@ -4,7 +4,7 @@
  */
 
 export type BrowserType = 'chrome' | 'edge' | 'brave' | 'chromium' | 'firefox'
-export type DeviceType = 'desktop' | 'mobile'
+export type DeviceType = 'desktop' | 'mobile' | 'tablet'
 export type TargetOS = 'windows' | 'macos' | 'linux' | 'android' | 'ios'
 export type ProxyType = 'http' | 'https' | 'socks5' | 'socks4'
 
@@ -76,6 +76,10 @@ export interface FingerprintConfig {
   doNotTrack: string | null
   /** Whether to fake the window.chrome object (for Firefox with Chrome UA or cross-engine spoofing). */
   windowChromeSpoof: boolean
+  /** Device type for mobile/tablet emulation. */
+  deviceType?: 'desktop' | 'mobile' | 'tablet'
+  /** Target OS for fingerprint generation. */
+  targetOs?: TargetOS
 }
 
 export interface ProfileData {
@@ -187,11 +191,14 @@ export interface AppInitState {
 }
 
 /** Payload for creating a new profile. */
+
 export interface NewProfileInput {
   name: string
   browserType: BrowserType
   tags: string[]
   fingerprintsAuto: boolean
+  os?: TargetOS
+  device?: DeviceType
 }
 
 export interface BrowserInfo {
@@ -290,7 +297,7 @@ export function createNewProfile(input: NewProfileInput): ProfileData {
     fingerprint: defaultFingerprint(),
     extraLaunchArgs: '',
     customExtensions: [],
-    launchUrl: '',
+    launchUrl: 'https://iphey.com',
     userDataDirOverride: '',
     disableAutomationFlags: true
   }
