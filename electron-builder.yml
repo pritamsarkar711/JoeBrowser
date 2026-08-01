@@ -55,6 +55,38 @@ nsis:
 portable:
   artifactName: ${productName}-Portable-${version}.${ext}
 
+mac:
+  icon: build/icon.png
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+
+dmg:
+  artifactName: ${productName}-${version}-${arch}.dmg
+
+linux:
+  icon: build/icon.png
+  category: Network
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+    - target: rpm
+      arch: [x64]
+
+appImage:
+  artifactName: ${productName}-${version}-x64.AppImage
+
+deb:
+  artifactName: ${productName}-${version}-amd64.deb
+
+rpm:
+  artifactName: ${productName}-${version}-x86_64.rpm
+
 publish:
   provider: github
   owner: pritamsarkar711

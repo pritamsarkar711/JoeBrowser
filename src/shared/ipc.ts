@@ -44,5 +44,8 @@ export const IPC = {
   // Dialogs / misc
   DialogPickFile: 'dialog:pick-file',
   DialogPickDirectory: 'dialog:pick-directory',
-  AppOpenPath: 'app:open-path'
+  AppOpenPath: 'app:open-path',
+
+  // Diagnostics
+  AppHealthCheck: 'app:health-check'
 } as const

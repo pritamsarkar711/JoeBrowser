@@ -99,6 +99,10 @@ const api = {
   pickDirectory: (): Promise<string> => invoke(IPC.DialogPickDirectory),
   openPath: (p: string): Promise<string> => invoke(IPC.AppOpenPath, p),
 
+  // --- diagnostics -------------------------------------------------------------
+  healthCheck: (): Promise<Record<string, boolean | string>> =>
+    invoke<Record<string, boolean | string>>(IPC.AppHealthCheck),
+
   // --- events ------------------------------------------------------------------
   onBrowserStatus: (cb: (event: BrowserStatusEvent) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, event: BrowserStatusEvent): void => cb(event)

@@ -98,6 +98,14 @@ export function AppProvider({ children }: { children: React.ReactNode }): React.
   useEffect(() => {
     void (async () => {
       try {
+        // Verify the preload bridge exists
+        if (!window.stealth) {
+          throw new Error(
+            'Preload bridge (window.stealth) is not available. ' +
+            'The Electron preload script failed to load. ' +
+            'Try reinstalling JoeBrowser.'
+          )
+        }
         const state = await window.stealth.init()
         setInit(state)
         if (state.unlocked) {
@@ -105,6 +113,7 @@ export function AppProvider({ children }: { children: React.ReactNode }): React.
           setSettings(s)
         }
       } catch (e) {
+        console.error('[JoeBrowser] Boot error:', e)
         toast(String(e), 'error')
       } finally {
         setBooted(true)

@@ -191,12 +191,19 @@ if (!gotLock) {
   app.whenReady().then(() => {
     try {
       // --- settings & dirs ---------------------------------------------------
+      logger.info('=== JoeBrowser starting (v' + app.getVersion() + ') ===')
+      logger.info('Platform:', process.platform, process.arch, 'Electron:', process.versions.electron)
+      logger.info('App path:', app.getAppPath())
+      logger.info('Resources:', process.resourcesPath)
+      logger.info('Exec path:', process.execPath)
+      logger.info('PID:', process.pid)
+
       const settings = loadSettings()
       if (settings.dataDir) paths.setDataDir(settings.dataDir)
       paths.ensureDirs()
       initLogger(paths.logsDir())
-      logger.info('=== JoeBrowser starting (v' + app.getVersion() + ') ===')
       logger.info('Data dir:', paths.getDataDir())
+      logger.info('Settings:', JSON.stringify({ ...settings, dataDir: settings.dataDir ? '<custom>' : '<default>' }))
 
       try {
         app.setLoginItemSettings({ openAtLogin: settings.launchAtStartup })

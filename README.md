@@ -4,23 +4,30 @@ Create and manage fully isolated browser profiles (Chrome, Edge, Brave, Firefox)
 with per-profile fingerprint spoofing, proxy support (HTTP/SOCKS/PAC), encrypted
 profile storage, and an MV3 stealth extension.
 
-## ⬇️ Download the EXE (Windows)
+## ⬇️ Download
 
 > **One-click download page:** open `download.html` locally or visit GitHub Pages if enabled: `docs/index.html`
 
 ### Official Releases (recommended)
-Windows installers are published on the **Releases** page:
+Installers are published on the **Releases** page:
 
 > **https://github.com/pritamsarkar711/JoeBrowser/releases**
 
-- `JoeBrowser-Setup-<version>.exe` — NSIS installer (recommended, creates shortcuts, per-user install, no admin needed)
-- `JoeBrowser-Portable-<version>.exe` — portable, no installation needed, run from USB
+| Platform | Files | Notes |
+|----------|-------|-------|
+| **Windows** | `JoeBrowser-Setup-<ver>.exe` | NSIS installer (recommended) |
+| **Windows** | `JoeBrowser-Portable-<ver>.exe` | Portable, no install, USB-friendly |
+| **macOS** | `JoeBrowser-<ver>-arm64.dmg` | Apple Silicon (M1/M2/M3/M4) |
+| **macOS** | `JoeBrowser-<ver>-x64.dmg` | Intel Macs |
+| **Linux** | `JoeBrowser-<ver>-x64.AppImage` | Universal, `chmod +x` then run |
+| **Linux** | `JoeBrowser-<ver>-amd64.deb` | Ubuntu/Debian: `sudo dpkg -i` |
+| **Linux** | `JoeBrowser-<ver>-x86_64.rpm` | Fedora/RHEL: `sudo rpm -i` |
 
 **Direct links (latest):**
 - Installer: `https://github.com/pritamsarkar711/JoeBrowser/releases/latest/download/JoeBrowser-Setup-1.0.2.exe`
 - Portable: `https://github.com/pritamsarkar711/JoeBrowser/releases/latest/download/JoeBrowser-Portable-1.0.2.exe`
 
-> If Releases page is empty, use Method 2 or 3 below to generate the EXE.
+> If Releases page is empty, use Method 2 or 3 below to generate the installer.
 
 ### 🪟 Windows won't open the EXE? Read this first (v1.0.2 fix)
 
@@ -34,8 +41,12 @@ The most common reasons a downloaded JoeBrowser `.exe` "does nothing" on Windows
 3. **The window opens but shows nothing / closes instantly** — the app now writes a crash report:
    - Log: `%APPDATA%\JoeBrowser\logs\app.log` and `%APPDATA%\JoeBrowser\logs\crash.log`
    - Reinstall from the Releases page (never copy a half-downloaded `.exe`), then retry.
-4. **Antivirus deleted the file while downloading** — check **Protection history** / quarantine before re-downloading.
-5. **Still broken?** Open an issue at https://github.com/pritamsarkar711/JoeBrowser/issues and attach `crash.log` — that tells us exactly what happened.
+4. **App shows "Starting JoeBrowser..." forever** — this means the app started but the renderer failed to initialize. After 15 seconds a diagnostic screen will appear. Common causes:
+   - Native SQLite module failed to load → reinstall the app
+   - Another instance is already running → check Task Manager / system tray
+   - Data directory permissions → delete `%APPDATA%\JoeBrowser` and relaunch
+5. **Antivirus deleted the file while downloading** — check **Protection history** / quarantine before re-downloading.
+6. **Still broken?** Open an issue at https://github.com/pritamsarkar711/JoeBrowser/issues and attach `crash.log` — that tells us exactly what happened.
 
 Since **v1.0.2** the app no longer fails silently: startup errors show a dialog with the reason and log paths, the SQLite module gives a clear message instead of an opaque crash, and the EXE version number always matches the release (v1.0.1 shipped EXEs still named `1.0.0` — confusing, fixed).
 
@@ -52,45 +63,57 @@ xdg-open download.html (Linux)
 
 This page automatically checks GitHub API for the newest release and gives you installer vs portable buttons, sizes, download counts, and SHA info.
 
-### Method 1 — Build EXE on Windows in 2 minutes (works 100%)
-This is the fastest way if no release exists yet:
+### Method 1 — Build from source (all platforms)
 
-**Option A: Double-click batch file**
-```
-scripts\build-windows.bat   -> double click
+**Requirements:** Node.js 22+ (https://nodejs.org). No other dependencies.
+
+**Windows:**
+```bash
+# Option A: Double-click scripts\build-windows.bat
+# Option B: PowerShell
+powershell -ExecutionPolicy Bypass -File ./scripts/build-windows.ps1
+# Option C: Manual
+git clone https://github.com/pritamsarkar711/JoeBrowser.git
+cd JoeBrowser
+npm ci && npm run dist:win
+# Output: release/JoeBrowser-Setup-1.0.2.exe + release/JoeBrowser-Portable-1.0.2.exe
 ```
 
-**Option B: Manual commands**
+**macOS:**
 ```bash
 git clone https://github.com/pritamsarkar711/JoeBrowser.git
 cd JoeBrowser
-npm ci
-npm run dist:win
-# exe appears in release/ folder:
-# release/JoeBrowser-Setup-1.0.2.exe
-# release/JoeBrowser-Portable-1.0.2.exe
+bash scripts/build-mac.sh
+# Or manually: npm ci && npm run dist:mac
+# Output: release/JoeBrowser-1.0.2-arm64.dmg (Apple Silicon)
+#         release/JoeBrowser-1.0.2-x64.dmg (Intel)
 ```
 
-**Option C: PowerShell**
-```powershell
-powershell -ExecutionPolicy Bypass -File ./scripts/build-windows.ps1
+**Linux:**
+```bash
+git clone https://github.com/pritamsarkar711/JoeBrowser.git
+cd JoeBrowser
+bash scripts/build-linux.sh
+# Or manually: npm ci && npm run dist:linux
+# Output: release/JoeBrowser-1.0.2-x64.AppImage
+#         release/JoeBrowser-1.0.2-amd64.deb
+#         release/JoeBrowser-1.0.2-x86_64.rpm
 ```
-
-Requirements: Node.js 20+ (https://nodejs.org), Windows 10/11 x64. No other dependencies.
 
 ### Method 2 — Trigger CI build (for maintainers)
-The repo has a GitHub Actions workflow that builds Windows EXE on `windows-latest` runner (where native modules work).
+The repo has a GitHub Actions workflow that builds for **Windows, macOS, and Linux**.
 
 1. **Tag push (auto-release):**
    ```bash
-   git tag v1.0.2
-   git push origin v1.0.2
-   # Wait 8-12 min, check Actions tab -> Build Windows EXE
-   # EXE is auto-published to Releases
+   git tag v1.0.3
+   git push origin v1.0.3
+   # Wait 10-15 min, check Actions tab -> Build All Platforms
+   # All installers are auto-published to Releases
    ```
 
 2. **Manual dispatch (artifacts only, no release):**
-   Go to Actions → "Build Windows EXE" → Run workflow → pick branch → Run. Artifacts `JoeBrowser-Windows-x64` will contain exe files for 14 days.
+   Go to Actions → "Build All Platforms" → Run workflow → pick branch → Run.
+   Artifacts `JoeBrowser-Windows-x64`, `JoeBrowser-Linux-x64`, `JoeBrowser-macOS` will be available for 14 days.
 
 ### Method 3 — In-App download button
 If you already run JoeBrowser from source (`npm run dev`), there is now a **Download EXE** button in the sidebar:
@@ -124,8 +147,16 @@ npm run selftest  # headless engine self-tests (no Electron needed)
 npm run build     # typecheck + bundle (out/)
 npm run pack      # build + unpacked dir (no installer)
 npm run dist      # build + installer for current OS
-npm run dist:win  # build + Windows exe (needs Windows, or CI)
+npm run dist:win  # build + Windows exe
+npm run dist:mac  # build + macOS dmg (needs macOS)
+npm run dist:linux # build + Linux AppImage/deb/rpm
 ```
+
+**Diagnostics:**
+If the app won't start, check these files:
+- `%APPDATA%/JoeBrowser/logs/app.log` (or `~/.config/JoeBrowser/logs/app.log` on Linux)
+- `%APPDATA%/JoeBrowser/logs/crash.log` — fatal errors written here even if the window never opens
+- In dev mode, run `npm run selftest` to verify the core engines work
 
 ## Features
 
