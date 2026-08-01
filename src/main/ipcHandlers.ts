@@ -26,6 +26,7 @@ import { testProxy } from './services/proxyTester'
 import { closeProfile, launchProfile, listRunning } from './services/browserLauncher'
 import { getSettings, saveSettings } from './services/appSettings'
 import { logger } from './logger'
+import * as paths from './paths'
 
 interface Result<T> {
   ok: boolean
