@@ -36,7 +36,7 @@ function socks5Connect(
   type: 'socks5' | 'socks4'
 ): Promise<{ socket: import('node:net').Socket }> {
   return new Promise((resolve, reject) => {
-    const socket = require('node:net').connect(upstream.port, upstream.host)
+    const socket = netConnect(upstream.port, upstream.host)
     const timeout = setTimeout(() => {
       socket.destroy()
       reject(new Error('Relay: timeout connecting to SOCKS upstream'))
@@ -82,12 +82,12 @@ function socks5Connect(
               if (ver !== 1 || status !== 0) return fail(new Error('Relay: SOCKS5 auth failed'))
               step = 'connect'
               socket.write(socks5ConnectRequest(targetHost, targetPort))
-            } else if (step === 'connect' && buf.length >= 2) {
+            } else if (step === 'connect' && buf.length >= 4) {
               const rep = buf[1]
               if (rep !== 0) return fail(new Error('Relay: SOCKS5 connect failed, code ' + rep))
               // Consume the full reply (varies by ATYP)
               const atyp = buf[3]
-              const need = atyp === 0x01 ? 10 : atyp === 0x04 ? 22 : 7
+              const need = atyp === 0x01 ? 10 : atyp === 0x04 ? 22 : atyp === 0x03 ? (7 + (buf[4] ?? 0)) : 10
               if (buf.length >= need) {
                 clearTimeout(timeout)
                 buf.length = 0
@@ -160,6 +160,9 @@ function startHttpRelay(upstream: ProxyConfig): Promise<{ port: number; close: (
   const upstreamOptions = (): ConnectionOptions => ({
     host: upstream.host,
     port: upstream.port,
+    // Note: rejectUnauthorized=false allows MITM on the proxy path.
+    // This is needed for some corporate/self-signed proxy servers.
+    // Users should ensure their proxy infrastructure is trusted.
     rejectUnauthorized: false
   })
 
@@ -189,7 +192,7 @@ function startHttpRelay(upstream: ProxyConfig): Promise<{ port: number; close: (
       if (method === 'CONNECT') {
         const [host, portStr] = target.split(':')
         const port = Number(portStr ?? 443)
-        const upstreamSocket = require('node:net').connect(upstream.port, upstream.host, () => {
+        const upstreamSocket = netConnect(upstream.port, upstream.host, () => {
           upstreamSocket.write(
             `CONNECT ${host}:${port} HTTP/1.1\r\nHost: ${host}:${port}\r\n` +
               (authHeader ? `Proxy-Authorization: ${authHeader}\r\n` : '') +
@@ -296,6 +299,14 @@ function startSocksRelay(upstream: ProxyConfig): Promise<{ port: number; close: 
             } else if (atyp === 0x01) {
               host = buf.slice(4, 8).join('.')
               port = buf[8] * 256 + buf[9]
+            } else if (atyp === 0x04) {
+              // IPv6: 16 bytes address + 2 bytes port
+              const ipv6Parts: string[] = []
+              for (let i = 4; i < 20; i += 2) {
+                ipv6Parts.push(((buf[i] << 8) | buf[i + 1]).toString(16))
+              }
+              host = ipv6Parts.join(':')
+              port = buf[20] * 256 + buf[21]
             } else {
               return clientSocket.destroy()
             }

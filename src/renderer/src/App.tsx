@@ -189,21 +189,13 @@ export default function App(): React.JSX.Element {
               </Typography>
               {profiles.length === 0 && (
                 <Box sx={{ mt: 2 }}>
-                  <button
+                  <Button
+                    variant="contained"
                     onClick={() => setNewProfileOpen(true)}
-                    style={{
-                      padding: '10px 24px',
-                      borderRadius: 24,
-                      border: 'none',
-                      background: '#6750a4',
-                      color: '#fff',
-                      fontSize: 15,
-                      fontWeight: 600,
-                      cursor: 'pointer'
-                    }}
+                    sx={{ borderRadius: 6, px: 3, py: 1, fontWeight: 600, fontSize: 15 }}
                   >
                     + New profile
-                  </button>
+                  </Button>
                 </Box>
               )}
             </Box>

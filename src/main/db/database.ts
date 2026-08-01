@@ -135,6 +135,13 @@ export function listProfiles(): ProfileData[] {
   }).filter((p): p is ProfileData => p !== null)
 }
 
+/** List profile index (id, name, browser type, timestamps) without requiring decryption.
+ *  Used when the app is locked so the sidebar can still show profile names. */
+export function listProfilesIndex(): Array<{ id: string; name: string; browserType: string; updatedAt: number }> {
+  const rows = getDb().prepare('SELECT id, name, browser_type, updated_at FROM profiles ORDER BY updated_at DESC').all() as Array<{ id: string; name: string; browser_type: string; updated_at: number }>
+  return rows.map((r) => ({ id: r.id, name: r.name, browserType: r.browser_type, updatedAt: r.updated_at }))
+}
+
 export function getProfile(id: string): ProfileData | null {
   const row = getDb().prepare('SELECT * FROM profiles WHERE id = ?').get(id) as ProfileRow | undefined
   if (!row) return null

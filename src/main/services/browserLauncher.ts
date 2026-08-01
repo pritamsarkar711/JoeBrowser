@@ -166,10 +166,7 @@ function buildChromiumArgs(
   // navigator.webdriver (paired with the stealth extension override).
   if (profile.disableAutomationFlags !== false) {
     args.push(
-      '--disable-blink-features=AutomationControlled',
-      '--exclude-switches=enable-automation',
-      '--disable-automation',
-      '--disable-infobars'
+      '--disable-blink-features=AutomationControlled'
     )
     // Append AutomationControlled to disable-features if not already present.
     const fi = args.findIndex((a) => a.startsWith('--disable-features='))

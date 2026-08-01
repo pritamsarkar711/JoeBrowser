@@ -2,7 +2,7 @@
  * Minimal local logger: writes to the console AND a rotating log file
  * inside the app data directory. No network, ever.
  */
-import { appendFileSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
+import { appendFileSync, copyFileSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
@@ -23,7 +23,13 @@ function rotateIfNeeded(): void {
   const file = logFilePath()
   try {
     if (statSync(file).size > MAX_LOG_SIZE) {
-      writeFileSync(file, '', 'utf-8') // truncate; a full rotation setup is overkill here
+      // Backup the current log before truncating so we don't lose diagnostic data
+      try {
+        copyFileSync(file, join(logDir ?? '.', 'app.log.1'))
+      } catch {
+        /* backup copy may fail if app.log.1 is locked; continue anyway */
+      }
+      writeFileSync(file, '', 'utf-8')
     }
   } catch {
     /* no log file yet */

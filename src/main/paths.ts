@@ -18,7 +18,7 @@
  */
 import { join } from 'node:path'
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 
 interface ElectronAppLike {
   getPath(name: string): string
@@ -90,7 +90,7 @@ export function firefoxProfileDir(id: string, override = ''): string {
 
 /** Temp root for built stealth extensions (unique subdir per launch). */
 export function tempExtensionRoot(): string {
-  return join(require('node:os').tmpdir(), 'stealthbrowser-ext')
+  return join(tmpdir(), 'joebrowser-ext')
 }
 
 /** Where the bundled stealth extension template lives. */

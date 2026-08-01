@@ -91,6 +91,24 @@ function queryRegistryAppPath(exe: string): string {
   return ''
 }
 
+/** Extract version from a browser executable by running --version flag. */
+function getBrowserVersion(exePath: string): string {
+  if (!exePath || !existsSync(exePath)) return ''
+  try {
+    const out = execFileSync(exePath, ['--version'], {
+      encoding: 'utf-8',
+      timeout: 5000,
+      windowsHide: true,
+      stdio: ['pipe', 'pipe', 'pipe']
+    }).trim()
+    // Output like "Google Chrome 137.0.7151.68" or "Mozilla Firefox 128.0" or "Brave Browser 1.77.90"
+    const match = out.match(/(\d+\.\d+(?:\.\d+)*)/)
+    return match ? match[1] : out.replace(/[^\d.]/g, '').trim()
+  } catch {
+    return ''
+  }
+}
+
 /** Detect one browser type. */
 export function detectBrowser(type: BrowserType): BrowserDetection {
   const list = process.platform === 'win32' ? candidates() : process.platform === 'darwin' ? macPaths() : linuxPaths()
@@ -111,7 +129,7 @@ export function detectBrowser(type: BrowserType): BrowserDetection {
       }
     }
   }
-  return { type, name: cand.name, path, version: '', found: path !== '' }
+  return { type, name: cand.name, path, version: path ? getBrowserVersion(path) : '', found: path !== '' }
 }
 
 /** Detect all four browsers. */

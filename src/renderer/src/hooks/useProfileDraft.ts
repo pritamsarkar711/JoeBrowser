@@ -72,9 +72,15 @@ export function useProfileDraft(
   // Flush pending saves on unmount.
   useEffect(() => {
     return () => {
-      if (timer.current) clearTimeout(timer.current)
+      if (timer.current) {
+        clearTimeout(timer.current)
+        // Flush the pending save so data is not lost on unmount
+        void flush().catch(() => {
+          /* surfaced via onAutoSaveError */
+        })
+      }
     }
-  }, [])
+  }, [flush])
 
   const setDraft = useCallback(
     (patch: Partial<ProfileData>) => {

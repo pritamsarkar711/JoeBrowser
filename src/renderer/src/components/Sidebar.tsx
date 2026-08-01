@@ -21,6 +21,7 @@ import LockIcon from '@mui/icons-material/Lock'
 import MenuIcon from '@mui/icons-material/Menu'
 import CloseIcon from '@mui/icons-material/Close'
 import DownloadIcon from '@mui/icons-material/Download'
+import RocketLaunchIcon from '@mui/icons-material/RocketLaunch'
 import type { BrowserType } from '@shared/types'
 import { BROWSER_NAMES } from '@shared/types'
 import { useApp } from '../store'
@@ -50,7 +51,7 @@ export function Sidebar({
 }): React.JSX.Element {
   const theme = useTheme()
   const isNarrow = useMediaQuery(theme.breakpoints.down('md'))
-  const { profiles, running, selectedId, lock, selectProfile } = useApp()
+  const { profiles, running, selectedId, lock, selectProfile, launchProfile } = useApp()
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
 
@@ -83,10 +84,11 @@ export function Sidebar({
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: 800,
-              fontSize: 16
+              fontSize: 13,
+              letterSpacing: '-0.5px'
             }}
           >
-            S
+            JB
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.1 }}>
@@ -151,19 +153,33 @@ export function Sidebar({
         </ToggleButtonGroup>
       </Box>
 
-      {/* New profile */}
+      {/* New profile + Quick Launch */}
       <Box sx={{ px: 2, pb: 1 }}>
-        <Button
-          fullWidth
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            onNewProfile()
-            onMobileClose?.()
-          }}
-        >
-          New profile
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            fullWidth
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              onNewProfile()
+              onMobileClose?.()
+            }}
+            sx={{ flex: 1 }}
+          >
+            New
+          </Button>
+          {selectedId && !running[selectedId] && (
+            <Tooltip title="Quick launch selected profile">
+              <Button
+                variant="outlined"
+                onClick={() => void launchProfile(selectedId, {})}
+                sx={{ minWidth: 44, px: 0 }}
+              >
+                <RocketLaunchIcon fontSize="small" />
+              </Button>
+            </Tooltip>
+          )}
+        </Stack>
       </Box>
 
       {/* Profile list */}
@@ -191,48 +207,22 @@ export function Sidebar({
 
       {/* Footer actions */}
       <Box sx={{ p: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
-        <Stack spacing={1}>
-          <Button
-            fullWidth
-            variant="contained"
-            size="small"
-            startIcon={<DownloadIcon />}
-            onClick={() => {
-              onDownload()
-              onMobileClose?.()
-            }}
-            sx={{
-              borderRadius: 3,
-              textTransform: 'none',
-              fontWeight: 700,
-              background: 'linear-gradient(135deg,#6750a4,#7e5dff)',
-              boxShadow: '0 4px 14px #6750a455'
-            }}
-          >
-            Download EXE
-          </Button>
-          <Stack direction="row" spacing={1}>
-            <Tooltip title="Settings">
-              <IconButton
-                onClick={() => {
-                  onSettings()
-                  onMobileClose?.()
-                }}
-              >
-                <SettingsIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Lock (encrypt all data)">
-              <IconButton onClick={() => void lock()}>
-                <LockIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Download Windows EXE">
-              <IconButton onClick={() => { onDownload(); onMobileClose?.() }}>
-                <DownloadIcon />
-              </IconButton>
-            </Tooltip>
-          </Stack>
+        <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'center' }}>
+          <Tooltip title="Download EXE">
+            <IconButton size="small" onClick={() => { onDownload(); onMobileClose?.() }}>
+              <DownloadIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Settings">
+            <IconButton size="small" onClick={() => { onSettings(); onMobileClose?.() }}>
+              <SettingsIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Lock app">
+            <IconButton size="small" onClick={() => void lock()}>
+              <LockIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </Stack>
       </Box>
     </Box>

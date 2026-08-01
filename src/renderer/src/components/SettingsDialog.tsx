@@ -26,7 +26,7 @@ import { useToast } from '../hooks/useToasts'
 
 /** App-wide settings dialog. */
 export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }): React.JSX.Element {
-  const { settings, updateSettings, lock } = useApp()
+  const { settings, updateSettings, lock, init } = useApp()
   const toastHook = useToast()
   const [oldPw, setOldPw] = useState('')
   const [newPw, setNewPw] = useState('')
@@ -110,6 +110,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
                 >
                   <MenuItem value="en">English</MenuItem>
                   <MenuItem value="bn">বাংলা</MenuItem>
+                  <MenuItem value="hi">हिन्दी</MenuItem>
                 </Select>
               </FormControl>
             </Stack>
@@ -177,16 +178,16 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
             </Typography>
             <Stack spacing={1}>
               <Typography variant="body2" color="text.secondary">
-                Current version: v1.0.0 (from package.json). Check GitHub Releases for Windows .exe installer and portable builds.
+                Current version: v{init?.version ?? 'dev'}. Check GitHub Releases for Windows .exe installer and portable builds.
               </Typography>
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                <Button size="small" variant="contained" startIcon={<DownloadIcon />} onClick={() => window.open('https://github.com/pritamsarkar711/JoeBrowser/releases', '_blank')}>
+                <Button size="small" variant="contained" startIcon={<DownloadIcon />} onClick={() => window.stealth.openPath('https://github.com/pritamsarkar711/JoeBrowser/releases')}>
                   Releases
                 </Button>
-                <Button size="small" variant="outlined" endIcon={<OpenInNewIcon />} onClick={() => window.open('https://github.com/pritamsarkar711/JoeBrowser/actions/workflows/build-windows.yml', '_blank')}>
+                <Button size="small" variant="outlined" endIcon={<OpenInNewIcon />} onClick={() => window.stealth.openPath('https://github.com/pritamsarkar711/JoeBrowser/actions/workflows/build-windows.yml')}>
                   CI Builds
                 </Button>
-                <Button size="small" variant="text" onClick={() => window.open('https://github.com/pritamsarkar711/JoeBrowser/archive/refs/heads/main.zip', '_blank')}>
+                <Button size="small" variant="text" onClick={() => window.stealth.openPath('https://github.com/pritamsarkar711/JoeBrowser/archive/refs/heads/main.zip')}>
                   Source ZIP
                 </Button>
               </Stack>

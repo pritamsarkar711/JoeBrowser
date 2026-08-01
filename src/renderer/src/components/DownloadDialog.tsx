@@ -17,6 +17,7 @@ import DownloadIcon from '@mui/icons-material/Download'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
+import { useApp } from '../store'
 
 type ReleaseAsset = {
   name: string
@@ -38,10 +39,11 @@ const OWNER = 'pritamsarkar711'
 const REPO = 'JoeBrowser'
 
 export function DownloadDialog({ open, onClose }: { open: boolean; onClose: () => void }): React.JSX.Element {
+  const { init } = useApp()
   const [loading, setLoading] = useState(false)
   const [release, setRelease] = useState<ReleaseInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const currentVersion = '1.0.3' // keep in sync with package.json
+  const currentVersion = init?.version ?? 'dev'
 
   const fetchRelease = async () => {
     setLoading(true)

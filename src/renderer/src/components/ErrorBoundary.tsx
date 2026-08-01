@@ -57,12 +57,18 @@ export class ErrorBoundary extends React.Component<Props, State> {
     ].join('\n')
 
     navigator.clipboard.writeText(text).catch(() => {
-      // Fallback: create a temporary textarea
+      // Fallback: create a temporary textarea and use the Selection API
       const ta = document.createElement('textarea')
       ta.value = text
+      ta.style.position = 'fixed'
+      ta.style.left = '-9999px'
       document.body.appendChild(ta)
       ta.select()
-      document.execCommand('copy')
+      try {
+        document.execCommand('copy')
+      } catch {
+        /* execCommand may not be available in all contexts */
+      }
       document.body.removeChild(ta)
     })
   }

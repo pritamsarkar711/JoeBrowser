@@ -5,6 +5,7 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
   Button,
   Menu,
@@ -55,6 +56,7 @@ export function ProfileCard({
   const proxyEnabled = profile.proxy.enabled
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [exportPw, setExportPw] = useState('')
 
   const handleExport = async (): Promise<void> => {
@@ -183,7 +185,7 @@ export function ProfileCard({
         <MenuItem
           onClick={() => {
             setMenu(null)
-            void deleteProfile(profile.id)
+            setConfirmDeleteOpen(true)
           }}
         >
           <ListItemIcon>
@@ -192,6 +194,29 @@ export function ProfileCard({
           <ListItemText>Delete</ListItemText>
         </MenuItem>
       </Menu>
+
+      {/* Confirm delete dialog */}
+      <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)} maxWidth="xs">
+        <DialogTitle>Delete profile?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will permanently delete "{profile.name}" and all its browser data. This cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDeleteOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => {
+              setConfirmDeleteOpen(false)
+              void deleteProfile(profile.id)
+            }}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={exportOpen} onClose={() => setExportOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Export encrypted profile</DialogTitle>
