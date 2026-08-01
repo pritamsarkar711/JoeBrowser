@@ -31,10 +31,10 @@ function appIconPath(): string {
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 1340,
-    height: 860,
-    minWidth: 1000,
-    minHeight: 660,
+    width: 1200,
+    height: 800,
+    minWidth: 900,
+    minHeight: 600,
     show: false,
     autoHideMenuBar: true,
     backgroundColor: '#101014',

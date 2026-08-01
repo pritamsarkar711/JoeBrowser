@@ -15,8 +15,10 @@ const SIDEBAR_WIDTH = 300
 export default function App(): React.JSX.Element {
   const { booted, init, settings, profiles, selectedId, busy } = useApp()
   const prefersDark = useMediaQuery('(prefers-color-scheme: dark)')
+  const isNarrow = useMediaQuery('(max-width:900px)')
   const [newProfileOpen, setNewProfileOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   const theme = useMemo(() => {
     const mode = settings?.theme ?? 'system'
@@ -64,8 +66,20 @@ export default function App(): React.JSX.Element {
           width={SIDEBAR_WIDTH}
           onNewProfile={() => setNewProfileOpen(true)}
           onSettings={() => setSettingsOpen(true)}
+          mobileOpen={mobileOpen}
+          onMobileClose={() => setMobileOpen(false)}
+          onMobileOpen={() => setMobileOpen(true)}
         />
-        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <Box
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            // Leave room for the mobile top bar hamburger.
+            pt: isNarrow ? '52px' : 0
+          }}
+        >
           {selectedProfile ? (
             <ProfileEditor key={selectedProfile.id} profile={selectedProfile} />
           ) : (
@@ -81,7 +95,7 @@ export default function App(): React.JSX.Element {
                 textAlign: 'center'
               }}
             >
-              <Typography variant="h5"  sx={{ fontWeight: 700 }}>
+              <Typography variant="h5" sx={{ fontWeight: 700 }}>
                 {profiles.length === 0 ? 'Welcome to StealthBrowser' : 'Select a profile'}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 480 }}>

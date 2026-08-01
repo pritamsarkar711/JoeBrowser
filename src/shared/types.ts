@@ -88,6 +88,11 @@ export interface ProfileData {
   launchUrl: string
   /** Override for the user data directory. Empty = app-managed. */
   userDataDirOverride: string
+  /**
+   * When true (default), Chromium launches with
+   * --disable-blink-features=AutomationControlled and related anti-automation flags.
+   */
+  disableAutomationFlags: boolean
 }
 
 /** Options for the "Auto-generate realistic fingerprint" dialog. */
@@ -260,7 +265,8 @@ export function createNewProfile(input: NewProfileInput): ProfileData {
     extraLaunchArgs: '',
     customExtensions: [],
     launchUrl: '',
-    userDataDirOverride: ''
+    userDataDirOverride: '',
+    disableAutomationFlags: true
   }
 }
 

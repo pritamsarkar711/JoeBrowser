@@ -144,7 +144,7 @@ function buildChromiumArgs(
     '--no-default-browser-check',
     // Chrome 137+ blocks --load-extension for branded builds; this feature
     // switch re-enables the command line loading we depend on.
-    '--disable-features=Translate,DisableLoadExtensionCommandLineSwitch',
+    '--disable-features=Translate,OptimizationHints,OptimizationTargetPrediction,DisableLoadExtensionCommandLineSwitch',
     '--disable-component-update',
     '--disable-sync',
     '--disable-background-networking',
@@ -152,12 +152,29 @@ function buildChromiumArgs(
     '--disable-crash-reporter',
     '--disable-breakpad',
     '--disable-domain-reliability',
-    '--disable-automation',
     '--disable-search-engine-choice-screen',
     '--disable-hang-monitor',
-    '--metrics-recording-only=0',
-    '--no-pings'
+    '--disable-field-trial-config',
+    '--disable-ipc-flooding-protection',
+    '--metrics-recording-only',
+    '--no-pings',
+    '--password-store=basic',
+    '--use-mock-keychain'
   ]
+
+  // Anti-automation: hide the controlled-by-software banner and strip
+  // navigator.webdriver (paired with the stealth extension override).
+  if (profile.disableAutomationFlags !== false) {
+    args.push(
+      '--disable-blink-features=AutomationControlled',
+      '--exclude-switches=enable-automation',
+      '--disable-automation',
+      '--disable-infobars'
+    )
+    // Append AutomationControlled to disable-features if not already present.
+    const fi = args.findIndex((a) => a.startsWith('--disable-features='))
+    if (fi >= 0) args[fi] = args[fi] + ',AutomationControlled'
+  }
 
   // Stealth extension
   args.push(`--load-extension=${extDir}`)

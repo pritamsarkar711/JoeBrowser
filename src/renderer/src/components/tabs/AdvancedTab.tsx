@@ -178,7 +178,7 @@ export function AdvancedTab({
         </Stack>
       </SectionCard>
 
-      <SectionCard title="Fingerprint engine">
+      <SectionCard title="Fingerprint engine & anti-automation">
         <Stack spacing={1.5}>
           <FormControlLabel
             control={
@@ -189,9 +189,18 @@ export function AdvancedTab({
             }
             label="Auto-generate a fingerprint for new sessions"
           />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={profile.disableAutomationFlags !== false}
+                onChange={(e) => setProfile({ disableAutomationFlags: e.target.checked })}
+              />
+            }
+            label="Disable automation flags (--disable-blink-features=AutomationControlled)"
+          />
           <Typography variant="body2" color="text.secondary">
             The stealth extension is rebuilt locally on every launch with this profile's values — no data ever
-            leaves your machine.
+            leaves your machine. Automation flags hide the “controlled by automated software” banner.
           </Typography>
         </Stack>
       </SectionCard>
