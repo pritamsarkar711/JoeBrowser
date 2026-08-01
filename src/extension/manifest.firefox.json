@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "StealthBrowser Engine",
+  "version": "1.0.0",
+  "description": "Local fingerprint masking engine for StealthBrowser. Runs entirely on-device.",
+  "permissions": [],
+  "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["stealth-main.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_about_blank": true,
+      "world": "MAIN"
+    }
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "stealth-engine@stealthbrowser.local",
+      "strict_min_version": "128.0"
+    }
+  }
+}

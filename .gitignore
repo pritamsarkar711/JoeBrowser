@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+release/
+
+# Logs & local data
+*.log
+logs/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Master key / secrets (never commit)
+master.key
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.swp
+
+# TypeScript incremental build info
+*.tsbuildinfo

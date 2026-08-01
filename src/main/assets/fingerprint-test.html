@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StealthBrowser — Fingerprint Test</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #0e0e12; color: #e8e8ee;
+    font-family: 'Segoe UI', Roboto, system-ui, sans-serif; padding: 32px 16px;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: .3px; }
+  .sub { color: #9aa0ab; margin-bottom: 24px; font-size: 13px; }
+  .banner {
+    padding: 12px 16px; border-radius: 10px; margin-bottom: 24px; font-size: 14px;
+  }
+  .banner.ok { background: #123a20; border: 1px solid #2e7d4f; color: #8fe3ab; }
+  .banner.bad { background: #3a1216; border: 1px solid #8f2d3a; color: #ffb3ba; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .card {
+    background: #17171d; border: 1px solid #26262e; border-radius: 12px; padding: 16px;
+  }
+  .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: #8b93a1; margin: 0 0 12px; }
+  .kv { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 13px; border-bottom: 1px solid #1f1f27; }
+  .kv:last-child { border-bottom: none; }
+  .kv .k { color: #9aa0ab; flex-shrink: 0; }
+  .kv .v { text-align: right; word-break: break-all; color: #f2f2f7; font-family: Consolas, monospace; font-size: 12px; }
+  .mono { font-family: Consolas, monospace; }
+  .hash { font-size: 12px; color: #9fd0ff; }
+  .okv { color: #7ee2a0; } .badv { color: #ff8a95; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🧪 Fingerprint Test Page</h1>
+  <div class="sub">Local-only verification of the active profile's spoofed values. This page is served from 127.0.0.1 and never leaves your machine.</div>
+
+  <div id="banner" class="banner bad">Checking stealth extension…</div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Stealth Engine</h2>
+      <div class="kv"><span class="k">Extension injected</span><span class="v" id="engine">…</span></div>
+      <div class="kv"><span class="k">navigator.webdriver</span><span class="v" id="webdriver">…</span></div>
+      <div class="kv"><span class="k">User agent</span><span class="v" id="ua">…</span></div>
+      <div class="kv"><span class="k">appVersion</span><span class="v" id="appversion">…</span></div>
+      <div class="kv"><span class="k">Platform</span><span class="v" id="platform">…</span></div>
+      <div class="kv"><span class="k">oscpu</span><span class="v" id="oscpu">…</span></div>
+      <div class="kv"><span class="k">Language(s)</span><span class="v" id="lang">…</span></div>
+      <div class="kv"><span class="k">Vendor</span><span class="v" id="vendor">…</span></div>
+      <div class="kv"><span class="k">Plugins</span><span class="v" id="plugins">…</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Screen &amp; Hardware</h2>
+      <div class="kv"><span class="k">Resolution</span><span class="v" id="screen">…</span></div>
+      <div class="kv"><span class="k">Avail</span><span class="v" id="avail">…</span></div>
+      <div class="kv"><span class="k">Color depth</span><span class="v" id="depth">…</span></div>
+      <div class="kv"><span class="k">devicePixelRatio</span><span class="v" id="dpr">…</span></div>
+      <div class="kv"><span class="k">CPU cores</span><span class="v" id="cores">…</span></div>
+      <div class="kv"><span class="k">Device memory</span><span class="v" id="memory">…</span></div>
+      <div class="kv"><span class="k">Max touch points</span><span class="v" id="touch">…</span></div>
+      <div class="kv"><span class="k">Timezone (Intl)</span><span class="v" id="tz">…</span></div>
+      <div class="kv"><span class="k">getTimezoneOffset</span><span class="v" id="tzoff">…</span></div>
+    </div>
+
+    <div class="card">
+      <h2>WebGL</h2>
+      <div class="kv"><span class="k">Vendor</span><span class="v" id="glvendor">…</span></div>
+      <div class="kv"><span class="k">Renderer</span><span class="v" id="glrenderer">…</span></div>
+      <div class="kv"><span class="k">WebGL hash</span><span class="v hash" id="glhash">…</span></div>
+      <div class="kv"><span class="k">WebGL2 vendor</span><span class="v" id="gl2vendor">…</span></div>
+      <div class="kv"><span class="k">WebGL2 renderer</span><span class="v" id="gl2renderer">…</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Canvas &amp; Audio &amp; Fonts</h2>
+      <div class="kv"><span class="k">Canvas hash</span><span class="v hash" id="canvas">…</span></div>
+      <div class="kv"><span class="k">Canvas (WebGL) hash</span><span class="v hash" id="glcanvas">…</span></div>
+      <div class="kv"><span class="k">Audio hash</span><span class="v hash" id="audio">…</span></div>
+      <div class="kv"><span class="k">document.fonts count</span><span class="v" id="fontcount">…</span></div>
+      <div class="kv"><span class="k">Fonts (first 12)</span><span class="v" id="fonts">…</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Network Leaks</h2>
+      <div class="kv"><span class="k">WebRTC IP probe</span><span class="v" id="webrtc">…</span></div>
+      <div class="kv"><span class="k">Geolocation</span><span class="v" id="geo">…</span></div>
+      <div class="kv"><span class="k">UA via header</span><span class="v" id="uaheader">…</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  function set(id, value, cls) {
+    var el = $(id);
+    el.textContent = value;
+    if (cls) el.className = 'v ' + cls;
+  }
+  function hash(str) {
+    var h = 5381;
+    for (var i = 0; i < str.length; i++) { h = ((h << 5) + h) ^ str.charCodeAt(i); }
+    return (h >>> 0).toString(16);
+  }
+  var T0 = performance.now();
+
+  // Stealth engine status
+  var injected = window.__stealthBrowserEngine__ && window.__stealthBrowserEngine__.injected;
+  set('engine', injected ? 'YES ✓' : 'NO ✗', injected ? 'okv' : 'badv');
+  var banner = $('banner');
+  if (injected) { banner.className = 'banner ok'; banner.textContent = '✔ Stealth extension active — values below are the spoofed fingerprint.'; }
+  else { banner.className = 'banner bad'; banner.textContent = '✘ Stealth extension NOT detected. Close this page and launch via “Fingerprint Test”.'; }
+
+  set('webdriver', String(navigator.webdriver), navigator.webdriver ? 'badv' : 'okv');
+  set('ua', navigator.userAgent);
+  set('appversion', navigator.appVersion || '—');
+  set('platform', navigator.platform || '—');
+  set('oscpu', navigator.oscpu || '—');
+  set('lang', navigator.language + ' | ' + (navigator.languages || []).join(', '));
+  set('vendor', navigator.vendor || '—');
+  set('plugins', Array.prototype.map.call(navigator.plugins || [], function (p) { return p.name; }).join(', ') || 'none');
+
+  set('screen', screen.width + ' × ' + screen.height);
+  set('avail', screen.availWidth + ' × ' + screen.availHeight);
+  set('depth', screen.colorDepth + ' / ' + screen.pixelDepth);
+  set('dpr', window.devicePixelRatio);
+  set('cores', navigator.hardwareConcurrency);
+  set('memory', navigator.deviceMemory !== undefined ? navigator.deviceMemory + ' GB' : '—');
+  set('touch', navigator.maxTouchPoints);
+  var tzName = '—';
+  try { tzName = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) {}
+  set('tz', tzName);
+  set('tzoff', String(new Date().getTimezoneOffset()));
+
+  // WebGL
+  function glInfo(canvasId, type) {
+    try {
+      var canvas = document.createElement('canvas');
+      var gl = canvas.getContext(type);
+      if (!gl) return null;
+      var dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      var vendor = String(gl.getParameter(dbg ? dbg.UNMASKED_VENDOR_WEBGL : 7936));
+      var renderer = String(gl.getParameter(dbg ? dbg.UNMASKED_RENDERER_WEBGL : 7937));
+      // hash
+      gl.clearColor(0.1, 0.2, 0.3, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      var px = new Uint8Array(4);
+      gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      return { vendor: vendor, renderer: renderer, hash: hash(vendor + renderer + px.join(',')) };
+    } catch (e) { return null; }
+  }
+  var g1 = glInfo(null, 'webgl');
+  set('glvendor', g1 ? g1.vendor : '—');
+  set('glrenderer', g1 ? g1.renderer : '—');
+  set('glhash', g1 ? g1.hash : '—');
+  var g2 = glInfo(null, 'webgl2');
+  set('gl2vendor', g2 ? g2.vendor : '—');
+  set('gl2renderer', g2 ? g2.renderer : '—');
+
+  // Canvas hash
+  function canvasHash() {
+    var c = document.createElement('canvas');
+    c.width = 300; c.height = 150;
+    var ctx = c.getContext('2d');
+    ctx.textBaseline = 'top';
+    ctx.font = '14px Arial';
+    ctx.fillStyle = '#f60';
+    ctx.fillRect(125, 1, 62, 20);
+    ctx.fillStyle = '#069';
+    ctx.fillText('StealthBrowser \u2318\u00b7\u2603', 2, 15);
+    ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+    ctx.fillText('abcdefghijklmnopqrstuvwxyz', 4, 45);
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = 'rgb(255,0,255)';
+    ctx.beginPath();
+    ctx.arc(50, 100, 40, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgb(0,255,255)';
+    ctx.beginPath();
+    ctx.arc(150, 100, 40, 0, Math.PI * 2);
+    ctx.fill();
+    return hash(c.toDataURL());
+  }
+  try { set('canvas', canvasHash()); } catch (e) { set('canvas', 'error'); }
+
+  function glCanvasHash() {
+    var c = document.createElement('canvas');
+    var gl = c.getContext('webgl');
+    if (!gl) return '—';
+    var s = '';
+    var verts = new Float32Array([-1, -1, 1, -1, -1, 1]);
+    gl.viewport(0, 0, 16, 16);
+    var buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+    var vs = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vs, 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }');
+    gl.compileShader(vs);
+    var fs = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fs, 'precision mediump float; void main(){ gl_FragColor = vec4(0.5, 0.2, 0.8, 1.0); }');
+    gl.compileShader(fs);
+    var prog = gl.createProgram();
+    gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+    gl.useProgram(prog);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    var px = new Uint8Array(16 * 16 * 4);
+    gl.readPixels(0, 0, 16, 16, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    for (var i = 0; i < px.length; i += 16) s += px[i] + ',' + px[i + 1] + ',';
+    return hash(s);
+  }
+  try { set('glcanvas', glCanvasHash()); } catch (e) { set('glcanvas', '—'); }
+
+  // Audio hash
+  function audioHash() {
+    return new Promise(function (resolve) {
+      try {
+        var ctx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 44100, 44100);
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = 10000;
+        gain.gain.value = 0.1;
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(0);
+        ctx.startRendering().then(function (buf) {
+          var data = buf.getChannelData(0);
+          var h = 0;
+          for (var i = 0; i < data.length; i += 50) { h = ((h << 5) + h) ^ Math.round(data[i] * 1e6); }
+          resolve((h >>> 0).toString(16));
+        }).catch(function () { resolve('—'); });
+      } catch (e) { resolve('—'); }
+    });
+  }
+  audioHash().then(function (h) { set('audio', h); });
+
+  // Fonts
+  setTimeout(function () {
+    try {
+      var faces = [];
+      document.fonts.forEach(function (f) { faces.push(f.family); });
+      set('fontcount', String(faces.length));
+      set('fonts', faces.slice(0, 12).join(', ') || 'none');
+    } catch (e) {
+      set('fontcount', '—');
+    }
+  }, 400);
+
+  // WebRTC leak probe
+  function webrtcProbe() {
+    return new Promise(function (resolve) {
+      try {
+        var pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+        var ips = [];
+        var done = false;
+        var timer = setTimeout(function () { finish(); }, 2500);
+        function finish() {
+          if (done) return; done = true;
+          try { pc.close(); } catch (e) {}
+          resolve(ips.length ? ips.join(', ') : 'no IP leaked (mDNS/blocked) ✓');
+        }
+        pc.onicecandidate = function (e) {
+          if (e.candidate) {
+            var c = e.candidate.candidate;
+            var m = c.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+            if (m && !/\.local$/.test(m[0])) ips.push(m[0]);
+          }
+        };
+        pc.createDataChannel('probe');
+        pc.createOffer().then(function (o) { return pc.setLocalDescription(o); }).catch(finish);
+      } catch (e) { resolve('—'); }
+    });
+  }
+  webrtcProbe().then(function (r) {
+    set('webrtc', String(r), String(r).indexOf('no IP leaked') !== -1 ? 'okv' : 'badv');
+  });
+
+  // Geolocation
+  function geoProbe() {
+    return new Promise(function (resolve) {
+      if (!navigator.geolocation) { resolve('not available'); return; }
+      var t = setTimeout(function () { resolve('no response (blocked) ✓'); }, 1500);
+      navigator.geolocation.getCurrentPosition(
+        function (pos) { clearTimeout(t); resolve('spoofed: ' + pos.coords.latitude.toFixed(4) + ', ' + pos.coords.longitude.toFixed(4)); },
+        function (err) { clearTimeout(t); resolve('blocked ✓ (' + err.code + ')'); }
+      );
+    });
+  }
+  geoProbe().then(function (r) { set('geo', String(r)); });
+
+  // Server-reported UA header (this page is served locally, so it shows the
+  // UA the browser sent over the wire — the spoofed one).
+  fetch(location.href, { cache: 'no-store' }).then(function (r) {
+    return r.text().then(function () {
+      // The UA header of the sub-request isn't exposed to JS; show the
+      // effective request UA via a tiny trick: the browser reports it in
+      // performance entries for the navigation itself.
+      var nav = performance.getEntriesByType('navigation')[0];
+      set('uaheader', 'sent by browser (see DevTools Network for exact header)');
+    });
+  }).catch(function () { set('uaheader', '—'); });
+
+  setTimeout(function () {
+    console.log('[StealthBrowser test page] total render time', Math.round(performance.now() - T0) + 'ms');
+  }, 500);
+})();
+</script>
+</body>
+</html>
