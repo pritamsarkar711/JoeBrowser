@@ -7,6 +7,7 @@ import { Sidebar } from './components/Sidebar'
 import { ProfileEditor } from './components/ProfileEditor'
 import { NewProfileDialog } from './components/NewProfileDialog'
 import { SettingsDialog } from './components/SettingsDialog'
+import { DownloadDialog } from './components/DownloadDialog'
 import { Toasts } from './components/Toasts'
 import { LoadingOverlay } from './components/LoadingOverlay'
 
@@ -18,6 +19,7 @@ export default function App(): React.JSX.Element {
   const isNarrow = useMediaQuery('(max-width:900px)')
   const [newProfileOpen, setNewProfileOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [downloadOpen, setDownloadOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const theme = useMemo(() => {
@@ -66,6 +68,7 @@ export default function App(): React.JSX.Element {
           width={SIDEBAR_WIDTH}
           onNewProfile={() => setNewProfileOpen(true)}
           onSettings={() => setSettingsOpen(true)}
+          onDownload={() => setDownloadOpen(true)}
           mobileOpen={mobileOpen}
           onMobileClose={() => setMobileOpen(false)}
           onMobileOpen={() => setMobileOpen(true)}
@@ -129,6 +132,7 @@ export default function App(): React.JSX.Element {
 
       <NewProfileDialog open={newProfileOpen} onClose={() => setNewProfileOpen(false)} onCreated={() => undefined} />
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <DownloadDialog open={downloadOpen} onClose={() => setDownloadOpen(false)} />
       <Toasts />
       <LoadingOverlay open={busy} label="Launching profile…" />
     </ThemeProvider>

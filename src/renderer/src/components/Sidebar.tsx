@@ -20,6 +20,7 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import LockIcon from '@mui/icons-material/Lock'
 import MenuIcon from '@mui/icons-material/Menu'
 import CloseIcon from '@mui/icons-material/Close'
+import DownloadIcon from '@mui/icons-material/Download'
 import type { BrowserType } from '@shared/types'
 import { BROWSER_NAMES } from '@shared/types'
 import { useApp } from '../store'
@@ -34,6 +35,7 @@ export function Sidebar({
   width,
   onNewProfile,
   onSettings,
+  onDownload,
   mobileOpen,
   onMobileClose,
   onMobileOpen
@@ -41,6 +43,7 @@ export function Sidebar({
   width: number
   onNewProfile: () => void
   onSettings: () => void
+  onDownload: () => void
   mobileOpen?: boolean
   onMobileClose?: () => void
   onMobileOpen?: () => void
@@ -188,22 +191,48 @@ export function Sidebar({
 
       {/* Footer actions */}
       <Box sx={{ p: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
-        <Stack direction="row" spacing={1}>
-          <Tooltip title="Settings">
-            <IconButton
-              onClick={() => {
-                onSettings()
-                onMobileClose?.()
-              }}
-            >
-              <SettingsIcon />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Lock (encrypt all data)">
-            <IconButton onClick={() => void lock()}>
-              <LockIcon />
-            </IconButton>
-          </Tooltip>
+        <Stack spacing={1}>
+          <Button
+            fullWidth
+            variant="contained"
+            size="small"
+            startIcon={<DownloadIcon />}
+            onClick={() => {
+              onDownload()
+              onMobileClose?.()
+            }}
+            sx={{
+              borderRadius: 3,
+              textTransform: 'none',
+              fontWeight: 700,
+              background: 'linear-gradient(135deg,#6750a4,#7e5dff)',
+              boxShadow: '0 4px 14px #6750a455'
+            }}
+          >
+            Download EXE
+          </Button>
+          <Stack direction="row" spacing={1}>
+            <Tooltip title="Settings">
+              <IconButton
+                onClick={() => {
+                  onSettings()
+                  onMobileClose?.()
+                }}
+              >
+                <SettingsIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Lock (encrypt all data)">
+              <IconButton onClick={() => void lock()}>
+                <LockIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Download Windows EXE">
+              <IconButton onClick={() => { onDownload(); onMobileClose?.() }}>
+                <DownloadIcon />
+              </IconButton>
+            </Tooltip>
+          </Stack>
         </Stack>
       </Box>
     </Box>

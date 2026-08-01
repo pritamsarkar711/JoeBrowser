@@ -19,6 +19,8 @@ import {
   FormControlLabel
 } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
+import DownloadIcon from '@mui/icons-material/Download'
+import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import { useApp } from '../store'
 import { useToast } from '../hooks/useToasts'
 
@@ -166,6 +168,32 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
               }
               label="Minimize to system tray instead of quitting"
             />
+          </Box>
+
+          {/* Download / Updates */}
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+              Download & Updates
+            </Typography>
+            <Stack spacing={1}>
+              <Typography variant="body2" color="text.secondary">
+                Current version: v1.0.0 (from package.json). Check GitHub Releases for Windows .exe installer and portable builds.
+              </Typography>
+              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                <Button size="small" variant="contained" startIcon={<DownloadIcon />} onClick={() => window.open('https://github.com/pritamsarkar711/JoeBrowser/releases', '_blank')}>
+                  Releases
+                </Button>
+                <Button size="small" variant="outlined" endIcon={<OpenInNewIcon />} onClick={() => window.open('https://github.com/pritamsarkar711/JoeBrowser/actions/workflows/build-windows.yml', '_blank')}>
+                  CI Builds
+                </Button>
+                <Button size="small" variant="text" onClick={() => window.open('https://github.com/pritamsarkar711/JoeBrowser/archive/refs/heads/main.zip', '_blank')}>
+                  Source ZIP
+                </Button>
+              </Stack>
+              <Typography variant="caption" color="text.secondary">
+                Tip: On Windows, double-click <code>scripts/build-windows.bat</code> to build the EXE locally in ~3 minutes (npm run dist:win).
+              </Typography>
+            </Stack>
           </Box>
 
           <Divider />

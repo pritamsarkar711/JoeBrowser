@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Download JoeBrowser - Free Anti-Detect Browser (.exe)</title>
+<meta name="description" content="Download JoeBrowser - Open-source anti-detect browser manager. Windows installer (.exe) and portable available.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:#0a0a12;color:#e8e8ee;min-height:100vh;overflow-x:hidden}
+.bg{position:fixed;inset:0;background:radial-gradient(1200px 600px at 30% -10%,#6750a4 0%,transparent 60%),radial-gradient(1000px 500px at 80% 10%,#1e7aff33 0%,transparent 60%),#0a0a12;z-index:-1}
+.container{max-width:960px;margin:0 auto;padding:24px}
+.nav{display:flex;justify-content:space-between;align-items:center;padding:16px 0}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-icon{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#6750a4,#8b6cf8);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;color:#fff;box-shadow:0 8px 24px #6750a488}
+.logo h1{font-size:20px;font-weight:700;letter-spacing:-0.02em}
+.logo p{font-size:12px;color:#9a9ab0;margin-top:-2px}
+.nav-links{display:flex;gap:12px}
+.nav-links a{color:#9a9ab0;text-decoration:none;font-size:14px;padding:8px 14px;border-radius:20px;border:1px solid #ffffff18;transition:.2s}
+.nav-links a:hover{color:#fff;border-color:#ffffff30;background:#ffffff08}
+.hero{margin:56px 0 40px;text-align:center}
+.hero h2{font-size:52px;line-height:0.95;letter-spacing:-0.04em;font-weight:800;background:linear-gradient(180deg,#fff 20%,#b8b8d0 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:18px}
+.hero p{font-size:18px;color:#9a9ab0;max-width:620px;margin:0 auto 32px;line-height:1.6}
+.badges{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:36px}
+.badge{background:#ffffff0e;border:1px solid #ffffff14;padding:6px 12px;border-radius:20px;font-size:12px;color:#bbb}
+.card{background:linear-gradient(180deg,#1a1a28ee 0%,#151520ee 100%);backdrop-filter:blur(20px);border:1px solid #ffffff12;border-radius:24px;padding:28px;box-shadow:0 20px 60px #00000060, inset 0 1px 0 #ffffff0e}
+.download-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px}
+@media(max-width:700px){.download-grid{grid-template-columns:1fr}.hero h2{font-size:36px}}
+.btn{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:18px 20px;border-radius:18px;text-decoration:none;transition:.22s;cursor:pointer;border:1px solid transparent;overflow:hidden}
+.btn-primary{background:linear-gradient(135deg,#6750a4,#7e5dff);color:#fff;box-shadow:0 10px 30px #6750a4aa, inset 0 1px 0 #ffffff30}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 16px 40px #6750a4dd, inset 0 1px 0 #ffffff40}
+.btn-secondary{background:#ffffff08;border-color:#ffffff14;color:#e8e8ee}
+.btn-secondary:hover{background:#ffffff12;border-color:#ffffff28;transform:translateY(-1px)}
+.btn small{font-size:11px;opacity:.75;letter-spacing:.05em;text-transform:uppercase;font-weight:600}
+.btn strong{font-size:18px;font-weight:700;letter-spacing:-0.01em;display:flex;align-items:center;gap:8px}
+.btn .meta{font-size:12px;color:#a0a0b8;margin-top:2px}
+.btn-primary .meta{color:#e0d2ffdd}
+.version-bar{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:#ffffff06;border:1px solid #ffffff0e;border-radius:14px;margin-bottom:22px;font-size:13px}
+.version-bar b{color:#fff}
+#releaseStatus{color:#9a9ab0}
+.steps{margin-top:28px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:800px){.steps{grid-template-columns:1fr}}
+.step{background:#ffffff05;border:1px solid #ffffff0a;border-radius:16px;padding:16px}
+.step h4{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:#9a9ab0;margin-bottom:8px}
+.step code{display:block;background:#00000050;border:1px solid #ffffff0f;padding:10px 12px;border-radius:10px;font-size:12px;overflow-x:auto;margin-top:8px;color:#c8c8e0;white-space:pre-wrap;word-break:break-all}
+.step p{font-size:13px;line-height:1.5;color:#b0b0c4}
+.footer{margin:56px 0 24px;text-align:center;color:#6e6e8a;font-size:12px}
+.footer a{color:#9a9ab0}
+.link-row{display:flex;gap:10px;justify-content:center;margin-top:24px;flex-wrap:wrap}
+.link-row a{color:#8b8bff;text-decoration:none;font-size:13px;padding:8px 16px;background:#ffffff07;border:1px solid #ffffff0e;border-radius:20px;transition:.2s}
+.link-row a:hover{background:#ffffff12;color:#fff}
+.pulse{animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="container">
+  <nav class="nav">
+    <div class="logo">
+      <div class="logo-icon">J</div>
+      <div>
+        <h1>JoeBrowser</h1>
+        <p>Open-source anti-detect manager</p>
+      </div>
+    </div>
+    <div class="nav-links">
+      <a href="https://github.com/pritamsarkar711/JoeBrowser" target="_blank">GitHub</a>
+      <a href="https://github.com/pritamsarkar711/JoeBrowser/releases" target="_blank">All Releases</a>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <h2>Isolated browser profiles,<br>with one .exe</h2>
+    <p>Free anti-detect browser manager. Create unlimited Chrome / Edge / Brave / Firefox profiles with fingerprint spoofing, proxy support & encrypted storage. No cloud. Yours forever.</p>
+    <div class="badges">
+      <span class="badge">✓ Open Source (MIT)</span>
+      <span class="badge">✓ Windows 10/11 x64</span>
+      <span class="badge">✓ No tracking</span>
+      <span class="badge">✓ Portable available</span>
+    </div>
+  </section>
+
+  <div class="card">
+    <div class="version-bar">
+      <div><b id="versionLabel">Latest: v1.0.0</b> <span id="releaseDate" style="margin-left:8px"></span></div>
+      <div id="releaseStatus"><span class="pulse">●</span> Checking GitHub…</div>
+    </div>
+
+    <div class="download-grid">
+      <a id="btnInstaller" href="https://github.com/pritamsarkar711/JoeBrowser/releases/latest" target="_blank" class="btn btn-primary">
+        <small>Recommended for most users</small>
+        <strong>⬇ Download Installer (.exe) <span style="font-size:22px">🪟</span></strong>
+        <span class="meta" id="installerMeta">JoeBrowser-Setup-1.0.0.exe • ~110 MB • NSIS installer with shortcuts</span>
+      </a>
+      <a id="btnPortable" href="https://github.com/pritamsarkar711/JoeBrowser/releases/latest" target="_blank" class="btn btn-secondary">
+        <small>No install needed • run anywhere</small>
+        <strong>⬇ Download Portable (.exe)</strong>
+        <span class="meta" id="portableMeta">JoeBrowser-Portable-1.0.0.exe • ~110 MB • USB stick friendly</span>
+      </a>
+    </div>
+
+    <div style="margin-top:18px;padding:12px 14px;background:#6750a412;border:1px solid #6750a422;border-radius:12px;font-size:13px;color:#b9b0d6;line-height:1.5">
+      <b style="color:#d6ccff">First time?</b> Download <b>Setup</b> → double-click → install → launch JoeBrowser. Your profiles are encrypted locally with a master password. If you want no install, use <b>Portable</b> – just run the .exe.
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <h4>Method 1 — Direct download</h4>
+        <p>Go to Releases page, pick the newest version, download <code>Setup</code> or <code>Portable</code> .exe. This is the fastest.</p>
+        <code>https://github.com/pritamsarkar711/JoeBrowser/releases</code>
+      </div>
+      <div class="step">
+        <h4>Method 2 — Build on Windows (1 cmd)</h4>
+        <p>If releases are empty, build the exe yourself on Windows in 2 minutes:</p>
+        <code>git clone https://github.com/pritamsarkar711/JoeBrowser.git
+cd JoeBrowser
+npm ci
+npm run dist:win
+REM exe will be in /release/</code>
+        <p style="margin-top:8px">Or double-click <code>scripts/build-windows.bat</code></p>
+      </div>
+      <div class="step">
+        <h4>Method 3 — Trigger CI build</h4>
+        <p>Maintainers: push a tag or run workflow manually.</p>
+        <code>git tag v1.0.1
+git push origin v1.0.1
+# wait 8-12 min, check Actions tab
+# exe appears in Releases automatically</code>
+      </div>
+    </div>
+
+    <div class="link-row">
+      <a href="https://github.com/pritamsarkar711/JoeBrowser/actions/workflows/build-windows.yml" target="_blank">⚙️ View CI Build Status (Windows EXE Builder)</a>
+      <a href="https://github.com/pritamsarkar711/JoeBrowser#how-to-build-a-release-for-maintainers" target="_blank">📖 Build Docs</a>
+      <a href="https://github.com/pritamsarkar711/JoeBrowser/archive/refs/heads/main.zip" target="_blank">📦 Download Source ZIP</a>
+    </div>
+
+    <div style="margin-top:22px;text-align:center">
+      <p style="font-size:12px;color:#6e6e8a">SHA256 checksums are shown on the GitHub Release page. Installer is signed via NSIS, portable needs no admin rights.</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    Built with Electron 37 • React 19 • Material 3 • MIT Licensed<br>
+    <a href="https://github.com/pritamsarkar711/JoeBrowser">github.com/pritamsarkar711/JoeBrowser</a> • JoeBrowser is not affiliated with Google Chrome, Microsoft Edge, Brave or Mozilla Firefox.
+  </div>
+</div>
+
+<script>
+const OWNER='pritamsarkar711', REPO='JoeBrowser';
+async function fetchLatest(){
+  const status=document.getElementById('releaseStatus');
+  const vLabel=document.getElementById('versionLabel');
+  const dateEl=document.getElementById('releaseDate');
+  const btnI=document.getElementById('btnInstaller');
+  const btnP=document.getElementById('btnPortable');
+  const metaI=document.getElementById('installerMeta');
+  const metaP=document.getElementById('portableMeta');
+  try{
+    const r=await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/releases/latest`, {headers:{'Accept':'application/vnd.github+json'}});
+    if(!r.ok) throw new Error('no release yet');
+    const data=await r.json();
+    const tag=data.tag_name||'v1.0.0';
+    vLabel.textContent=`Latest: ${tag}`;
+    dateEl.textContent=`• ${new Date(data.published_at).toLocaleDateString()}`;
+    status.innerHTML=`✅ Release found • ${data.assets?.length||0} files`;
+
+    // find assets
+    let installer=null, portable=null;
+    (data.assets||[]).forEach(a=>{
+      const n=a.name.toLowerCase();
+      if(n.includes('setup') && n.endsWith('.exe')) installer=a;
+      if(n.includes('portable') && n.endsWith('.exe')) portable=a;
+    });
+    if(installer){
+      btnI.href=installer.browser_download_url;
+      metaI.textContent=`${installer.name} • ${(installer.size/1024/1024).toFixed(1)} MB • ${installer.download_count} downloads`;
+    }
+    if(portable){
+      btnP.href=portable.browser_download_url;
+      metaP.textContent=`${portable.name} • ${(portable.size/1024/1024).toFixed(1)} MB • ${portable.download_count} downloads`;
+    }
+    if(!installer && !portable){
+      // fallback to release page
+      status.innerHTML=`⚠️ Release exists but no EXE yet — building. <a href="https://github.com/${OWNER}/${REPO}/actions" target="_blank" style="color:#a0a0ff">Check Actions</a>`;
+    }
+  }catch(e){
+    console.warn(e);
+    const fallbackTag='v1.0.0';
+    vLabel.textContent=`Latest: ${fallbackTag} (placeholder)`;
+    status.innerHTML=`ℹ️ No release yet. <a href="https://github.com/${OWNER}/${REPO}/actions/workflows/build-windows.yml" target="_blank" style="color:#b0b0ff">Trigger a Windows build →</a> or build locally with <code>npm run dist:win</code>`;
+    // keep buttons pointing to releases/latest which will redirect when release exists
+    btnI.href=`https://github.com/${OWNER}/${REPO}/releases/latest`;
+    btnP.href=`https://github.com/${OWNER}/${REPO}/releases/latest`;
+  }
+}
+fetchLatest();
+</script>
+</body>
+</html>
