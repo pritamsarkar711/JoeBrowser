@@ -186,7 +186,7 @@ export default function App(): React.JSX.Element {
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 480 }}>
                 {profiles.length === 0
-                  ? 'Create your first isolated browsing profile. Everything stays on this machine — fingerprints, proxies and browser data are yours only.'
+                  ? 'Create your first profile. All data stays local.'
                   : 'Pick a profile from the sidebar, or create a new one.'}
               </Typography>
               {profiles.length === 0 && (

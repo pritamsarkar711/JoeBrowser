@@ -190,7 +190,7 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
   return (
     <Box>
       {/* Action row */}
-      <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
+      <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
         <Button size="small" variant="contained" startIcon={<AutoAwesomeIcon />} onClick={() => setAutoOpen(true)}>
           Auto-generate
         </Button>
@@ -203,7 +203,7 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
       </Stack>
 
       {/* User-Agent & Platform */}
-      <SectionCard title="User-Agent & Platform" subtitle="navigator.userAgent, platform, languages">
+      <SectionCard title="User-Agent & Platform" subtitle="UA & locale">
         <Stack spacing={1.5}>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
             <TextField
@@ -255,7 +255,7 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
       </SectionCard>
 
       {/* Screen — with validation */}
-      <SectionCard title="Screen" subtitle="Resolution, color depth, pixel ratio">
+      <SectionCard title="Screen" subtitle="Resolution & DPR">
         <Stack spacing={1.5}>
           <Stack direction="row" spacing={1.5}>
             <FpNum label="Width" value={fp.screenWidth} onChange={(v) => setFp({ screenWidth: v })} min={320} max={7680} />
@@ -274,7 +274,7 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
       </SectionCard>
 
       {/* Hardware — with validation */}
-      <SectionCard title="Hardware" subtitle="CPU cores, RAM, touch">
+      <SectionCard title="Hardware" subtitle="CPU & memory">
         <Stack spacing={1.5}>
           <Stack direction="row" spacing={1.5}>
             <FpNum label="CPU cores" value={fp.hardwareConcurrency} onChange={(v) => setFp({ hardwareConcurrency: v })} min={1} max={128} />
@@ -293,7 +293,7 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
       </SectionCard>
 
       {/* Canvas & Audio */}
-      <SectionCard title="Canvas & Audio" subtitle="Seeded noise for hash randomization">
+      <SectionCard title="Canvas & Audio" subtitle="Noise & protection">
         <Stack spacing={1}>
           <Stack direction="row" spacing={2}>
             <FormControlLabel
@@ -317,7 +317,7 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
       </SectionCard>
 
       {/* Fonts */}
-      <SectionCard title="Fonts" subtitle="Enumerable fonts via document.fonts">
+      <SectionCard title="Fonts" subtitle="Font masking">
         <Stack spacing={1}>
           <FormControlLabel
             control={<Switch checked={fp.fontFingerprintProtection} onChange={(e) => setFp({ fontFingerprintProtection: e.target.checked })} size="small" />}
@@ -338,7 +338,7 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
       </SectionCard>
 
       {/* Geolocation */}
-      <SectionCard title="Geolocation" subtitle="Block or spoof position">
+      <SectionCard title="Geolocation" subtitle="Location control">
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <FormControl size="small" sx={{ minWidth: 160 }}>
             <InputLabel>Mode</InputLabel>
@@ -375,7 +375,7 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
       </SectionCard>
 
       {/* Privacy — doNotTrack, window.chrome, pluginsSpoof */}
-      <SectionCard title="Privacy" subtitle="DoNotTrack, window.chrome, plugins spoofing">
+      <SectionCard title="Privacy" subtitle="Privacy flags">
         <Stack spacing={1}>
           <Stack direction="row" spacing={1.5}>
             <FormControl size="small" sx={{ minWidth: 180 }}>

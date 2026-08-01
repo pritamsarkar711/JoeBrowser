@@ -128,7 +128,7 @@ export function ProfileEditor({ profile }: { profile: ProfileData }): React.JSX.
   }
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Header */}
       <Paper
         elevation={0}
@@ -154,41 +154,44 @@ export function ProfileEditor({ profile }: { profile: ProfileData }): React.JSX.
             {autoSaving ? ' · saving…' : dirty ? ' · unsaved' : ' · saved'}
           </Typography>
         </Box>
-        <Tooltip title="Duplicate profile">
-          <IconButton onClick={() => void duplicateProfile(draft.id)}>
-            <ContentCopyIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Export encrypted JSON">
-          <IconButton onClick={() => setExportOpen(true)}>
-            <FileDownloadIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Import encrypted JSON">
-          <IconButton onClick={() => setImportOpen(true)}>
-            <FileUploadIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Delete profile">
-          <IconButton color="error" onClick={() => setConfirmDelete(true)}>
-            <DeleteOutlinedIcon />
-          </IconButton>
-        </Tooltip>
-        <Button
-          variant="contained"
-          startIcon={<SaveIcon />}
-          disabled={!dirty || saving || autoSaving}
-          onClick={() => void handleSave()}
-        >
-          {t('common.save', undefined, lang)}
-        </Button>
-        <Tooltip title="Discard changes">
-          <span>
-            <IconButton disabled={!dirty} onClick={reset}>
-              <UndoIcon />
+        <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <Tooltip title="Duplicate profile">
+            <IconButton size="small" onClick={() => void duplicateProfile(draft.id)}>
+              <ContentCopyIcon />
             </IconButton>
-          </span>
-        </Tooltip>
+          </Tooltip>
+          <Tooltip title="Export encrypted JSON">
+            <IconButton size="small" onClick={() => setExportOpen(true)}>
+              <FileDownloadIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Import encrypted JSON">
+            <IconButton size="small" onClick={() => setImportOpen(true)}>
+              <FileUploadIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete profile">
+            <IconButton size="small" color="error" onClick={() => setConfirmDelete(true)}>
+              <DeleteOutlinedIcon />
+            </IconButton>
+          </Tooltip>
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<SaveIcon />}
+            disabled={!dirty || saving || autoSaving}
+            onClick={() => void handleSave()}
+          >
+            {t('common.save', undefined, lang)}
+          </Button>
+          <Tooltip title="Discard changes">
+            <span>
+              <IconButton size="small" disabled={!dirty} onClick={reset}>
+                <UndoIcon />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Stack>
       </Paper>
 
       {/* Tabs */}

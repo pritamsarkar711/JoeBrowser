@@ -79,7 +79,14 @@ const SCREENS_DESKTOP: Array<[number, number]> = [
   [1600, 900],
   [1920, 1000],
   [2560, 1080],
-  [1360, 768]
+  [1360, 768],
+  [1280, 800],
+  [1600, 1200],
+  [2048, 1152],
+  [2560, 1440],
+  [3440, 1440],
+  [3840, 1600],
+  [1024, 768]
 ]
 
 const SCREENS_MOBILE: Array<[number, number]> = [
@@ -91,10 +98,10 @@ const SCREENS_MOBILE: Array<[number, number]> = [
   [430, 932]
 ]
 
-const CORES_DESKTOP = [4, 6, 8, 8, 12, 16]
-const CORES_MOBILE = [8, 8, 8]
-const MEMORY_DESKTOP = [8, 8, 16, 16, 32]
-const MEMORY_MOBILE = [4, 6, 8, 8]
+const CORES_DESKTOP = [2, 4, 4, 6, 6, 8, 8, 8, 10, 12, 12, 16, 16, 24, 32, 64]
+const CORES_MOBILE = [4, 6, 8, 8, 8, 10, 12]
+const MEMORY_DESKTOP = [4, 8, 8, 8, 12, 16, 16, 16, 24, 32, 32, 64, 128]
+const MEMORY_MOBILE = [3, 4, 4, 6, 8, 8, 12, 16]
 
 const TIMEZONES = [
   'America/New_York',
@@ -131,7 +138,20 @@ const TIMEZONES = [
   'Pacific/Auckland',
   'Africa/Lagos',
   'Africa/Cairo',
-  'Africa/Johannesburg'
+  'Africa/Johannesburg',
+  'Europe/Kyiv',
+  'Asia/Almaty',
+  'Asia/Tashkent',
+  'Asia/Manila',
+  'Asia/Kathmandu',
+  'Asia/Colombo',
+  'Africa/Nairobi',
+  'Africa/Accra',
+  'America/Bogota',
+  'America/Lima',
+  'America/Buenos_Aires',
+  'America/Mexico_City',
+  'Pacific/Honolulu'
 ]
 
 const LANGUAGES: Record<TargetOS, string[][]> = {
@@ -307,6 +327,56 @@ const GPUS: Record<TargetOS, GpuPair[]> = {
       vendor: 'Google Inc. (Intel)',
       renderer:
         'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (NVIDIA)',
+      renderer:
+        'ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (NVIDIA)',
+      renderer:
+        'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Ti Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (NVIDIA)',
+      renderer:
+        'ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (NVIDIA)',
+      renderer:
+        'ANGLE (NVIDIA, NVIDIA GeForce RTX 3080 Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (NVIDIA)',
+      renderer:
+        'ANGLE (NVIDIA, NVIDIA GeForce RTX 3090 Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (AMD)',
+      renderer:
+        'ANGLE (AMD, AMD Radeon RX 6800 XT Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (AMD)',
+      renderer:
+        'ANGLE (AMD, AMD Radeon RX 6600 Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (AMD)',
+      renderer:
+        'ANGLE (AMD, AMD Radeon RX 580 Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (Intel)',
+      renderer:
+        'ANGLE (Intel, Intel(R) UHD Graphics 770 Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (Intel)',
+      renderer:
+        'ANGLE (Intel, Intel(R) HD Graphics 630 Direct3D11 vs_5_0 ps_5_0, D3D11)'
     }
   ],
   macos: [
@@ -726,7 +796,7 @@ function buildFromEntry(entry: UAEntry, seed: string, rng: SeededRng): Fingerpri
 
   const gpu = rng.pick(GPUS[os] ?? GPUS.windows)
 
-  const dpr = isMobile ? rng.pick([2.75, 3, 3]) : rng.pick([1, 1, 1, 1.25, 1.5])
+  const dpr = isMobile ? rng.pick([2.75, 3, 3]) : rng.pick([1, 1, 1, 1.25, 1.5, 1.5, 1.75, 2])
   const colorDepth = 24
 
   // Determine if window.chrome should be spoofed:
@@ -770,9 +840,9 @@ function buildFromEntry(entry: UAEntry, seed: string, rng: SeededRng): Fingerpri
       latitude: 0,
       longitude: 0
     },
-    connectionDownlink: rng.pick([1.4, 2.5, 4.4, 5.6, 8.5, 10]),
+    connectionDownlink: rng.pick([0.5, 1.4, 1.5, 2, 2.5, 4.4, 5.6, 7, 8.5, 10, 15]),
     connectionEffectiveType: rng.pick(['4g', '4g', '4g', '3g']),
-    connectionRtt: rng.pick([50, 50, 100, 150, 200]),
+    connectionRtt: rng.pick([0, 50, 50, 100, 100, 150, 200, 300]),
     permissionsPolicy: {
       notifications: rng.chance(0.3) ? 'granted' : 'prompt',
       camera: 'prompt',

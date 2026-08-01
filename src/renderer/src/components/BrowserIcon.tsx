@@ -49,6 +49,19 @@ export function BrowserIcon({
           />
         </svg>
       )
+    case 'chromium':
+      return (
+        <svg {...common}>
+          <circle cx="24" cy="24" r="22" fill="#fff" />
+          <circle cx="24" cy="24" r="22" fill="none" stroke="#e8eaed" strokeWidth="1" />
+          <circle cx="24" cy="24" r="9" fill="#4285F4" />
+          <path d="M24 24 L43.5 12 A22 22 0 0 0 24 2 Z" fill="#EA4335" />
+          <path d="M24 24 L5 34 A22 22 0 0 0 42.2 37.8 L40 24 Z" fill="#FBBC05" />
+          <path d="M24 24 L8 14.2 A22 22 0 0 0 4 24 Z" fill="#34A853" />
+          {/* Chromium: add inner white ring to differentiate from Chrome */}
+          <circle cx="24" cy="24" r="15" fill="none" stroke="#fff" strokeWidth="2" />
+        </svg>
+      )
     case 'firefox':
       return (
         <svg {...common}>

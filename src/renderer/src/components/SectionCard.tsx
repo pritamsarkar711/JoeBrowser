@@ -24,14 +24,15 @@ export function SectionCard({
     <Paper
       elevation={0}
       sx={{
-        p: 2.5,
+        p: 2,
         border: '1px solid',
         borderColor: 'divider',
         borderRadius: 3,
-        mb: 2
+        mb: 2,
+        overflow: 'hidden'
       }}
     >
-      <Stack direction="row" sx={{ mb: 1.5 }}>
+      <Stack direction="row" sx={{ mb: 1.5, alignItems: 'center' }}>
         <Box>
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
             {title}

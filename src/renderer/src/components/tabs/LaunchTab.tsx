@@ -60,7 +60,7 @@ export function LaunchTab({ profile }: { profile: ProfileData }): React.JSX.Elem
   return (
     <Box>
       {/* Launch controls */}
-      <SectionCard title="Launch profile" subtitle="Spawns the browser with full isolation + stealth extension">
+      <SectionCard title="Launch profile" subtitle="Isolated browser session">
         <Stack spacing={2}>
           <TextField
             label="Open URL after launch (optional)"
@@ -123,9 +123,8 @@ export function LaunchTab({ profile }: { profile: ProfileData }): React.JSX.Elem
               Started {new Date(session.startedAt).toLocaleTimeString()} · user data:{' '}
               <code>{session.userDataDir || 'app-managed'}</code>
             </Typography>
-            <Alert severity="info" sx={{ borderRadius: 2 }}>
-              The browser process is monitored; when you close the browser window, the session ends and the
-              temporary stealth extension is removed.
+            <Alert severity="info" sx={{ borderRadius: 2, py: 0 }}>
+              <Typography variant="caption">Closing the browser window ends the session and removes the stealth extension.</Typography>
             </Alert>
           </Stack>
         ) : (
@@ -138,11 +137,10 @@ export function LaunchTab({ profile }: { profile: ProfileData }): React.JSX.Elem
       {/* Quick hints */}
       <SectionCard title="Multi-accounting checklist">
         <Typography variant="body2" color="text.secondary">
-          1. Every profile has its own encrypted storage and user-data folder — cookies, localStorage, IndexedDB and
-          cache are fully isolated. <br />
-          2. Use the Fingerprint tab to generate a unique, consistent fingerprint per profile. <br />
-          3. Add a proxy per profile and test it before launching. <br />
-          4. Verify with the built-in fingerprint test page (or browserleaks.com) before real browsing.
+          1. Each profile has isolated storage — cookies, cache, and IndexedDB stay separate. <br />
+          2. Generate a unique fingerprint per profile. <br />
+          3. Set a proxy per profile and test before launch. <br />
+          4. Verify with the fingerprint test page before real browsing.
         </Typography>
       </SectionCard>
     </Box>

@@ -239,6 +239,8 @@ export const UA_LIBRARY: UAEntry[] = [
   winChrome('118', '5993.70'),
   winChrome('117', '6105.0'),
   winChrome('116', '5845.96'),
+  winChrome('138', '7204.40'),
+  winChrome('139', '7258.44'),
   // Chrome — macOS
   macChrome('137', '7156.52', '15_3'),
   macChrome('136', '7142.68', '15_3'),
@@ -250,6 +252,8 @@ export const UA_LIBRARY: UAEntry[] = [
   macChrome('122', '6261.57', '14_4'),
   macChrome('120', '6099.109', '14_3'),
   macChrome('117', '6105.0', '14_2'),
+  macChrome('138', '7204.40', '15_4'),
+  macChrome('139', '7258.44', '15_4'),
   // Chrome — Linux
   linuxChrome('136', '7142.68'),
   linuxChrome('134', '6998.35'),
@@ -295,6 +299,8 @@ export const UA_LIBRARY: UAEntry[] = [
   winEdge('130', '130.0.2849.47', '6723.92'),
   winEdge('128', '128.0.2739.42', '6613.86'),
   winEdge('126', '126.0.2592.56', '6478.46'),
+  winEdge('138', '138.0.3360.22', '7204.40'),
+  winEdge('139', '139.0.3405.36', '7258.44'),
   // Edge — macOS
   macEdge('137', '137.0.3296.52', '7156.52', '15_3'),
   macEdge('135', '135.0.3179.44', '7049.44', '15_3'),
@@ -315,6 +321,8 @@ export const UA_LIBRARY: UAEntry[] = [
   winBrave('130', '6723.92'),
   winBrave('129', '6668.79'),
   winBrave('128', '6613.86'),
+  winBrave('138', '7204.40'),
+  winBrave('139', '7258.44'),
   macBrave('136', '7142.68', '15_3'),
   macBrave('134', '6998.35', '14_7'),
   macBrave('132', '6834.110', '14_7'),
@@ -341,6 +349,8 @@ export const UA_LIBRARY: UAEntry[] = [
   winFirefox('126'),
   winFirefox('125'),
   winFirefox('124'),
+  winFirefox('139'),
+  winFirefox('140'),
   // Firefox ESR — Windows
   winFirefox('128'), // ESR 128 (duplicate version but ESR path is same UA)
   // Firefox — macOS
@@ -353,6 +363,8 @@ export const UA_LIBRARY: UAEntry[] = [
   macFirefox('128', '14.5'),
   macFirefox('126', '14.4'),
   macFirefox('124', '14.3'),
+  macFirefox('139', '15.4'),
+  macFirefox('140', '15.4'),
   // Firefox ESR — macOS
   macFirefox('128', '14.5'),
   // Firefox — Linux
@@ -365,6 +377,8 @@ export const UA_LIBRARY: UAEntry[] = [
   linuxFirefox('126'),
   linuxFirefox('125'),
   linuxFirefox('124'),
+  linuxFirefox('139'),
+  linuxFirefox('140'),
   // Firefox ESR — Linux
   linuxFirefox('128'),
   // Firefox — Android

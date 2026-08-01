@@ -86,7 +86,7 @@ export function ProxyTab({
     <Box>
       <SectionCard
         title="Proxy settings"
-        subtitle="Per-profile proxy at launch. SOCKS with auth uses a local relay."
+        subtitle="Per-profile proxy"
       >
         <Stack spacing={1.5}>
           <FormControlLabel
@@ -188,7 +188,7 @@ export function ProxyTab({
 
               <Alert severity="info" sx={{ borderRadius: 2, py: 0 }}>
                 <Typography variant="caption">
-                  Test resolves the proxy's exit IP via ip-api.com. WebRTC leaks are blocked by the stealth extension.
+                  Test resolves exit IP via ip-api.com. WebRTC leaks are blocked by the stealth extension.
                 </Typography>
               </Alert>
             </>
@@ -198,10 +198,10 @@ export function ProxyTab({
 
       <SectionCard title="How proxy deployment works">
         <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12 }}>
-          <b>HTTP/HTTPS no auth</b> → <code>--proxy-server</code><br />
-          <b>HTTP/HTTPS with auth</b> → local relay + <code>Proxy-Authorization</code><br />
-          <b>SOCKS5/SOCKS4</b> → direct; auth uses a local SOCKS relay<br />
-          <b>Custom PAC</b> → served by built-in PAC server on 127.0.0.1
+          <b>HTTP/S no auth</b> → <code>--proxy-server</code> &nbsp;·&nbsp;
+          <b>HTTP/S with auth</b> → local relay &nbsp;·&nbsp;
+          <b>SOCKS</b> → direct; auth via relay &nbsp;·&nbsp;
+          <b>PAC</b> → built-in PAC server
         </Typography>
       </SectionCard>
     </Box>

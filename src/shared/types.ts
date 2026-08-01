@@ -3,7 +3,7 @@
  * Keep this file dependency-free so it can be imported from anywhere.
  */
 
-export type BrowserType = 'chrome' | 'edge' | 'brave' | 'firefox'
+export type BrowserType = 'chrome' | 'edge' | 'brave' | 'chromium' | 'firefox'
 export type DeviceType = 'desktop' | 'mobile'
 export type TargetOS = 'windows' | 'macos' | 'linux' | 'android' | 'ios'
 export type ProxyType = 'http' | 'https' | 'socks5' | 'socks4'
@@ -206,10 +206,11 @@ export const BROWSER_LABELS: Record<BrowserType, string> = {
   chrome: 'Google Chrome',
   edge: 'Microsoft Edge',
   brave: 'Brave',
+  chromium: 'Chromium',
   firefox: 'Mozilla Firefox'
 }
 
-export const BROWSER_NAMES: BrowserType[] = ['chrome', 'edge', 'brave', 'firefox']
+export const BROWSER_NAMES: BrowserType[] = ['chrome', 'edge', 'brave', 'chromium', 'firefox']
 
 export function emptyProxyConfig(): ProxyConfig {
   return {

@@ -34,6 +34,7 @@ const BROWSER_OPTIONS: Array<{ value: BrowserType; label: string }> = [
   { value: 'chrome', label: BROWSER_LABELS.chrome },
   { value: 'edge', label: BROWSER_LABELS.edge },
   { value: 'brave', label: BROWSER_LABELS.brave },
+  { value: 'chromium', label: BROWSER_LABELS.chromium },
   { value: 'firefox', label: BROWSER_LABELS.firefox }
 ]
 

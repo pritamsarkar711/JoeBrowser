@@ -153,7 +153,7 @@ export function AdvancedTab({
       </SectionCard>
 
       {/* Executable */}
-      <SectionCard title="Browser executable" subtitle="Empty = auto-detect">
+      <SectionCard title="Browser executable" subtitle="Auto-detect if empty">
         <Stack spacing={1.5}>
           <Stack direction="row" spacing={1}>
             <TextField
@@ -179,7 +179,7 @@ export function AdvancedTab({
       </SectionCard>
 
       {/* Launch flags */}
-      <SectionCard title="Extra launch arguments" subtitle="One per line">
+      <SectionCard title="Extra launch arguments" subtitle="Per-line flags">
         <Stack spacing={1}>
           <TextField
             size="small"
@@ -205,7 +205,7 @@ export function AdvancedTab({
       </SectionCard>
 
       {/* Extra extensions — better display */}
-      <SectionCard title="Custom extensions" subtitle="Additional local extensions">
+      <SectionCard title="Custom extensions" subtitle="Extensions">
         <Stack spacing={1}>
           {(profile.customExtensions ?? []).length > 0 && (
             <Box sx={{ maxHeight: 120, overflowY: 'auto' }}>
@@ -242,7 +242,7 @@ export function AdvancedTab({
       </SectionCard>
 
       {/* Data isolation */}
-      <SectionCard title="Data isolation" subtitle="Per-profile user data directory">
+      <SectionCard title="Data isolation" subtitle="Data folder">
         <Stack spacing={1}>
           <TextField
             label="User data dir override (empty = app-managed)"

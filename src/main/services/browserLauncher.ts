@@ -16,7 +16,7 @@ import { spawn, execFile, type ChildProcess } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import type { BrowserStatusEvent, LaunchOptions, ProfileData, RunningSession } from '@shared/types'
-import { findBrowserExecutable } from './browserDetector'
+import { findBrowserExecutable, findBestAvailableBrowser } from './browserDetector'
 import { buildExtension } from './extensionBuilder'
 import { deployProxy, type ProxyDeployment } from './proxyRelay'
 import { startPacServer, type PacServer } from './pacServer'
@@ -243,15 +243,27 @@ export async function launchProfile(
 
   // 1. Resolve the executable -------------------------------------------------
   let exe = profile.browserExecutablePath.trim()
+  let effectiveBrowserType = profile.browserType
   if (!exe) {
     exe = findBrowserExecutable(profile.browserType)
   }
+  // Fallback: if the requested browser is not installed, try the best
+  // available Chromium-based browser so the user is never stuck.
   if (!exe || !existsSync(exe)) {
-    throw new Error(
-      `Could not find ${profile.browserType} on this system. Install it, or set a custom executable path in the Advanced tab.`
-    )
+    const best = findBestAvailableBrowser(profile.browserType)
+    if (best.found && best.path && existsSync(best.path)) {
+      logger.info(
+        `Requested browser ${profile.browserType} not found; falling back to ${best.name} (${best.type})`
+      )
+      exe = best.path
+      effectiveBrowserType = best.type
+    } else {
+      throw new Error(
+        `Could not find ${profile.browserType} on this system, and no alternative browser is available. Install one, or set a custom executable path in the Advanced tab.`
+      )
+    }
   }
-  logger.info('Launching', profile.browserType, '->', exe)
+  logger.info('Launching', effectiveBrowserType, '->', exe)
 
   emitStatus({ profileId: profile.id, status: 'starting' })
 
@@ -290,7 +302,7 @@ export async function launchProfile(
 
   const extDir = tempExtensionDir(profile.id)
   try {
-    if (profile.browserType === 'firefox') {
+    if (effectiveBrowserType === 'firefox') {
       // Firefox: PAC via network.proxy.autoconfig_url, SOCKS auth via prefs.
       provisionFirefoxProfile(profile, userDataDir, { proxy, pacUrl })
     } else {
@@ -303,7 +315,7 @@ export async function launchProfile(
 
   // 5. Assemble args & spawn ----------------------------------------------------
   const args =
-    profile.browserType === 'firefox'
+    effectiveBrowserType === 'firefox'
       ? buildFirefoxArgs(profile, opts, targetUrl)
       : buildChromiumArgs(profile, opts, extDir, proxy, pacUrl, targetUrl)
 
@@ -318,7 +330,7 @@ export async function launchProfile(
   const session: Session = {
     profileId: profile.id,
     proc,
-    browserType: profile.browserType,
+    browserType: effectiveBrowserType,
     pid: proc.pid as number,
     startedAt: Date.now(),
     userDataDir,
