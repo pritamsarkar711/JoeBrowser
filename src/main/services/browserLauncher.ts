@@ -352,7 +352,7 @@ export async function launchProfile(
 
   sessions.set(profile.id, session)
   touchLastLaunched(profile.id)
-  emitStatus({ profileId: profile.id, status: 'running', pid: proc.pid as number })
+  emitStatus({ profileId: profile.id, status: 'running', pid: proc.pid as number, browserType: session.browserType, userDataDir: session.userDataDir, startedAt: session.startedAt })
 
   return { pid: proc.pid as number, url: targetUrl || null }
 }

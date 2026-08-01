@@ -153,6 +153,9 @@ export interface BrowserStatusEvent {
   status: 'starting' | 'running' | 'exited' | 'error'
   pid?: number
   error?: string
+  browserType?: BrowserType
+  userDataDir?: string
+  startedAt?: number
 }
 
 export interface AppSettings {

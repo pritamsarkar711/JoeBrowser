@@ -121,10 +121,10 @@ export function AppProvider({ children }: { children: React.ReactNode }): React.
           [event.profileId]: {
             profileId: event.profileId,
             pid: event.pid ?? 0,
-            browserType: 'chrome',
-            startedAt: Date.now(),
-            userDataDir: ''
-          }
+            browserType: event.browserType ?? 'chrome',
+            startedAt: event.startedAt ?? Date.now(),
+            userDataDir: event.userDataDir ?? ''
+          } as RunningSession
         }))
       } else if (event.status === 'exited' || event.status === 'error') {
         setRunning((prev) => {
