@@ -9,6 +9,8 @@ release/
 # Logs & local data
 *.log
 logs/
+
+# SQLite database and WAL/SHM files
 *.db
 *.db-journal
 *.db-wal
@@ -20,10 +22,26 @@ master.key
 # Editor / OS
 .DS_Store
 Thumbs.db
+desktop.ini
 .idea/
 .vscode/
 *.suo
 *.swp
+*.swn
+*~
 
 # TypeScript incremental build info
 *.tsbuildinfo
+
+# Coverage and test artifacts
+coverage/
+.nyc_output/
+
+# Temporary / scratch files
+tmp/
+temp/
+
+# Environment files (may contain secrets)
+.env
+.env.local
+.env.*.local

@@ -15,16 +15,25 @@ import {
   Typography
 } from '@mui/material'
 import TravelExploreIcon from '@mui/icons-material/TravelExplore'
+import HttpIcon from '@mui/icons-material/Http'
+import VpnLockIcon from '@mui/icons-material/VpnLock'
 import type { ProfileData, ProxyConfig, ProxyType } from '@shared/types'
 import { SectionCard } from '../SectionCard'
 import { useToast } from '../../hooks/useToasts'
 
-const PROXY_TYPES: Array<{ value: ProxyType; label: string }> = [
-  { value: 'http', label: 'HTTP' },
-  { value: 'https', label: 'HTTPS' },
-  { value: 'socks5', label: 'SOCKS5' },
-  { value: 'socks4', label: 'SOCKS4' }
+const PROXY_TYPES: Array<{ value: ProxyType; label: string; icon: React.ReactNode }> = [
+  { value: 'http', label: 'HTTP', icon: <HttpIcon sx={{ fontSize: 16 }} /> },
+  { value: 'https', label: 'HTTPS', icon: <VpnLockIcon sx={{ fontSize: 16 }} /> },
+  { value: 'socks5', label: 'SOCKS5', icon: <VpnLockIcon sx={{ fontSize: 16 }} /> },
+  { value: 'socks4', label: 'SOCKS4', icon: <VpnLockIcon sx={{ fontSize: 16 }} /> }
 ]
+
+/** Country code → flag emoji lookup. */
+function countryFlag(code: string): string {
+  if (!code || code.length !== 2) return ''
+  const base = 0x1F1E5
+  return String.fromCodePoint(base + code.charCodeAt(0) - 65) + String.fromCodePoint(base + code.charCodeAt(1) - 65)
+}
 
 /** The Proxy tab: configure + test a per-profile proxy. */
 export function ProxyTab({
@@ -40,6 +49,9 @@ export function ProxyTab({
   const [testing, setTesting] = useState(false)
   const [result, setResult] = useState<{
     ok: boolean
+    ip: string
+    country: string
+    latencyMs: number
     text: string
   } | null>(null)
 
@@ -52,15 +64,18 @@ export function ProxyTab({
         const geo = [res.country, res.region, res.city].filter(Boolean).join(', ')
         setResult({
           ok: true,
-          text: `Proxy works — IP ${res.ip}${geo ? ' (' + geo + ')' : ''} · ${res.latencyMs} ms${res.isp ? ' · ' + res.isp : ''}`
+          ip: res.ip,
+          country: res.country,
+          latencyMs: res.latencyMs,
+          text: `${res.ip}${geo ? ' · ' + geo : ''}${res.isp ? ' · ' + res.isp : ''}`
         })
         toast.success('Proxy test passed')
       } else {
-        setResult({ ok: false, text: `Proxy failed: ${res.error}` })
+        setResult({ ok: false, ip: '', country: '', latencyMs: 0, text: `Failed: ${res.error}` })
         toast.error('Proxy test failed')
       }
     } catch (e) {
-      setResult({ ok: false, text: String(e) })
+      setResult({ ok: false, ip: '', country: '', latencyMs: 0, text: String(e) })
       toast.error(String(e))
     } finally {
       setTesting(false)
@@ -71,18 +86,18 @@ export function ProxyTab({
     <Box>
       <SectionCard
         title="Proxy settings"
-        subtitle="Applied per-profile at launch. SOCKS with auth runs through a local relay so credentials never reach the browser."
+        subtitle="Per-profile proxy at launch. SOCKS with auth uses a local relay."
       >
-        <Stack spacing={2}>
+        <Stack spacing={1.5}>
           <FormControlLabel
-            control={<Switch checked={proxy.enabled} onChange={(e) => setProxy({ enabled: e.target.checked })} />}
-            label="Enable proxy for this profile"
+            control={<Switch checked={proxy.enabled} onChange={(e) => setProxy({ enabled: e.target.checked })} size="small" />}
+            label="Enable proxy"
           />
 
           {proxy.enabled && (
             <>
-              <Stack direction="row" spacing={2}>
-                <FormControl size="small" sx={{ minWidth: 150 }}>
+              <Stack direction="row" spacing={1.5}>
+                <FormControl size="small" sx={{ minWidth: 140 }}>
                   <InputLabel>Type</InputLabel>
                   <Select
                     label="Type"
@@ -91,7 +106,10 @@ export function ProxyTab({
                   >
                     {PROXY_TYPES.map((t) => (
                       <MenuItem key={t.value} value={t.value}>
-                        {t.label}
+                        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                          {t.icon}
+                          <span>{t.label}</span>
+                        </Stack>
                       </MenuItem>
                     ))}
                   </Select>
@@ -102,7 +120,7 @@ export function ProxyTab({
                   fullWidth
                   value={proxy.host}
                   onChange={(e) => setProxy({ host: e.target.value })}
-                  placeholder="127.0.0.1 or proxy.example.com"
+                  placeholder="127.0.0.1"
                 />
                 <TextField
                   label="Port"
@@ -113,16 +131,16 @@ export function ProxyTab({
                   onChange={(e) => setProxy({ port: Number(e.target.value) })}
                 />
               </Stack>
-              <Stack direction="row" spacing={2}>
+              <Stack direction="row" spacing={1.5}>
                 <TextField
-                  label="Username (optional)"
+                  label="Username"
                   size="small"
                   fullWidth
                   value={proxy.username}
                   onChange={(e) => setProxy({ username: e.target.value })}
                 />
                 <TextField
-                  label="Password (optional)"
+                  label="Password"
                   size="small"
                   fullWidth
                   type="password"
@@ -131,7 +149,7 @@ export function ProxyTab({
                 />
               </Stack>
               <TextField
-                label="Custom PAC URL or .pac file path (optional, overrides everything)"
+                label="PAC URL or file path (optional, overrides all)"
                 size="small"
                 fullWidth
                 value={proxy.pacUrl}
@@ -139,26 +157,39 @@ export function ProxyTab({
                 placeholder="http://…/proxy.pac  or  C:\proxy.pac"
               />
 
-              <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
+              <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
                 <Button
+                  size="small"
                   variant="outlined"
-                  startIcon={testing ? <CircularProgress size={16} /> : <TravelExploreIcon />}
+                  startIcon={testing ? <CircularProgress size={14} /> : <TravelExploreIcon />}
                   disabled={testing}
                   onClick={() => void runTest()}
                 >
-                  {testing ? 'Testing…' : 'Test proxy'}
+                  {testing ? 'Testing…' : 'Test'}
                 </Button>
                 {result && (
-                  <Alert severity={result.ok ? 'success' : 'error'} sx={{ flex: 1, borderRadius: 2 }}>
+                  <Alert
+                    severity={result.ok ? 'success' : 'error'}
+                    sx={{ flex: 1, borderRadius: 2, py: 0, '& .MuiAlert-message': { display: 'flex', alignItems: 'center', gap: 0.5 } }}
+                  >
+                    {result.ok && result.country && (
+                      <span>{countryFlag(result.country)} </span>
+                    )}
+                    {result.ok && (
+                      <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                        {result.latencyMs}ms
+                      </Typography>
+                    )}
+                    {' '}
                     {result.text}
                   </Alert>
                 )}
               </Stack>
 
-              <Alert severity="info" sx={{ borderRadius: 2 }}>
-                The test resolves the proxy's exit IP and location (via ip-api.com) — the request itself goes
-                through your proxy. WebRTC leaks are blocked by the stealth extension, so the browser cannot
-                bypass the proxy.
+              <Alert severity="info" sx={{ borderRadius: 2, py: 0 }}>
+                <Typography variant="caption">
+                  Test resolves the proxy's exit IP via ip-api.com. WebRTC leaks are blocked by the stealth extension.
+                </Typography>
               </Alert>
             </>
           )}
@@ -166,12 +197,11 @@ export function ProxyTab({
       </SectionCard>
 
       <SectionCard title="How proxy deployment works">
-        <Typography variant="body2" color="text.secondary">
-          <b>HTTP/HTTPS without auth</b> → <code>--proxy-server</code> (Chromium) or manual prefs (Firefox).<br />
-          <b>HTTP/HTTPS with auth</b> → local relay adds <code>Proxy-Authorization</code>, browser sees 127.0.0.1.<br />
-          <b>SOCKS5/SOCKS4</b> → <code>socks5://host:port</code> directly; with auth a local SOCKS relay authenticates
-          upstream.<br />
-          <b>Custom PAC</b> → used verbatim; local .pac files are served by the built-in PAC server on 127.0.0.1.
+        <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12 }}>
+          <b>HTTP/HTTPS no auth</b> → <code>--proxy-server</code><br />
+          <b>HTTP/HTTPS with auth</b> → local relay + <code>Proxy-Authorization</code><br />
+          <b>SOCKS5/SOCKS4</b> → direct; auth uses a local SOCKS relay<br />
+          <b>Custom PAC</b> → served by built-in PAC server on 127.0.0.1
         </Typography>
       </SectionCard>
     </Box>

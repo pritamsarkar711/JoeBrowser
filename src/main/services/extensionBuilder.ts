@@ -73,6 +73,8 @@ export interface ExtensionConfig {
   connectionEffectiveType: string
   connectionRtt: number
   permissionsPolicy: Record<string, string>
+  doNotTrack: string | null
+  windowChromeSpoof: boolean
 }
 
 export function buildExtensionConfig(profile: ProfileData): ExtensionConfig {
@@ -123,7 +125,9 @@ export function buildExtensionConfig(profile: ProfileData): ExtensionConfig {
     connectionDownlink: fp.connectionDownlink,
     connectionEffectiveType: fp.connectionEffectiveType,
     connectionRtt: fp.connectionRtt,
-    permissionsPolicy: fp.permissionsPolicy
+    permissionsPolicy: fp.permissionsPolicy,
+    doNotTrack: fp.doNotTrack,
+    windowChromeSpoof: fp.windowChromeSpoof
   }
 }
 

@@ -23,7 +23,8 @@ import * as repo from './db/profileRepository'
 import { deriveFingerprintFromUA, generateFingerprint, generateForNewProfile } from './services/fingerprintGenerator'
 import { detectAllBrowsers } from './services/browserDetector'
 import { testProxy } from './services/proxyTester'
-import { closeProfile, launchProfile, listRunning } from './services/browserLauncher'
+import { UA_LIBRARY } from './services/uaDatabase'
+import { closeProfile, launchProfile, listRunning, onBrowserStatus } from './services/browserLauncher'
 import { getSettings, saveSettings } from './services/appSettings'
 import { logger } from './logger'
 import * as paths from './paths'
@@ -150,7 +151,6 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
 
   ipcMain.handle(IPC.UaList, () =>
     guard(() => {
-      const { UA_LIBRARY } = require('./services/uaDatabase') as typeof import('./services/uaDatabase')
       return UA_LIBRARY.map((e) => ({
         ua: e.ua,
         browser: e.browser,
@@ -240,8 +240,8 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
       }
       // 2. Can we load the SQLite module?
       try {
-        require('./db/database')
-        checks.sqliteModule = true
+        if (db) checks.sqliteModule = true
+        else checks.sqliteModule = 'FAIL: module not loaded'
       } catch (e) {
         checks.sqliteModule = 'FAIL: ' + (e instanceof Error ? e.message : String(e))
       }
@@ -274,7 +274,6 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
 
 /** Wire the browser status push events to the renderer window. */
 export function wireStatusEvents(getWindow: () => BrowserWindow | null): void {
-  const { onBrowserStatus } = require('./services/browserLauncher') as typeof import('./services/browserLauncher')
   onBrowserStatus((event: BrowserStatusEvent) => {
     const win = getWindow()
     if (win && !win.isDestroyed()) {

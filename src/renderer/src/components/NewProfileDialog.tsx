@@ -15,12 +15,25 @@ import {
   TextField,
   Typography
 } from '@mui/material'
-import type { BrowserType } from '@shared/types'
+import type { BrowserType, DeviceType, TargetOS } from '@shared/types'
 import { BROWSER_LABELS } from '@shared/types'
 import { useApp } from '../store'
 import { useToast } from '../hooks/useToasts'
 
-/** "New profile" dialog: name, browser engine, auto-fingerprint toggle. */
+const OS_OPTIONS: Array<{ value: TargetOS; label: string }> = [
+  { value: 'windows', label: 'Windows' },
+  { value: 'macos', label: 'macOS' },
+  { value: 'linux', label: 'Linux' },
+  { value: 'android', label: 'Android' },
+  { value: 'ios', label: 'iOS' }
+]
+
+const DEVICE_OPTIONS: Array<{ value: DeviceType; label: string }> = [
+  { value: 'desktop', label: 'Desktop' },
+  { value: 'mobile', label: 'Mobile' }
+]
+
+/** "New profile" dialog: name, browser engine, OS, device, auto-fingerprint toggle. */
 export function NewProfileDialog({
   open,
   onClose,
@@ -34,8 +47,18 @@ export function NewProfileDialog({
   const toast = useToast()
   const [name, setName] = useState('')
   const [browserType, setBrowserType] = useState<BrowserType>('chrome')
+  const [targetOs, setTargetOs] = useState<TargetOS>('windows')
+  const [deviceType, setDeviceType] = useState<DeviceType>('desktop')
   const [fingerprintsAuto, setFingerprintsAuto] = useState(true)
   const [busy, setBusy] = useState(false)
+
+  // Auto-set device type when OS changes (mobile OS → mobile device)
+  const handleOsChange = (os: TargetOS): void => {
+    setTargetOs(os)
+    if (os === 'android' || os === 'ios') {
+      setDeviceType('mobile')
+    }
+  }
 
   const submit = async (): Promise<void> => {
     if (!name.trim()) {
@@ -65,21 +88,44 @@ export function NewProfileDialog({
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>New profile</DialogTitle>
       <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
+        <Stack spacing={1.5} sx={{ mt: 0.5 }}>
           <TextField
             label="Profile name"
             autoFocus
             fullWidth
+            size="small"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && void submit()}
           />
-          <FormControl fullWidth>
-            <InputLabel>Browser engine</InputLabel>
-            <Select label="Browser engine" value={browserType} onChange={(e) => setBrowserType(e.target.value as BrowserType)}>
-              {(Object.keys(BROWSER_LABELS) as BrowserType[]).map((t) => (
-                <MenuItem key={t} value={t}>
-                  {BROWSER_LABELS[t]}
+          <Stack direction="row" spacing={1.5}>
+            <FormControl size="small" fullWidth>
+              <InputLabel>Browser engine</InputLabel>
+              <Select label="Browser engine" value={browserType} onChange={(e) => setBrowserType(e.target.value as BrowserType)}>
+                {(Object.keys(BROWSER_LABELS) as BrowserType[]).map((t) => (
+                  <MenuItem key={t} value={t}>
+                    {BROWSER_LABELS[t]}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" fullWidth>
+              <InputLabel>OS</InputLabel>
+              <Select label="OS" value={targetOs} onChange={(e) => handleOsChange(e.target.value as TargetOS)}>
+                {OS_OPTIONS.map((o) => (
+                  <MenuItem key={o.value} value={o.value}>
+                    {o.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Stack>
+          <FormControl size="small" fullWidth>
+            <InputLabel>Device type</InputLabel>
+            <Select label="Device type" value={deviceType} onChange={(e) => setDeviceType(e.target.value as DeviceType)}>
+              {DEVICE_OPTIONS.map((d) => (
+                <MenuItem key={d.value} value={d.value}>
+                  {d.label}
                 </MenuItem>
               ))}
             </Select>
@@ -89,11 +135,12 @@ export function NewProfileDialog({
               <Checkbox
                 checked={fingerprintsAuto}
                 onChange={(e) => setFingerprintsAuto(e.target.checked)}
+                size="small"
               />
             }
             label={
               <Typography variant="body2">
-                Auto-generate a realistic fingerprint on creation
+                Auto-generate realistic fingerprint
               </Typography>
             }
           />

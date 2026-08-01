@@ -83,7 +83,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            bgcolor: '#121116',
+            bgcolor: 'background.default',
             p: 3
           }}
         >
@@ -93,15 +93,15 @@ export class ErrorBoundary extends React.Component<Props, State> {
               maxWidth: 640,
               width: '100%',
               p: 4,
-              bgcolor: '#1c1b21',
+              bgcolor: 'background.paper',
               borderRadius: 3
             }}
           >
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#ffb4ab', mb: 2 }}>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: 'error.main', mb: 2 }}>
               ⚠ Joe Browser encountered an error
             </Typography>
 
-            <Typography variant="body2" sx={{ color: '#cbc2db', mb: 2 }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
               The application failed to render. This is usually caused by a missing
               dependency, corrupted install, or a platform incompatibility.
             </Typography>
@@ -110,7 +110,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               sx={{
                 p: 2,
                 mb: 3,
-                bgcolor: '#0d0d11',
+                bgcolor: 'action.disabledBackground',
                 borderRadius: 2,
                 maxHeight: 200,
                 overflow: 'auto'
@@ -120,7 +120,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
                 component="pre"
                 variant="caption"
                 sx={{
-                  color: '#ffb4ab',
+                  color: 'error.main',
                   fontFamily: 'Consolas, "Courier New", monospace',
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
@@ -138,16 +138,16 @@ export class ErrorBoundary extends React.Component<Props, State> {
               <Button
                 variant="contained"
                 onClick={this.handleRestart}
-                sx={{ bgcolor: '#6750a4', '&:hover': { bgcolor: '#7c6bb5' } }}
+                sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.dark' } }}
               >
                 Reload App
               </Button>
-              <Button variant="outlined" onClick={this.handleCopyError} sx={{ borderColor: '#49454f', color: '#cbc2db' }}>
+              <Button variant="outlined" onClick={this.handleCopyError} sx={{ borderColor: 'divider', color: 'text.secondary' }}>
                 Copy Error Details
               </Button>
             </Box>
 
-            <Typography variant="caption" sx={{ display: 'block', mt: 3, color: '#938f99' }}>
+            <Typography variant="caption" sx={{ display: 'block', mt: 3, color: 'text.disabled' }}>
               If this keeps happening, try reinstalling Joe Browser or deleting the data
               folder at %APPDATA%/JoeBrowser (settings and profiles will be lost).
               Check crash.log in the logs folder for more details.

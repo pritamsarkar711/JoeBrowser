@@ -82,10 +82,10 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Settings</DialogTitle>
       <DialogContent dividers>
-        <Stack spacing={3}>
+        <Stack spacing={2.5}>
           {/* Theme & language */}
           <Box>
-            <Typography variant="subtitle1"  sx={{ fontWeight: 600, mb: 1 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, fontSize: 13 }}>
               Appearance
             </Typography>
             <Stack direction="row" spacing={2}>
@@ -118,7 +118,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
 
           {/* Data directory */}
           <Box>
-            <Typography variant="subtitle1"  sx={{ fontWeight: 600, mb: 1 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, fontSize: 13 }}>
               Data directory
             </Typography>
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -139,7 +139,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
 
           {/* Behavior */}
           <Box>
-            <Typography variant="subtitle1"  sx={{ fontWeight: 600, mb: 1 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, fontSize: 13 }}>
               Behavior
             </Typography>
             <FormControlLabel
@@ -173,12 +173,12 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
 
           {/* Download / Updates */}
           <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, fontSize: 13 }}>
               Download & Updates
             </Typography>
             <Stack spacing={1}>
               <Typography variant="body2" color="text.secondary">
-                Current version: v{init?.version ?? 'dev'}. Check GitHub Releases for Windows .exe installer and portable builds.
+                Current version: <b>v{init?.version ?? 'dev'}</b>
               </Typography>
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
                 <Button size="small" variant="contained" startIcon={<DownloadIcon />} onClick={() => window.stealth.openPath('https://github.com/pritamsarkar711/JoeBrowser/releases')}>
@@ -192,7 +192,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
                 </Button>
               </Stack>
               <Typography variant="caption" color="text.secondary">
-                Tip: On Windows, double-click <code>scripts/build-windows.bat</code> to build the EXE locally in ~3 minutes (npm run dist:win).
+                Check GitHub Releases for Windows .exe installer and portable builds.
               </Typography>
             </Stack>
           </Box>
@@ -201,7 +201,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
 
           {/* Master password */}
           <Box>
-            <Typography variant="subtitle1"  sx={{ fontWeight: 600, mb: 1 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, fontSize: 13 }}>
               Master password
             </Typography>
             <Stack spacing={1.5}>

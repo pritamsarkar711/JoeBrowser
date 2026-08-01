@@ -31,9 +31,9 @@ export function SectionCard({
         mb: 2
       }}
     >
-      <Stack direction="row"   sx={{ mb: 1.5 }}>
+      <Stack direction="row" sx={{ mb: 1.5 }}>
         <Box>
-          <Typography variant="subtitle1"  sx={{ fontWeight: 600 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
             {title}
           </Typography>
           {subtitle && (

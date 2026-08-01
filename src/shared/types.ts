@@ -72,6 +72,10 @@ export interface FingerprintConfig {
   connectionRtt: number
   /** Permissions API policy: maps permission name to state (granted/denied/prompt). */
   permissionsPolicy: Record<string, string>
+  /** navigator.doNotTrack — null = not specified (most common), "1" = enabled, "0" = disabled. */
+  doNotTrack: string | null
+  /** Whether to fake the window.chrome object (for Firefox with Chrome UA or cross-engine spoofing). */
+  windowChromeSpoof: boolean
 }
 
 export interface ProfileData {
@@ -262,7 +266,9 @@ export function defaultFingerprint(seed = 'seed-' + Math.random().toString(36).s
       notifications: 'prompt',
       camera: 'prompt',
       microphone: 'prompt'
-    }
+    },
+    doNotTrack: null,
+    windowChromeSpoof: true
   }
 }
 

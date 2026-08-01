@@ -34,7 +34,46 @@ interface Props {
   setProfile: (patch: Partial<ProfileData>) => void
 }
 
-/** Binds one fingerprint field to the draft. */
+/** Validated number field with min/max constraints. */
+function FpNum({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  fullWidth = true
+}: {
+  label: string
+  value: number
+  onChange: (v: number) => void
+  min?: number
+  max?: number
+  step?: number
+  fullWidth?: boolean
+}): React.JSX.Element {
+  const [error, setError] = useState(false)
+  return (
+    <TextField
+      label={label}
+      type="number"
+      size="small"
+      fullWidth={fullWidth}
+      value={String(value)}
+      error={error}
+      onChange={(e) => {
+        const n = Number(e.target.value)
+        const outOfRange = (min !== undefined && n < min) || (max !== undefined && n > max)
+        setError(outOfRange)
+        if (!outOfRange) onChange(n)
+      }}
+      helperText={error ? `Range: ${min ?? '−∞'} – ${max ?? '∞'}` : undefined}
+      slotProps={step ? { htmlInput: { step } } : undefined}
+    />
+  )
+}
+
+/** Binds one fingerprint text field to the draft. */
 function Fp<T extends keyof FingerprintConfig>({
   label,
   fp,
@@ -126,7 +165,7 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
         screenPixelDepth: realValues.colorDepth,
         devicePixelRatio: realValues.dpr
       })
-      toast.success('Filled with real system values — tweak them now.')
+      toast.success('Filled with real system values.')
     } catch (e) {
       toast.error(String(e))
     } finally {
@@ -151,21 +190,21 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
   return (
     <Box>
       {/* Action row */}
-      <Stack direction="row" spacing={1.5} sx={{ mb: 2.5, flexWrap: 'wrap' }}>
-        <Button variant="contained" startIcon={<AutoAwesomeIcon />} onClick={() => setAutoOpen(true)}>
-          Auto-generate realistic fingerprint
+      <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
+        <Button size="small" variant="contained" startIcon={<AutoAwesomeIcon />} onClick={() => setAutoOpen(true)}>
+          Auto-generate
         </Button>
-        <Button variant="outlined" startIcon={<MonitorHeartIcon />} disabled={busyReal} onClick={() => void fillWithReal()}>
-          Fill with real values
+        <Button size="small" variant="outlined" startIcon={<MonitorHeartIcon />} disabled={busyReal} onClick={() => void fillWithReal()}>
+          Real values
         </Button>
-        <Button variant="outlined" startIcon={<SyncIcon />} onClick={() => void deriveFromUA()}>
-          Re-derive from this UA
+        <Button size="small" variant="outlined" startIcon={<SyncIcon />} onClick={() => void deriveFromUA()}>
+          Re-derive from UA
         </Button>
       </Stack>
 
       {/* User-Agent & Platform */}
-      <SectionCard title="User-Agent & Platform" subtitle="Controls navigator.userAgent, appVersion, platform, languages">
-        <Stack spacing={2}>
+      <SectionCard title="User-Agent & Platform" subtitle="navigator.userAgent, platform, languages">
+        <Stack spacing={1.5}>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
             <TextField
               label="User-Agent"
@@ -178,6 +217,7 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
               placeholder="Mozilla/5.0 (Windows NT 10.0; Win64; x64) …"
             />
             <Button
+              size="small"
               variant="outlined"
               startIcon={<LightbulbIcon />}
               onClick={() => setSuggestOpen(true)}
@@ -186,14 +226,14 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
               Suggest
             </Button>
           </Stack>
-          <Stack direction="row" spacing={2}>
+          <Stack direction="row" spacing={1.5}>
             <Fp label="Platform" fp={fp} field="platform" onChange={setFp} />
             <Fp label="oscpu (Firefox)" fp={fp} field="oscpu" onChange={setFp} />
           </Stack>
-          <Stack direction="row" spacing={2}>
+          <Stack direction="row" spacing={1.5}>
             <Fp label="Language" fp={fp} field="language" onChange={setFp} />
             <TextField
-              label="Languages (comma-separated)"
+              label="Languages (comma-sep)"
               size="small"
               fullWidth
               value={(fp.languages ?? []).join(', ')}
@@ -207,91 +247,88 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
               }
             />
           </Stack>
-          <Stack direction="row" spacing={2}>
+          <Stack direction="row" spacing={1.5}>
             <Fp label="Timezone (IANA)" fp={fp} field="timezone" onChange={setFp} />
-            <Fp label="TZ offset (min, auto)" fp={fp} field="timezoneOffset" onChange={setFp} type="number" />
+            <Fp label="TZ offset (min)" fp={fp} field="timezoneOffset" onChange={setFp} type="number" />
           </Stack>
         </Stack>
       </SectionCard>
 
-      {/* Screen */}
-      <SectionCard title="Screen" subtitle="Screen size, available area, color depth, pixel ratio">
-        <Stack spacing={2}>
-          <Stack direction="row" spacing={2}>
-            <Fp label="Width" fp={fp} field="screenWidth" onChange={setFp} type="number" />
-            <Fp label="Height" fp={fp} field="screenHeight" onChange={setFp} type="number" />
+      {/* Screen — with validation */}
+      <SectionCard title="Screen" subtitle="Resolution, color depth, pixel ratio">
+        <Stack spacing={1.5}>
+          <Stack direction="row" spacing={1.5}>
+            <FpNum label="Width" value={fp.screenWidth} onChange={(v) => setFp({ screenWidth: v })} min={320} max={7680} />
+            <FpNum label="Height" value={fp.screenHeight} onChange={(v) => setFp({ screenHeight: v })} min={240} max={4320} />
           </Stack>
-          <Stack direction="row" spacing={2}>
-            <Fp label="Avail width" fp={fp} field="screenAvailWidth" onChange={setFp} type="number" />
-            <Fp label="Avail height" fp={fp} field="screenAvailHeight" onChange={setFp} type="number" />
+          <Stack direction="row" spacing={1.5}>
+            <FpNum label="Avail width" value={fp.screenAvailWidth} onChange={(v) => setFp({ screenAvailWidth: v })} min={320} max={7680} />
+            <FpNum label="Avail height" value={fp.screenAvailHeight} onChange={(v) => setFp({ screenAvailHeight: v })} min={240} max={4320} />
           </Stack>
-          <Stack direction="row" spacing={2}>
-            <Fp label="Color depth" fp={fp} field="screenColorDepth" onChange={setFp} type="number" />
-            <Fp label="Pixel depth" fp={fp} field="screenPixelDepth" onChange={setFp} type="number" />
-            <Fp label="devicePixelRatio" fp={fp} field="devicePixelRatio" onChange={setFp} type="number" />
+          <Stack direction="row" spacing={1.5}>
+            <FpNum label="Color depth" value={fp.screenColorDepth} onChange={(v) => setFp({ screenColorDepth: v })} min={1} max={48} />
+            <FpNum label="Pixel depth" value={fp.screenPixelDepth} onChange={(v) => setFp({ screenPixelDepth: v })} min={1} max={48} />
+            <FpNum label="devicePixelRatio" value={fp.devicePixelRatio} onChange={(v) => setFp({ devicePixelRatio: v })} min={0.25} max={4} step={0.25} />
           </Stack>
         </Stack>
       </SectionCard>
 
-      {/* Hardware */}
-      <SectionCard title="Hardware" subtitle="CPU cores, RAM and touch support reported to sites">
-        <Stack spacing={2}>
-          <Stack direction="row" spacing={2}>
-            <Fp label="Hardware concurrency" fp={fp} field="hardwareConcurrency" onChange={setFp} type="number" />
-            <Fp label="Device memory (GB)" fp={fp} field="deviceMemory" onChange={setFp} type="number" />
-            <Fp label="Max touch points" fp={fp} field="maxTouchPoints" onChange={setFp} type="number" />
+      {/* Hardware — with validation */}
+      <SectionCard title="Hardware" subtitle="CPU cores, RAM, touch">
+        <Stack spacing={1.5}>
+          <Stack direction="row" spacing={1.5}>
+            <FpNum label="CPU cores" value={fp.hardwareConcurrency} onChange={(v) => setFp({ hardwareConcurrency: v })} min={1} max={128} />
+            <FpNum label="Memory (GB)" value={fp.deviceMemory} onChange={(v) => setFp({ deviceMemory: v })} min={1} max={256} />
+            <FpNum label="Touch points" value={fp.maxTouchPoints} onChange={(v) => setFp({ maxTouchPoints: v })} min={0} max={10} />
           </Stack>
         </Stack>
       </SectionCard>
 
       {/* WebGL */}
-      <SectionCard title="WebGL" subtitle="UNMASKED_VENDOR_WEBGL / UNMASKED_RENDERER_WEBGL spoofing">
-        <Stack spacing={2}>
-          <Fp label="WebGL vendor" fp={fp} field="webglVendor" onChange={setFp} />
-          <Fp label="WebGL renderer" fp={fp} field="webglRenderer" onChange={setFp} />
+      <SectionCard title="WebGL" subtitle="Vendor / renderer spoofing">
+        <Stack spacing={1.5}>
+          <Fp label="Vendor" fp={fp} field="webglVendor" onChange={setFp} />
+          <Fp label="Renderer" fp={fp} field="webglRenderer" onChange={setFp} />
         </Stack>
       </SectionCard>
 
       {/* Canvas & Audio */}
-      <SectionCard title="Canvas & Audio" subtitle="Seeded noise changes hashes but is invisible to the eye/ear">
-        <Stack spacing={1.5}>
-          <FormControlLabel
-            control={<Switch checked={fp.canvasNoiseEnabled} onChange={(e) => setFp({ canvasNoiseEnabled: e.target.checked })} />}
-            label="Canvas noise (2D drawing + getImageData)"
-          />
-          <FormControlLabel
-            control={<Switch checked={fp.audioNoiseEnabled} onChange={(e) => setFp({ audioNoiseEnabled: e.target.checked })} />}
-            label="Audio noise (AudioBuffer samples)"
-          />
-          <FormControlLabel
-            control={<Switch checked={fp.webRTCLeakProtect} onChange={(e) => setFp({ webRTCLeakProtect: e.target.checked })} />}
-            label="WebRTC leak protection (strips ICE candidates)"
-          />
+      <SectionCard title="Canvas & Audio" subtitle="Seeded noise for hash randomization">
+        <Stack spacing={1}>
           <Stack direction="row" spacing={2}>
-            <Fp label="Canvas noise seed" fp={fp} field="canvasNoiseSeed" onChange={setFp} type="number" />
-            <Fp label="Audio noise seed" fp={fp} field="audioNoiseSeed" onChange={setFp} type="number" />
+            <FormControlLabel
+              control={<Switch checked={fp.canvasNoiseEnabled} onChange={(e) => setFp({ canvasNoiseEnabled: e.target.checked })} size="small" />}
+              label="Canvas noise"
+            />
+            <FormControlLabel
+              control={<Switch checked={fp.audioNoiseEnabled} onChange={(e) => setFp({ audioNoiseEnabled: e.target.checked })} size="small" />}
+              label="Audio noise"
+            />
+            <FormControlLabel
+              control={<Switch checked={fp.webRTCLeakProtect} onChange={(e) => setFp({ webRTCLeakProtect: e.target.checked })} size="small" />}
+              label="WebRTC protect"
+            />
+          </Stack>
+          <Stack direction="row" spacing={1.5}>
+            <Fp label="Canvas seed" fp={fp} field="canvasNoiseSeed" onChange={setFp} type="number" />
+            <Fp label="Audio seed" fp={fp} field="audioNoiseSeed" onChange={setFp} type="number" />
           </Stack>
         </Stack>
       </SectionCard>
 
       {/* Fonts */}
-      <SectionCard title="Fonts" subtitle="Only these fonts are enumerable via document.fonts">
-        <Stack spacing={1.5}>
+      <SectionCard title="Fonts" subtitle="Enumerable fonts via document.fonts">
+        <Stack spacing={1}>
           <FormControlLabel
-            control={
-              <Switch
-                checked={fp.fontFingerprintProtection}
-                onChange={(e) => setFp({ fontFingerprintProtection: e.target.checked })}
-              />
-            }
+            control={<Switch checked={fp.fontFingerprintProtection} onChange={(e) => setFp({ fontFingerprintProtection: e.target.checked })} size="small" />}
             label="Font fingerprint protection"
           />
           <TextField
-            label="Custom fonts (one per line — empty = curated list for the UA's OS)"
+            label="Custom fonts (one per line)"
             size="small"
             fullWidth
             multiline
-            minRows={4}
+            minRows={3}
             value={(fp.customFonts ?? []).join('\n')}
             onChange={(e) =>
               setFp({ customFonts: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) })
@@ -301,52 +338,74 @@ export function FingerprintTab({ profile, setProfile }: Props): React.JSX.Elemen
       </SectionCard>
 
       {/* Geolocation */}
-      <SectionCard title="Geolocation" subtitle="Block or spoof a position">
-        <Stack direction="row" spacing={2} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <FormControl size="small" sx={{ minWidth: 180 }}>
+      <SectionCard title="Geolocation" subtitle="Block or spoof position">
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
             <InputLabel>Mode</InputLabel>
             <Select
               label="Mode"
               value={fp.geolocation.mode}
               onChange={(e) => setFp({ geolocation: { ...fp.geolocation, mode: e.target.value as 'block' | 'spoof' } })}
             >
-              <MenuItem value="block">Block (permission denied)</MenuItem>
-              <MenuItem value="spoof">Spoof position</MenuItem>
+              <MenuItem value="block">Block</MenuItem>
+              <MenuItem value="spoof">Spoof</MenuItem>
             </Select>
           </FormControl>
           {fp.geolocation.mode === 'spoof' && (
             <>
               <TextField
-                label="Latitude"
+                label="Lat"
                 type="number"
                 size="small"
                 value={String(fp.geolocation.latitude)}
                 onChange={(e) => setFp({ geolocation: { ...fp.geolocation, latitude: Number(e.target.value) } })}
-                sx={{ width: 140 }}
+                sx={{ width: 120 }}
               />
               <TextField
-                label="Longitude"
+                label="Lon"
                 type="number"
                 size="small"
                 value={String(fp.geolocation.longitude)}
                 onChange={(e) => setFp({ geolocation: { ...fp.geolocation, longitude: Number(e.target.value) } })}
-                sx={{ width: 140 }}
+                sx={{ width: 120 }}
               />
             </>
           )}
         </Stack>
       </SectionCard>
 
-      {/* Advanced */}
-      <SectionCard title="Advanced" subtitle="Extra toggles for maximum realism">
-        <Stack spacing={1.5}>
-          <FormControlLabel
-            control={<Switch checked={fp.pluginsSpoof} onChange={(e) => setFp({ pluginsSpoof: e.target.checked })} />}
-            label="Spoof navigator.plugins / mimeTypes to match the UA family"
-          />
-          <Alert severity="info" sx={{ borderRadius: 2 }}>
-            Seeded RNG: fingerprint.seed = <code>{fp.seed}</code> — the same seed always reproduces the same
-            fingerprint. Keep it stable for believable profiles.
+      {/* Privacy — doNotTrack, window.chrome, pluginsSpoof */}
+      <SectionCard title="Privacy" subtitle="DoNotTrack, window.chrome, plugins spoofing">
+        <Stack spacing={1}>
+          <Stack direction="row" spacing={1.5}>
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel>Do Not Track</InputLabel>
+              <Select
+                label="Do Not Track"
+                value={fp.doNotTrack ?? 'null'}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setFp({ doNotTrack: v === 'null' ? null : v })
+                }}
+              >
+                <MenuItem value="null">Not specified</MenuItem>
+                <MenuItem value="1">Enabled (1)</MenuItem>
+                <MenuItem value="0">Disabled (0)</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControlLabel
+              control={<Switch checked={fp.windowChromeSpoof} onChange={(e) => setFp({ windowChromeSpoof: e.target.checked })} size="small" />}
+              label="Spoof window.chrome"
+            />
+            <FormControlLabel
+              control={<Switch checked={fp.pluginsSpoof} onChange={(e) => setFp({ pluginsSpoof: e.target.checked })} size="small" />}
+              label="Spoof plugins"
+            />
+          </Stack>
+          <Alert severity="info" sx={{ borderRadius: 2, py: 0 }}>
+            <Typography variant="caption">
+              Seed: <code>{fp.seed}</code> — same seed reproduces the same fingerprint.
+            </Typography>
           </Alert>
         </Stack>
       </SectionCard>

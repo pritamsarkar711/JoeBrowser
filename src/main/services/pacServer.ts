@@ -23,9 +23,15 @@ export function pacFileForProxy(host: string, port: number, type: 'http' | 'http
   // localhost / loopback always bypass the proxy so the app's own servers
   // (fingerprint test page, etc.) never go through the proxy.
   return `function FindProxyForURL(url, host) {
-  if (host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1' ||
-      /^(\\d{1,3}\\.){3}\\d{1,3}$/.test(host)) {
+  if (host === 'localhost' || host === '[::1]' || host === '::1') {
     return 'DIRECT';
+  }
+  var m = /^(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})$/.exec(host);
+  if (m) {
+    var a = +m[1], b = +m[2];
+    if (a === 127 || a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) {
+      return 'DIRECT';
+    }
   }
   return '${target}';
 }`

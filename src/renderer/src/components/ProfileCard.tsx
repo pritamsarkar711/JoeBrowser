@@ -12,15 +12,16 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
-  Stack,
-  TextField,
+  IconButton,
   Tooltip,
   Typography,
+  TextField,
   alpha
 } from '@mui/material'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
+import RocketLaunchIcon from '@mui/icons-material/RocketLaunch'
 import type { ProfileData } from '@shared/types'
 import { BrowserIcon } from './BrowserIcon'
 import { useApp } from '../store'
@@ -51,13 +52,14 @@ export function ProfileCard({
   running: boolean
   onSelect?: () => void
 }): React.JSX.Element {
-  const { selectProfile, duplicateProfile, deleteProfile } = useApp()
+  const { selectProfile, duplicateProfile, deleteProfile, launchProfile } = useApp()
   const toast = useToast()
   const proxyEnabled = profile.proxy.enabled
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [exportPw, setExportPw] = useState('')
+  const [hovered, setHovered] = useState(false)
 
   const handleExport = async (): Promise<void> => {
     try {
@@ -79,37 +81,37 @@ export function ProfileCard({
 
   return (
     <>
-      <Tooltip
-        title={`${profile.name} · ${proxyEnabled ? 'proxy: ' + profile.proxy.type + '://' + profile.proxy.host + ':' + profile.proxy.port : 'no proxy'}`}
-        placement="right"
+      <Box
+        onClick={() => {
+          selectProfile(profile.id)
+          onSelect?.()
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          setMenu({ x: e.clientX, y: e.clientY })
+        }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          p: 0.75,
+          borderRadius: 2,
+          cursor: 'pointer',
+          border: '1px solid',
+          borderColor: selected ? 'primary.main' : 'transparent',
+          bgcolor: selected ? alpha('#6750a4', 0.12) : 'transparent',
+          '&:hover': {
+            bgcolor: (t) => alpha(t.palette.primary.main, t.palette.mode === 'dark' ? 0.15 : 0.08)
+          },
+          transition: 'background-color .15s ease, border-color .15s ease'
+        }}
       >
-        <Box
-          onClick={() => {
-            selectProfile(profile.id)
-            onSelect?.()
-          }}
-          onContextMenu={(e) => {
-            e.preventDefault()
-            setMenu({ x: e.clientX, y: e.clientY })
-          }}
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1.5,
-            p: 1.25,
-            borderRadius: 2.5,
-            cursor: 'pointer',
-            border: '1px solid',
-            borderColor: selected ? 'primary.main' : 'transparent',
-            bgcolor: selected ? alpha('#6750a4', 0.12) : 'transparent',
-            '&:hover': {
-              bgcolor: (t) => alpha(t.palette.primary.main, t.palette.mode === 'dark' ? 0.15 : 0.08)
-            },
-            transition: 'background-color .15s ease, border-color .15s ease'
-          }}
-        >
-          <Box sx={{ position: 'relative' }}>
-            <BrowserIcon type={profile.browserType} size={30} />
+        {/* Browser icon with running indicator */}
+        <Box sx={{ position: 'relative', flexShrink: 0 }}>
+          <BrowserIcon type={profile.browserType} size={28} />
+          {running && (
             <Box
               sx={{
                 position: 'absolute',
@@ -118,41 +120,69 @@ export function ProfileCard({
                 width: 10,
                 height: 10,
                 borderRadius: '50%',
-                bgcolor: proxyEnabled ? 'success.main' : 'action.disabled',
+                bgcolor: 'success.main',
                 border: '2px solid',
+                borderColor: 'background.paper',
+                animation: 'pulse 2s infinite',
+                '@keyframes pulse': {
+                  '0%': { boxShadow: '0 0 0 0 rgba(46,125,50,0.4)' },
+                  '70%': { boxShadow: '0 0 0 6px rgba(46,125,50,0)' },
+                  '100%': { boxShadow: '0 0 0 0 rgba(46,125,50,0)' }
+                }
+              }}
+            />
+          )}
+          {!running && proxyEnabled && (
+            <Box
+              sx={{
+                position: 'absolute',
+                right: -2,
+                bottom: -2,
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                bgcolor: 'action.disabled',
+                border: '1.5px solid',
                 borderColor: 'background.paper'
               }}
             />
-          </Box>
-          <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
-              {profile.name}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" noWrap>
-              Last launched: {timeAgo(profile.lastLaunchedAt)}
-            </Typography>
-          </Box>
-          <Stack spacing={0.5} sx={{ alignItems: 'flex-end' }}>
-            {proxyEnabled && (
-              <Chip
-                size="small"
-                label={profile.proxy.type.toUpperCase()}
-                variant="outlined"
-                color="secondary"
-                sx={{ height: 18, fontSize: 10, '& .MuiChip-label': { px: 0.75 } }}
-              />
-            )}
-            {running && (
-              <Chip
-                size="small"
-                label="● RUNNING"
-                color="success"
-                sx={{ height: 18, fontSize: 10, '& .MuiChip-label': { px: 0.75 } }}
-              />
-            )}
-          </Stack>
+          )}
         </Box>
-      </Tooltip>
+
+        {/* Name + meta */}
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography variant="body2" noWrap sx={{ fontWeight: 600, lineHeight: 1.3 }}>
+            {profile.name}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" noWrap sx={{ fontSize: 10 }}>
+            {timeAgo(profile.lastLaunchedAt)}
+            {proxyEnabled && ` · ${profile.proxy.type.toUpperCase()}`}
+          </Typography>
+        </Box>
+
+        {/* Quick-launch on hover, or running chip */}
+        {hovered && !running ? (
+          <Tooltip title="Launch" arrow>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation()
+                void launchProfile(profile.id, {})
+              }}
+              sx={{ p: 0.5 }}
+            >
+              <RocketLaunchIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Tooltip>
+        ) : running ? (
+          <Chip
+            size="small"
+            label="● ON"
+            color="success"
+            sx={{ height: 18, fontSize: 10, '& .MuiChip-label': { px: 0.5 } }}
+          />
+        ) : null}
+      </Box>
 
       <Menu
         open={!!menu}

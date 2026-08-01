@@ -11,12 +11,14 @@ import { DownloadDialog } from './components/DownloadDialog'
 import { Toasts } from './components/Toasts'
 import { LoadingOverlay } from './components/LoadingOverlay'
 
-const SIDEBAR_WIDTH = 300
+const SIDEBAR_WIDTH = 260
 
 export default function App(): React.JSX.Element {
-  const { booted, init, settings, profiles, selectedId, busy } = useApp()
+  const { booted, init, settings, profiles, selectedId, selectProfile, busy } = useApp()
   const prefersDark = useMediaQuery('(prefers-color-scheme: dark)')
   const isNarrow = useMediaQuery('(max-width:900px)')
+  const isCompact = useMediaQuery('(max-width:1100px)')
+  const sidebarWidth = isCompact && !isNarrow ? 220 : SIDEBAR_WIDTH
   const [newProfileOpen, setNewProfileOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [downloadOpen, setDownloadOpen] = useState(false)
@@ -49,7 +51,7 @@ export default function App(): React.JSX.Element {
           'If this persists, reinstall from the Releases page or run "npm run dist:win".'
         )
       }
-    }, 15000)
+    }, 30000)
     return () => clearTimeout(timer)
   }, [booted])
 
@@ -146,7 +148,7 @@ export default function App(): React.JSX.Element {
       <CssBaseline />
       <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
         <Sidebar
-          width={SIDEBAR_WIDTH}
+          width={sidebarWidth}
           onNewProfile={() => setNewProfileOpen(true)}
           onSettings={() => setSettingsOpen(true)}
           onDownload={() => setDownloadOpen(true)}
@@ -203,7 +205,7 @@ export default function App(): React.JSX.Element {
         </Box>
       </Box>
 
-      <NewProfileDialog open={newProfileOpen} onClose={() => setNewProfileOpen(false)} onCreated={() => undefined} />
+      <NewProfileDialog open={newProfileOpen} onClose={() => setNewProfileOpen(false)} onCreated={(id) => { selectProfile(id) }} />
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <DownloadDialog open={downloadOpen} onClose={() => setDownloadOpen(false)} />
       <Toasts />

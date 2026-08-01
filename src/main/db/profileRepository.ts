@@ -3,9 +3,11 @@
  * Also handles filesystem cleanup (user data dirs) on delete.
  */
 import { rmSync } from 'node:fs'
+import { randomBytes } from 'node:crypto'
 import * as db from './database'
 import * as paths from '../paths'
 import { logger } from '../logger'
+import { deriveKey, aesGcmEncrypt, aesGcmDecrypt, KEY_LEN } from '../crypto/cipher'
 import { randomId, createNewProfile, type NewProfileInput, type ProfileData } from '@shared/types'
 
 export function listProfiles(): ProfileData[] {
@@ -79,10 +81,6 @@ export function exportProfileEncrypted(id: string, password: string): string {
   if (!profile) throw new Error('Profile not found: ' + id)
   if (!password || password.length < 4) throw new Error('Export password must be at least 4 characters.')
 
-  // Lazy import to keep the repository free of circular crypto deps at module load.
-  const { randomBytes } = require('node:crypto') as typeof import('node:crypto')
-  const { deriveKey, aesGcmEncrypt, KEY_LEN } = require('../crypto/cipher') as typeof import('../crypto/cipher')
-
   const salt = randomBytes(16)
   const key = deriveKey(password, salt)
   // Strip runtime-only fields before packaging.
@@ -126,7 +124,6 @@ export function importProfileEncrypted(json: string, password: string): ProfileD
   }
   if (!password) throw new Error('Import password is required.')
 
-  const { deriveKey, aesGcmDecrypt } = require('../crypto/cipher') as typeof import('../crypto/cipher')
   const key = deriveKey(password, Buffer.from(envelope.salt, 'hex'))
   let plain: string
   try {

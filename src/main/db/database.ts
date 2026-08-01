@@ -61,14 +61,21 @@ function loadSqlite(): SqliteCtor {
   if (!SqliteCtorCache) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      SqliteCtorCache = require('better-sqlite3') as unknown as SqliteCtor
+      const mod = require('better-sqlite3') as { new (file: string): Db; default?: { new (file: string): Db } }
+      // Handle both CJS default-export and CJS module.exports shapes
+      SqliteCtorCache = (typeof mod.default === 'function' ? mod.default : mod) as SqliteCtor
     } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
       const hint = process.versions.electron
         ? 'The SQLite native module failed to load. Reinstall JoeBrowser from the Releases page, or rebuild locally with "npm run dist:win".'
         : 'The SQLite native module failed to load. Run "npm ci" with an internet connection, then rebuild with "npm run dist:win".'
-      throw new Error(
-        `${hint} Technical detail: ${e instanceof Error ? e.message : String(e)}`
-      )
+      logger.error('Failed to load better-sqlite3:', msg)
+      throw new Error(`${hint} Technical detail: ${msg}`)
+    }
+    if (typeof SqliteCtorCache !== 'function') {
+      const err = 'better-sqlite3 did not export a constructor function.'
+      logger.error(err)
+      throw new Error(err)
     }
   }
   return SqliteCtorCache
@@ -80,6 +87,7 @@ export function openDatabase(): void {
   const ctor = loadSqlite()
   db = new ctor(paths.dbFile())
   db.pragma('journal_mode = WAL')
+  db.pragma('wal_autocheckpoint = 1000')
   db.pragma('foreign_keys = ON')
   db.exec(`
     CREATE TABLE IF NOT EXISTS profiles (
@@ -101,8 +109,23 @@ export function openDatabase(): void {
   logger.info('Database ready')
 }
 
+/** Run a WAL checkpoint (TRUNCATE mode) to fold the WAL file back into the
+ *  main database file and truncate the WAL.  Call this on shutdown or
+ *  periodically to keep the .db-wal file from growing unboundedly. */
+export function checkpointWAL(): void {
+  if (db) {
+    try {
+      db.pragma('wal_checkpoint(TRUNCATE)')
+      logger.info('WAL checkpoint (TRUNCATE) completed')
+    } catch (e) {
+      logger.error('WAL checkpoint failed:', e)
+    }
+  }
+}
+
 export function closeDatabase(): void {
   if (db) {
+    checkpointWAL()
     db.close()
     db = null
   }

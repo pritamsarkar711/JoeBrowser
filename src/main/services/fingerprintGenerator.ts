@@ -75,7 +75,11 @@ const SCREENS_DESKTOP: Array<[number, number]> = [
   [1280, 720],
   [3840, 2160],
   [1680, 1050],
-  [1280, 1024]
+  [1280, 1024],
+  [1600, 900],
+  [1920, 1000],
+  [2560, 1080],
+  [1360, 768]
 ]
 
 const SCREENS_MOBILE: Array<[number, number]> = [
@@ -99,6 +103,8 @@ const TIMEZONES = [
   'America/Los_Angeles',
   'America/Toronto',
   'America/Sao_Paulo',
+  'America/Phoenix',
+  'America/Anchorage',
   'Europe/London',
   'Europe/Paris',
   'Europe/Berlin',
@@ -107,6 +113,7 @@ const TIMEZONES = [
   'Europe/Rome',
   'Europe/Warsaw',
   'Europe/Moscow',
+  'Europe/Istanbul',
   'Asia/Dubai',
   'Asia/Karachi',
   'Asia/Kolkata',
@@ -116,10 +123,15 @@ const TIMEZONES = [
   'Asia/Shanghai',
   'Asia/Tokyo',
   'Asia/Seoul',
+  'Asia/Taipei',
+  'Asia/Jakarta',
+  'Asia/Ho_Chi_Minh',
   'Australia/Sydney',
   'Australia/Melbourne',
+  'Pacific/Auckland',
   'Africa/Lagos',
-  'Africa/Cairo'
+  'Africa/Cairo',
+  'Africa/Johannesburg'
 ]
 
 const LANGUAGES: Record<TargetOS, string[][]> = {
@@ -139,7 +151,11 @@ const LANGUAGES: Record<TargetOS, string[][]> = {
     ['tr-TR', 'en-US', 'en'],
     ['ar-SA', 'en-US', 'en'],
     ['ja-JP', 'en-US', 'en'],
-    ['zh-CN', 'en-US', 'en']
+    ['zh-CN', 'en-US', 'en'],
+    ['vi-VN', 'en-US', 'en'],
+    ['id-ID', 'en-US', 'en'],
+    ['th-TH', 'en-US', 'en'],
+    ['ko-KR', 'en-US', 'en']
   ],
   macos: [
     ['en-US', 'en'],
@@ -149,7 +165,8 @@ const LANGUAGES: Record<TargetOS, string[][]> = {
     ['es-ES', 'en-US', 'en'],
     ['pt-PT', 'en-US', 'en'],
     ['ja-JP', 'en-US', 'en'],
-    ['zh-CN', 'en-US', 'en']
+    ['zh-CN', 'en-US', 'en'],
+    ['ko-KR', 'en-US', 'en']
   ],
   linux: [
     ['en-US', 'en'],
@@ -158,7 +175,9 @@ const LANGUAGES: Record<TargetOS, string[][]> = {
     ['pt-BR', 'en-US', 'en'],
     ['ru-RU', 'en-US', 'en'],
     ['pl-PL', 'en-US', 'en'],
-    ['hi-IN', 'en-US', 'en']
+    ['hi-IN', 'en-US', 'en'],
+    ['zh-CN', 'en-US', 'en'],
+    ['ja-JP', 'en-US', 'en']
   ],
   android: [
     ['en-US', 'en'],
@@ -170,7 +189,10 @@ const LANGUAGES: Record<TargetOS, string[][]> = {
     ['hi-IN', 'en-US', 'en'],
     ['bn-BD', 'en-US', 'en'],
     ['id-ID', 'en-US', 'en'],
-    ['ar-SA', 'en-US', 'en']
+    ['ar-SA', 'en-US', 'en'],
+    ['vi-VN', 'en-US', 'en'],
+    ['th-TH', 'en-US', 'en'],
+    ['zh-CN', 'en-US', 'en']
   ],
   ios: [
     ['en-US', 'en'],
@@ -178,7 +200,9 @@ const LANGUAGES: Record<TargetOS, string[][]> = {
     ['de-DE', 'en-US', 'en'],
     ['fr-FR', 'en-US', 'en'],
     ['es-ES', 'en-US', 'en'],
-    ['ja-JP', 'en-US', 'en']
+    ['ja-JP', 'en-US', 'en'],
+    ['zh-CN', 'en-US', 'en'],
+    ['ko-KR', 'en-US', 'en']
   ]
 }
 
@@ -207,7 +231,22 @@ const GPUS: Record<TargetOS, GpuPair[]> = {
     {
       vendor: 'Google Inc. (NVIDIA)',
       renderer:
+        'ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Ti Super Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (NVIDIA)',
+      renderer:
         'ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (NVIDIA)',
+      renderer:
+        'ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 Ti Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (NVIDIA)',
+      renderer:
+        'ANGLE (NVIDIA, NVIDIA GeForce RTX 3050 Direct3D11 vs_5_0 ps_5_0, D3D11)'
     },
     {
       vendor: 'Google Inc. (NVIDIA)',
@@ -218,6 +257,16 @@ const GPUS: Record<TargetOS, GpuPair[]> = {
       vendor: 'Google Inc. (NVIDIA)',
       renderer:
         'ANGLE (NVIDIA, NVIDIA GeForce GTX 1660 SUPER Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (NVIDIA)',
+      renderer:
+        'ANGLE (NVIDIA, NVIDIA GeForce GTX 1650 Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (AMD)',
+      renderer:
+        'ANGLE (AMD, AMD Radeon RX 7900 XTX Direct3D11 vs_5_0 ps_5_0, D3D11)'
     },
     {
       vendor: 'Google Inc. (AMD)',
@@ -247,6 +296,11 @@ const GPUS: Record<TargetOS, GpuPair[]> = {
     {
       vendor: 'Google Inc. (Intel)',
       renderer:
+        'ANGLE (Intel, Intel(R) Arc(TM) A580 Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      vendor: 'Google Inc. (Intel)',
+      renderer:
         'ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0, D3D11)'
     },
     {
@@ -258,8 +312,11 @@ const GPUS: Record<TargetOS, GpuPair[]> = {
   macos: [
     { vendor: 'Apple Inc.', renderer: 'ANGLE (Apple, Apple M4, OpenGL 4.1)' },
     { vendor: 'Apple Inc.', renderer: 'ANGLE (Apple, Apple M4 Pro, OpenGL 4.1)' },
+    { vendor: 'Apple Inc.', renderer: 'ANGLE (Apple, Apple M4 Max, OpenGL 4.1)' },
     { vendor: 'Apple Inc.', renderer: 'ANGLE (Apple, Apple M3, OpenGL 4.1)' },
+    { vendor: 'Apple Inc.', renderer: 'ANGLE (Apple, Apple M3 Pro, OpenGL 4.1)' },
     { vendor: 'Apple Inc.', renderer: 'ANGLE (Apple, Apple M2, OpenGL 4.1)' },
+    { vendor: 'Apple Inc.', renderer: 'ANGLE (Apple, Apple M2 Ultra, OpenGL 4.1)' },
     { vendor: 'Apple Inc.', renderer: 'ANGLE (Apple, Apple M1 Pro, OpenGL 4.1)' },
     { vendor: 'Apple Inc.', renderer: 'Apple GPU' }
   ],
@@ -279,6 +336,14 @@ const GPUS: Record<TargetOS, GpuPair[]> = {
     {
       vendor: 'Google Inc. (Mesa)',
       renderer: 'ANGLE (Mesa, NVIDIA GeForce GTX 1080 (NVIDIA), OpenGL 4.5)'
+    },
+    {
+      vendor: 'Google Inc. (Mesa)',
+      renderer: 'ANGLE (Mesa, NVIDIA GeForce RTX 3060 (NVIDIA), OpenGL 4.5)'
+    },
+    {
+      vendor: 'Google Inc. (Mesa)',
+      renderer: 'ANGLE (Mesa, AMD Radeon RX 7800 XT (RADV NAVI32), OpenGL 4.5)'
     }
   ],
   android: [
@@ -325,13 +390,23 @@ const FONTS: Record<TargetOS, string[]> = {
     'Segoe UI',
     'Segoe UI Light',
     'Segoe UI Semibold',
+    'Segoe UI Symbol',
     'Sitka',
     'Tahoma',
     'Times New Roman',
     'Trebuchet MS',
     'Verdana',
     'Webdings',
-    'Wingdings'
+    'Wingdings',
+    // Modern / web fonts commonly installed on Windows
+    'Cascadia Code',
+    'Cascadia Mono',
+    'Cascadia Sans',
+    'Segoe UI Variable',
+    'Segoe Fluent Icons',
+    'Leelawadee UI',
+    'Nirmala UI',
+    'Twemoji Mozilla'
   ],
   macos: [
     'American Typewriter',
@@ -381,6 +456,12 @@ const FONTS: Record<TargetOS, string[]> = {
     'SignPainter',
     'Skia',
     'Snell Roundhand',
+    'SF Pro Display',
+    'SF Pro Text',
+    'SF Mono',
+    'SF Compact',
+    'New York',
+    'SF Arabic',
     'Tahoma',
     'Times',
     'Times New Roman',
@@ -426,7 +507,15 @@ const FONTS: Record<TargetOS, string[]> = {
     'Ubuntu Condensed',
     'Verdana',
     'WenQuanYi Micro Hei',
-    'WenQuanYi Zen Hei'
+    'WenQuanYi Zen Hei',
+    // Modern additions
+    'JetBrains Mono',
+    'Fira Code',
+    'Fira Sans',
+    'Inter',
+    'Hack',
+    'Source Code Pro',
+    'Cascadia Code'
   ],
   android: [
     'Arial',
@@ -456,7 +545,9 @@ const FONTS: Record<TargetOS, string[]> = {
     'Roboto Condensed',
     'Roboto Mono',
     'Roboto Slab',
-    'Source Sans Pro'
+    'Source Sans Pro',
+    'Source Code Pro',
+    'Inter'
   ],
   ios: [
     'Academy Engraved LET',
@@ -513,6 +604,9 @@ const FONTS: Record<TargetOS, string[]> = {
     'PingFang SC',
     'PingFang TC',
     'Rockwell',
+    'SF Pro Display',
+    'SF Pro Text',
+    'SF Mono',
     'Sinhala Sangam MN',
     'Snell Roundhand',
     'STHeiti',
@@ -635,6 +729,13 @@ function buildFromEntry(entry: UAEntry, seed: string, rng: SeededRng): Fingerpri
   const dpr = isMobile ? rng.pick([2.75, 3, 3]) : rng.pick([1, 1, 1, 1.25, 1.5])
   const colorDepth = 24
 
+  // Determine if window.chrome should be spoofed:
+  // For Chromium-family UAs (Chrome/Edge/Brave) the window.chrome object
+  // should exist; for Firefox it must not. When a Firefox engine is used
+  // with a Chromium UA string (rare but possible), the caller can control
+  // this via windowChromeSpoof. Default: true for chromium engine, false for gecko.
+  const isChromiumUA = entry.engine === 'chromium'
+
   return {
     seed,
     userAgent: entry.ua,
@@ -676,7 +777,9 @@ function buildFromEntry(entry: UAEntry, seed: string, rng: SeededRng): Fingerpri
       notifications: rng.chance(0.3) ? 'granted' : 'prompt',
       camera: 'prompt',
       microphone: 'prompt'
-    }
+    },
+    doNotTrack: null,
+    windowChromeSpoof: isChromiumUA
   }
 }
 

@@ -1,10 +1,15 @@
 import { useMemo, useState } from 'react'
 import {
+  Badge,
   Box,
   Button,
   Drawer,
+  FormControl,
   IconButton,
   InputAdornment,
+  InputLabel,
+  MenuItem,
+  Select,
   Stack,
   TextField,
   ToggleButton,
@@ -22,6 +27,7 @@ import MenuIcon from '@mui/icons-material/Menu'
 import CloseIcon from '@mui/icons-material/Close'
 import DownloadIcon from '@mui/icons-material/Download'
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch'
+import SortIcon from '@mui/icons-material/Sort'
 import type { BrowserType } from '@shared/types'
 import { BROWSER_NAMES } from '@shared/types'
 import { useApp } from '../store'
@@ -29,6 +35,23 @@ import { ProfileCard } from './ProfileCard'
 import { BrowserIcon } from './BrowserIcon'
 
 type Filter = 'all' | BrowserType
+type SortMode = 'name' | 'lastUsed' | 'browserType'
+
+/** Highlight matching text in search results. */
+export function HighlightText({ text, query }: { text: string; query: string }): React.JSX.Element {
+  if (!query.trim()) return <>{text}</>
+  const idx = text.toLowerCase().indexOf(query.toLowerCase())
+  if (idx === -1) return <>{text}</>
+  return (
+    <>
+      {text.slice(0, idx)}
+      <Box component="span" sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', borderRadius: 0.5, px: 0.25 }}>
+        {text.slice(idx, idx + query.length)}
+      </Box>
+      {text.slice(idx + query.length)}
+    </>
+  )
+}
 
 /** Left sidebar: searchable, filterable profile list + actions.
  *  Persistent on wide screens, temporary (hamburger) on narrow. */
@@ -54,10 +77,11 @@ export function Sidebar({
   const { profiles, running, selectedId, lock, selectProfile, launchProfile } = useApp()
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
+  const [sort, setSort] = useState<SortMode>('name')
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return profiles.filter((p) => {
+    const list = profiles.filter((p) => {
       if (filter !== 'all' && p.browserType !== filter) return false
       if (!q) return true
       return (
@@ -66,7 +90,21 @@ export function Sidebar({
         p.notes.toLowerCase().includes(q)
       )
     })
-  }, [profiles, query, filter])
+    // Sort
+    const sorted = [...list]
+    switch (sort) {
+      case 'name':
+        sorted.sort((a, b) => a.name.localeCompare(b.name))
+        break
+      case 'lastUsed':
+        sorted.sort((a, b) => (b.lastLaunchedAt ?? 0) - (a.lastLaunchedAt ?? 0))
+        break
+      case 'browserType':
+        sorted.sort((a, b) => a.browserType.localeCompare(b.browserType))
+        break
+    }
+    return sorted
+  }, [profiles, query, filter, sort])
 
   const content = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -91,11 +129,25 @@ export function Sidebar({
             JB
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.1 }}>
-              Joe Browser
-            </Typography>
+            <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.1 }}>
+                Joe Browser
+              </Typography>
+              <Badge
+                badgeContent={profiles.length}
+                color="primary"
+                sx={{
+                  '& .MuiBadge-badge': {
+                    fontSize: 10,
+                    minWidth: 18,
+                    height: 18,
+                    px: 0.5
+                  }
+                }}
+              />
+            </Stack>
             <Typography variant="caption" color="text.secondary">
-              Local anti-detect browser
+              Anti-detect browser
             </Typography>
           </Box>
           {isNarrow && (
@@ -126,31 +178,58 @@ export function Sidebar({
         />
       </Box>
 
-      {/* Browser filter */}
+      {/* Browser filter — with borders/separation */}
       <Box sx={{ px: 2, pb: 1 }}>
         <ToggleButtonGroup
           size="small"
           value={filter}
           exclusive
           onChange={(_, v: Filter | null) => v && setFilter(v)}
-          sx={{ flexWrap: 'wrap', gap: 0.5 }}
+          sx={{
+            flexWrap: 'wrap',
+            gap: 0.5,
+            '& .MuiToggleButton-root': {
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: '8px !important',
+              px: 1,
+              py: 0.25,
+              '&.Mui-selected': {
+                borderColor: 'primary.main',
+                bgcolor: 'primary.main',
+                color: 'primary.contrastText',
+                '&:hover': { bgcolor: 'primary.dark' }
+              }
+            }
+          }}
         >
-          <ToggleButton
-            value="all"
-            sx={{ px: 1, py: 0.25, fontSize: 12, borderRadius: '20px !important', border: 'none' }}
-          >
+          <ToggleButton value="all" sx={{ fontSize: 12 }}>
             All
           </ToggleButton>
           {BROWSER_NAMES.map((b) => (
-            <ToggleButton
-              key={b}
-              value={b}
-              sx={{ px: 1, py: 0.25, borderRadius: '20px !important', border: 'none' }}
-            >
+            <ToggleButton key={b} value={b}>
               <BrowserIcon type={b} size={16} />
             </ToggleButton>
           ))}
         </ToggleButtonGroup>
+      </Box>
+
+      {/* Sort */}
+      <Box sx={{ px: 2, pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <SortIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+        <FormControl size="small" sx={{ flex: 1 }}>
+          <InputLabel sx={{ fontSize: 12 }}>Sort</InputLabel>
+          <Select
+            label="Sort"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortMode)}
+            sx={{ fontSize: 12, '& .MuiSelect-select': { py: 0.5 } }}
+          >
+            <MenuItem value="name">By name</MenuItem>
+            <MenuItem value="lastUsed">By last used</MenuItem>
+            <MenuItem value="browserType">By browser</MenuItem>
+          </Select>
+        </FormControl>
       </Box>
 
       {/* New profile + Quick Launch */}
@@ -184,7 +263,7 @@ export function Sidebar({
 
       {/* Profile list */}
       <Box sx={{ flex: 1, overflowY: 'auto', px: 1.5, pb: 1 }}>
-        <Stack spacing={0.75}>
+        <Stack spacing={0.5}>
           {filtered.map((p) => (
             <ProfileCard
               key={p.id}

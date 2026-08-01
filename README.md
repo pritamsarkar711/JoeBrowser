@@ -4,6 +4,27 @@ Create and manage fully isolated browser profiles (Chrome, Edge, Brave, Firefox)
 with per-profile fingerprint spoofing, proxy support (HTTP/SOCKS/PAC), encrypted
 profile storage, and an MV3 stealth extension.
 
+## 🆕 What's New in v4.0.0
+
+This is a major release with critical bug fixes and significant new features:
+
+- **Fixed critical startup crash on Windows** — dynamic `require()` bug that prevented the app from launching
+- **135+ user agent entries** — 3× more browser versions covered for fingerprint diversity
+- **Enhanced fingerprint generation** — more GPUs, screen resolutions, timezones, and font sets
+- **Intl.DateTimeFormat timezone spoofing** for Firefox profiles
+- **Canvas double-noise fix** — eliminated redundant canvas noise injection
+- **navigator.doNotTrack and window.chrome spoofing** — better browser identity masking
+- **StorageManager.estimate spoofing** — prevents storage quota fingerprinting
+- **Fixed PAC server IP bypass vulnerability** — proxy auto-config no longer leaks real IP
+- **Fixed SOCKS4 proxy handling** — proper SOCKS4 handshake and error recovery
+- **Fixed non-atomic key file write** — master key file is now written atomically (write-rename) to prevent corruption
+- **Improved UI/UX** — compact layout, responsive design, reduced text density
+- **Profile creation now supports OS and device selection** — simulate different platforms
+- **Sort and search improvements in sidebar** — faster profile lookup and organization
+- **Dangerous launch flags warning** — alerts when using risky Chromium flags
+- **Chip-based tags in Advanced tab** — cleaner multi-value editing
+- **Better dark mode theming** — refined contrast and color palette
+
 ## ⬇️ Download
 
 > **One-click download page:** open `download.html` locally or visit GitHub Pages if enabled: `docs/index.html`
@@ -24,12 +45,12 @@ Installers are published on the **Releases** page:
 | **Linux** | `JoeBrowser-<ver>-x86_64.rpm` | Fedora/RHEL: `sudo rpm -i` |
 
 **Direct links (latest):**
-- Installer: `https://github.com/pritamsarkar711/JoeBrowser/releases/latest/download/JoeBrowser-Setup-1.0.3.exe`
-- Portable: `https://github.com/pritamsarkar711/JoeBrowser/releases/latest/download/JoeBrowser-Portable-1.0.3.exe`
+- Installer: `https://github.com/pritamsarkar711/JoeBrowser/releases/latest/download/JoeBrowser-Setup-4.0.0.exe`
+- Portable: `https://github.com/pritamsarkar711/JoeBrowser/releases/latest/download/JoeBrowser-Portable-4.0.0.exe`
 
 > If Releases page is empty, use Method 2 or 3 below to generate the installer.
 
-### 🪟 Windows won't open the app? Read this first (v1.0.3 fix)
+### 🪟 Windows won't open the app? Read this first (v4.0.0 fix)
 
 The most common reasons a downloaded JoeBrowser `.exe` "does nothing" on Windows — and what to do:
 
@@ -48,7 +69,7 @@ The most common reasons a downloaded JoeBrowser `.exe` "does nothing" on Windows
 5. **Antivirus deleted the file while downloading** — check **Protection history** / quarantine before re-downloading.
 6. **Still broken?** Open an issue at https://github.com/pritamsarkar711/JoeBrowser/issues and attach `crash.log` — that tells us exactly what happened.
 
-Since **v1.0.3** the app no longer fails silently: startup errors show a dialog with the reason and log paths, the SQLite module gives a clear message instead of an opaque crash, renderer crashes are caught by an ErrorBoundary, and a 15-second boot timeout prevents the app from hanging forever. Cross-platform builds (Linux + macOS) are now supported.
+Since **v4.0.0** the app no longer fails silently: startup errors show a dialog with the reason and log paths, the SQLite module gives a clear message instead of an opaque crash, renderer crashes are caught by an ErrorBoundary, and a 15-second boot timeout prevents the app from hanging forever. Cross-platform builds (Linux + macOS) are now supported.
 
 ### Local build page
 We added a beautiful landing page for downloading:
@@ -76,7 +97,7 @@ powershell -ExecutionPolicy Bypass -File ./scripts/build-windows.ps1
 git clone https://github.com/pritamsarkar711/JoeBrowser.git
 cd JoeBrowser
 npm ci && npm run dist:win
-# Output: release/JoeBrowser-Setup-1.0.3.exe + release/JoeBrowser-Portable-1.0.3.exe
+# Output: release/JoeBrowser-Setup-4.0.0.exe + release/JoeBrowser-Portable-4.0.0.exe
 ```
 
 **macOS:**
@@ -85,8 +106,8 @@ git clone https://github.com/pritamsarkar711/JoeBrowser.git
 cd JoeBrowser
 bash scripts/build-mac.sh
 # Or manually: npm ci && npm run dist:mac
-# Output: release/JoeBrowser-1.0.3-arm64.dmg (Apple Silicon)
-#         release/JoeBrowser-1.0.3-x64.dmg (Intel)
+# Output: release/JoeBrowser-4.0.0-arm64.dmg (Apple Silicon)
+#         release/JoeBrowser-4.0.0-x64.dmg (Intel)
 ```
 
 **Linux:**
@@ -95,9 +116,9 @@ git clone https://github.com/pritamsarkar711/JoeBrowser.git
 cd JoeBrowser
 bash scripts/build-linux.sh
 # Or manually: npm ci && npm run dist:linux
-# Output: release/JoeBrowser-1.0.3-x64.AppImage
-#         release/JoeBrowser-1.0.3-amd64.deb
-#         release/JoeBrowser-1.0.3-x86_64.rpm
+# Output: release/JoeBrowser-4.0.0-x64.AppImage
+#         release/JoeBrowser-4.0.0-amd64.deb
+#         release/JoeBrowser-4.0.0-x86_64.rpm
 ```
 
 ### Method 2 — Trigger CI build (for maintainers)
@@ -105,8 +126,8 @@ The repo has a GitHub Actions workflow that builds for **Windows, macOS, and Lin
 
 1. **Tag push (auto-release):**
    ```bash
-   git tag v1.0.3
-   git push origin v1.0.3
+   git tag v4.0.0
+   git push origin v4.0.0
    # Wait 10-15 min, check Actions tab -> Build Windows EXE
    # All installers are auto-published to Releases
    ```

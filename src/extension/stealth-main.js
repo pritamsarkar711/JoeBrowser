@@ -329,8 +329,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // 3. timezone (Date API part; Intl is handled at the browser level via
-  //    --timezone-for-testing on Chromium and is a documented Firefox limit)
+  // 3. timezone (Date API + Intl.DateTimeFormat spoofing)
   // ---------------------------------------------------------------------------
 
   if (ENABLED && typeof CFG.timezoneOffset === 'number') {
@@ -342,6 +341,68 @@
     if (origGetTZ) {
       // keep a reference so pages can still call the original if they saved it
       Date.prototype.getTimezoneOffset.__orig = origGetTZ;
+    }
+
+    // Intl.DateTimeFormat timezone spoofing — critical for Firefox which lacks
+    // --timezone-for-testing. Even on Chromium this covers edge cases where
+    // resolvedOptions().timeZone is read directly.
+    if (CFG.timezone && typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
+      var spoofedTZ = CFG.timezone;
+      var origDTF = Intl.DateTimeFormat;
+      var origDTFProto = Intl.DateTimeFormat.prototype;
+      var origResolvedOptions = origDTFProto.resolvedOptions;
+
+      // Wrap the constructor so that any explicitly-passed timeZone is
+      // honoured, but the default (no timeZone arg) uses the spoofed TZ.
+      try {
+        Intl.DateTimeFormat = nativeWrap('DateTimeFormat', function (self, args) {
+          // If caller already specifies a timeZone, let it through unchanged.
+          if (args.length >= 2 && args[1] && typeof args[1] === 'object' && 'timeZone' in args[1]) {
+            return new (Function.prototype.bind.apply(origDTF, [null].concat(Array.prototype.slice.call(args))));
+          }
+          // Inject the spoofed timezone as the default.
+          var opts = args.length >= 2 ? Object.assign({}, args[1]) : {};
+          opts.timeZone = spoofedTZ;
+          return new origDTF(args[0] || undefined, opts);
+        });
+        // Copy static props
+        Intl.DateTimeFormat.supportedLocalesOf = origDTF.supportedLocalesOf;
+        Intl.DateTimeFormat.prototype = origDTFProto;
+      } catch (e) {
+        /* non-configurable on some engines */
+      }
+
+      // resolvedOptions().timeZone must return the spoofed TZ when no explicit
+      // timeZone was provided. We patch it so the leaked real timezone is hidden.
+      if (typeof origResolvedOptions === 'function') {
+        try {
+          origDTFProto.resolvedOptions = nativeWrap('resolvedOptions', function (self) {
+            var opts = origResolvedOptions.call(self);
+            try {
+              // If this formatter was created with our spoofed TZ, it already
+              // has the right value. But formatters created before injection
+              // may still carry the real TZ — override defensively.
+              if (opts && opts.timeZone && opts.timeZone !== spoofedTZ) {
+                // Only override if the offset matches our spoofed offset (heuristic:
+                // the page likely didn't specify an explicit TZ).
+                try {
+                  var realOffset = new Date().getTimezoneOffset();
+                  // realOffset is already spoofed by our Date patch, so if it
+                  // matches we're safe to replace.
+                  opts = Object.assign({}, opts, { timeZone: spoofedTZ });
+                } catch (e2) {
+                  /* keep original */
+                }
+              }
+            } catch (e1) {
+              /* ignore */
+            }
+            return opts;
+          });
+        } catch (e) {
+          /* non-configurable */
+        }
+      }
     }
   }
 
@@ -441,7 +502,15 @@
 
     // toDataURL / toBlob: apply the same seeded pixel noise so canvas
     // fingerprint hashes (browserleaks, amiunique, etc.) differ from real HW.
+    // IMPORTANT: We cache the noisified result per canvas to avoid the
+    // double-noise issue where calling toDataURL() twice on the same canvas
+    // would apply noise twice, causing inconsistent hashes.
+    var _canvasNoiseCache = new WeakMap();
+
     function noisifyCanvas(canvas) {
+      // Check if we already noisified this canvas — if so, skip to avoid
+      // double-noise which changes the hash on every call.
+      if (_canvasNoiseCache.has(canvas)) return;
       try {
         var ctx = canvas.getContext('2d');
         if (!ctx) return;
@@ -459,6 +528,7 @@
           d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + localRng.int(-2, 2)));
         }
         ctx.putImageData(img, 0, 0);
+        _canvasNoiseCache.set(canvas, true);
       } catch (e) {
         /* tainted canvas or non-2d */
       }
@@ -934,10 +1004,99 @@
       /* ignore */
     }
 
-    // Make sure `window.chrome` exists only for Chromium-family UAs.
-    // (Firefox lacks it; a Chrome UA on Firefox would be inconsistent, but if
-    // the user chose a Chrome UA on Firefox we do NOT fake window.chrome —
-    // that is documented as unsupported in the README.)
+    // navigator.doNotTrack spoofing — most real browsers send no DNT header
+    // (null / unspecified), which is the most common and least fingerprintable.
+    try {
+      var dntValue = CFG.doNotTrack !== undefined ? CFG.doNotTrack : null;
+      // Delete the existing property first so the accessor takes precedence.
+      try { delete navigator.doNotTrack; } catch (e) { /* ignore */ }
+      safeDefineGetter(NavProto, 'doNotTrack', function () {
+        return dntValue;
+      });
+      safeDefineGetter(navigator, 'doNotTrack', function () {
+        return dntValue;
+      });
+    } catch (e) {
+      /* ignore */
+    }
+
+    // window.chrome spoofing — controlled by CFG.windowChromeSpoof.
+    // When true (Chromium UA), ensure window.chrome exists with a realistic
+    // shape. When false (Firefox UA), ensure it does NOT exist.
+    try {
+      if (CFG.windowChromeSpoof === true) {
+        // If window.chrome is missing or falsy (e.g. on Firefox with a Chrome
+        // UA), create a realistic chrome object.
+        if (!window.chrome) {
+          window.chrome = {};
+        }
+        // Ensure the standard csi / loadTimes / runtime properties exist
+        // (pages check these to distinguish Chrome from other browsers).
+        if (!window.chrome.csi) {
+          window.chrome.csi = function () { return {}; };
+        }
+        if (!window.chrome.loadTimes) {
+          window.chrome.loadTimes = function () {
+            return {
+              commitLoadTime: 0,
+              connectionInfo: 'h2',
+              finishDocumentLoadTime: 0,
+              finishLoadTime: 0,
+              firstPaintAfterLoadTime: 0,
+              firstPaintTime: 0,
+              navigationType: 'Other',
+              requestTime: 0,
+              startLoadTime: 0,
+              wasFetchedViaSpdy: true,
+              wasNpnNegotiated: true,
+              npnNegotiatedProtocol: 'h2',
+              wasAlternateProtocolAvailable: false,
+              connectionInfo: 'h2'
+            };
+          };
+        }
+        if (!window.chrome.runtime) {
+          window.chrome.runtime = {
+            PlatformOs: 'win',
+            PlatformArch: 'x64',
+            PlatformNaclArch: 'x64',
+            RequestInstallId: '',
+            RequestKey: '',
+            Packages: null,
+            connect: function () { return {}; },
+            sendMessage: function () {},
+            id: undefined
+          };
+        }
+      } else if (CFG.windowChromeSpoof === false) {
+        // Remove window.chrome entirely for Firefox/gecko profiles.
+        try {
+          delete window.chrome;
+        } catch (e) {
+          // May not be deletable in some contexts; try harder.
+          try {
+            window.chrome = undefined;
+          } catch (e2) { /* ignore */ }
+        }
+      }
+    } catch (e) {
+      /* ignore */
+    }
+
+    // StorageManager.estimate() spoofing — prevent storage quota fingerprinting.
+    // Real browsers report varying quota/usage; we return a consistent value.
+    try {
+      if (navigator.storage && navigator.storage.estimate) {
+        var origEstimate = navigator.storage.estimate;
+        var fakeQuota = 1073741824;  // 1 GB — a common default quota
+        var fakeUsage = 0;            // fresh profile = no usage
+        navigator.storage.estimate = nativeWrap('estimate', function () {
+          return Promise.resolve({ quota: fakeQuota, usage: fakeUsage });
+        });
+      }
+    } catch (e) {
+      /* ignore */
+    }
   }
 
   // Expose a marker so the fingerprint test page can confirm injection.

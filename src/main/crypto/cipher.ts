@@ -13,6 +13,7 @@ import {
   createCipheriv,
   createDecipheriv,
   createHmac,
+  pbkdf2,
   pbkdf2Sync,
   randomBytes,
   randomInt
@@ -36,8 +37,22 @@ export function randomInt32(): number {
   return randomInt(0, 0xffffffff)
 }
 
+/** Synchronous key derivation — blocks the thread. Kept for backward compatibility. */
 export function deriveKey(password: string, salt: Buffer, iterations = PBKDF2_ITERATIONS): Buffer {
   return pbkdf2Sync(password, salt, iterations, KEY_LEN, 'sha256')
+}
+
+/** Asynchronous key derivation — yields the event loop so the main thread
+ *  is not blocked during the expensive PBKDF2 computation (250k iterations).
+ *  Preferred for all new code; use the sync version only when you must
+ *  return a value synchronously (e.g. during initial unlock). */
+export function deriveKeyAsync(password: string, salt: Buffer, iterations = PBKDF2_ITERATIONS): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    pbkdf2(password, salt, iterations, KEY_LEN, 'sha256', (err, key) => {
+      if (err) reject(err)
+      else resolve(key)
+    })
+  })
 }
 
 export function aesGcmEncrypt(key: Buffer, plaintext: string | Buffer): EncryptedPayload {

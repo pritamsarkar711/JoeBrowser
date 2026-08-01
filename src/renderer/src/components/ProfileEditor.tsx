@@ -9,6 +9,7 @@ import {
   DialogTitle,
   IconButton,
   Paper,
+  Stack,
   Tab,
   Tabs,
   TextField,
@@ -210,9 +211,9 @@ export function ProfileEditor({ profile }: { profile: ProfileData }): React.JSX.
         </Alert>
       )}
 
-      {/* Content */}
+      {/* Content — lazy-render only active tab */}
       <Box sx={{ flex: 1, overflowY: 'auto', p: 3 }}>
-        <Box sx={{ maxWidth: 860, mx: 'auto' }}>
+        <Box sx={{ maxWidth: 1100, mx: 'auto' }}>
           {tab === 0 && <FingerprintTab profile={draft} setProfile={setDraft} />}
           {tab === 1 && <ProxyTab profile={draft} setProfile={setDraft} />}
           {tab === 2 && <AdvancedTab profile={draft} setProfile={setDraft} />}
@@ -256,10 +257,10 @@ export function ProfileEditor({ profile }: { profile: ProfileData }): React.JSX.
 
       {/* Import dialog */}
       <Dialog open={importOpen} onClose={() => setImportOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Import encrypted profile</DialogTitle>
+        <DialogTitle>Import encrypted profile — {draft.name}</DialogTitle>
         <DialogContent>
-          <Stackish>
-            <Button variant="outlined" onClick={() => void pickImportFile()} sx={{ mb: 2 }}>
+          <Stack spacing={1.5} sx={{ pt: 0.5 }}>
+            <Button variant="outlined" onClick={() => void pickImportFile()}>
               Choose .json file…
             </Button>
             <TextField
@@ -270,7 +271,6 @@ export function ProfileEditor({ profile }: { profile: ProfileData }): React.JSX.
               label="Or paste export JSON"
               value={importJson}
               onChange={(e) => setImportJson(e.target.value)}
-              sx={{ mb: 2 }}
             />
             <TextField
               fullWidth
@@ -280,7 +280,7 @@ export function ProfileEditor({ profile }: { profile: ProfileData }): React.JSX.
               value={importPw}
               onChange={(e) => setImportPw(e.target.value)}
             />
-          </Stackish>
+          </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setImportOpen(false)}>Cancel</Button>
@@ -295,9 +295,4 @@ export function ProfileEditor({ profile }: { profile: ProfileData }): React.JSX.
       </Dialog>
     </Box>
   )
-}
-
-/** Tiny local helper so we don't need another MUI Stack import if tree-shaken oddly. */
-function Stackish({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return <Box sx={{ pt: 1 }}>{children}</Box>
 }

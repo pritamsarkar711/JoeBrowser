@@ -111,7 +111,10 @@ export function changeMasterPassword(oldPassword: string, newPassword: string): 
   }
   const key = dbKey as Buffer
   const file = wrapDbKey(newPassword, key)
-  writeFileSync(keyFilePath(), JSON.stringify(file), 'utf-8')
+  // Atomic write: write temp then rename (same pattern as setMasterPassword).
+  const tmp = keyFilePath() + '.tmp'
+  writeFileSync(tmp, JSON.stringify(file), 'utf-8')
+  renameSync(tmp, keyFilePath())
   logger.info('Master password changed')
 }
 

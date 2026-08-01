@@ -69,10 +69,11 @@ export function AppProvider({ children }: { children: React.ReactNode }): React.
 
   const toast = useCallback((message: string, severity: Toast['severity'] = 'info') => {
     const id = ++toastId
+    const duration = severity === 'error' ? 6000 : 4200
     setToasts((prev) => [...prev, { id, severity, message }])
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id))
-    }, 4200)
+    }, duration)
   }, [])
 
   const dismissToast = useCallback((id: number) => {
@@ -200,8 +201,23 @@ export function AppProvider({ children }: { children: React.ReactNode }): React.
   }, [refreshProfiles])
 
   const launchProfile = useCallback(async (id: string, opts: LaunchOptions) => {
-    await window.stealth.launch(id, opts)
-    await loadRunning()
+    // Optimistic UI: show running immediately
+    setRunning((prev) => ({
+      ...prev,
+      [id]: { profileId: id, pid: 0, browserType: 'chrome', startedAt: Date.now(), userDataDir: '' } as RunningSession
+    }))
+    try {
+      await window.stealth.launch(id, opts)
+      await loadRunning()
+    } catch (e) {
+      // Revert optimistic state on failure
+      setRunning((prev) => {
+        const next = { ...prev }
+        delete next[id]
+        return next
+      })
+      throw e
+    }
   }, [loadRunning])
 
   const closeProfile = useCallback(async (id: string) => {

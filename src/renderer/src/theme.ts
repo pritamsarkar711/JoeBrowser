@@ -5,7 +5,7 @@
 import { createTheme, type Theme } from '@mui/material/styles'
 
 const base = {
-  shape: { borderRadius: 12 },
+  shape: { borderRadius: 10 },
   typography: {
     fontFamily: '"Roboto", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif',
     button: { textTransform: 'none' as const, fontWeight: 600 },
@@ -32,7 +32,7 @@ export const lightTheme: Theme = createTheme({
   components: {
     MuiButton: {
       styleOverrides: {
-        root: { borderRadius: 10, fontWeight: 600 },
+        root: { borderRadius: 8, fontWeight: 600 },
         contained: { boxShadow: '0 1px 3px rgba(91,95,199,0.3)', '&:hover': { boxShadow: '0 2px 6px rgba(91,95,199,0.4)' } }
       }
     },
@@ -40,10 +40,24 @@ export const lightTheme: Theme = createTheme({
       styleOverrides: { root: { backgroundImage: 'none' } }
     },
     MuiDialog: {
-      styleOverrides: { paper: { borderRadius: 16 } }
+      styleOverrides: { paper: { borderRadius: 14 } }
     },
     MuiChip: {
       styleOverrides: { root: { borderRadius: 8 } }
+    },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-notchedOutline': {
+            borderColor: 'rgba(0,0,0,0.15)'
+          }
+        }
+      }
+    },
+    MuiAlert: {
+      styleOverrides: {
+        root: { borderRadius: 8 }
+      }
     }
   }
 })
@@ -59,13 +73,13 @@ export const darkTheme: Theme = createTheme({
     success: { main: '#7EE2A0' },
     warning: { main: '#FFD28A' },
     info: { main: '#C4C0FF' },
-    divider: 'rgba(255,255,255,0.07)',
-    text: { primary: '#E6E1E5', secondary: '#938F99' }
+    divider: 'rgba(255,255,255,0.08)',
+    text: { primary: '#E6E1E5', secondary: '#B0ACB8' }
   },
   components: {
     MuiButton: {
       styleOverrides: {
-        root: { borderRadius: 10, fontWeight: 600 },
+        root: { borderRadius: 8, fontWeight: 600 },
         contained: { boxShadow: '0 1px 3px rgba(196,192,255,0.2)', '&:hover': { boxShadow: '0 2px 6px rgba(196,192,255,0.3)' } }
       }
     },
@@ -73,10 +87,64 @@ export const darkTheme: Theme = createTheme({
       styleOverrides: { root: { backgroundImage: 'none' } }
     },
     MuiDialog: {
-      styleOverrides: { paper: { borderRadius: 16 } }
+      styleOverrides: { paper: { borderRadius: 14 } }
     },
     MuiChip: {
       styleOverrides: { root: { borderRadius: 8 } }
+    },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-notchedOutline': {
+            borderColor: 'rgba(255,255,255,0.18)'
+          },
+          '&:hover .MuiOutlinedInput-notchedOutline': {
+            borderColor: 'rgba(255,255,255,0.3)'
+          },
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+            borderColor: '#C4C0FF'
+          }
+        }
+      }
+    },
+    MuiAlert: {
+      styleOverrides: {
+        root: { borderRadius: 8 }
+      },
+      variants: [
+        {
+          props: { variant: 'standard', severity: 'info' },
+          style: {
+            bgcolor: 'rgba(196,192,255,0.08)',
+            color: '#D9D6FF',
+            '& .MuiAlert-icon': { color: '#C4C0FF' }
+          }
+        },
+        {
+          props: { variant: 'standard', severity: 'success' },
+          style: {
+            bgcolor: 'rgba(126,226,160,0.08)',
+            color: '#A0E8B8',
+            '& .MuiAlert-icon': { color: '#7EE2A0' }
+          }
+        },
+        {
+          props: { variant: 'standard', severity: 'warning' },
+          style: {
+            bgcolor: 'rgba(255,210,138,0.08)',
+            color: '#FFD28A',
+            '& .MuiAlert-icon': { color: '#FFD28A' }
+          }
+        },
+        {
+          props: { variant: 'standard', severity: 'error' },
+          style: {
+            bgcolor: 'rgba(255,180,171,0.08)',
+            color: '#FFB4AB',
+            '& .MuiAlert-icon': { color: '#FFB4AB' }
+          }
+        }
+      ]
     }
   }
 })

@@ -100,36 +100,41 @@ function socks5Connect(
         }
       })
     } else {
-      // SOCKS4 (no auth; relay always converts to SOCKS5 upstream)
-      const hasAuth = !!(upstream.username || upstream.password)
-      const u = Buffer.from(upstream.username ?? '', 'utf-8')
-      const isV4a = !/^\d+\.\d+\.\d+\.\d+$/.test(targetHost)
-      const hostBuf = isV4a
-        ? Buffer.from([0, 0, 0, 1])
-        : Buffer.from(targetHost.split('.').map((n) => Number(n)))
-      const portBuf = Buffer.from([(targetPort >> 8) & 0xff, targetPort & 0xff])
-      const cmd = hasAuth ? 0x03 : 0x01
-      const request = Buffer.concat([
-        Buffer.from([0x04, cmd]),
-        portBuf,
-        hostBuf,
-        u,
-        Buffer.from([0]),
-        isV4a ? Buffer.from(targetHost, 'utf-8') : Buffer.alloc(0),
-        Buffer.from([0])
-      ])
+      // SOCKS4 browser request → always relay via SOCKS5 to the upstream
+      // (SOCKS4 has no auth; the upstream speaks SOCKS5).
+      let step: 'greet' | 'connect' = 'greet'
+
       socket.on('error', fail)
-      socket.on('connect', () => socket.write(request))
+      socket.on('connect', () => {
+        // SOCKS5 greeting: 1 method, no-auth (0x00)
+        socket.write(Buffer.from([0x05, 0x01, 0x00]))
+      })
+
       const buf: number[] = []
       socket.on('data', (chunk: Buffer) => {
         for (const byte of chunk) {
           buf.push(byte)
-          if (buf.length >= 8) {
-            if (buf[0] !== 0 || buf[1] !== 0x5a) {
-              return fail(new Error('Relay: SOCKS4 connect failed, code 0x' + buf[1].toString(16)))
+          try {
+            if (step === 'greet' && buf.length >= 2) {
+              const [ver, method] = [buf[0], buf[1]]
+              buf.length = 0
+              if (ver !== 5) return fail(new Error('Relay: upstream is not SOCKS5'))
+              if (method === 0xff) return fail(new Error('Relay: upstream refused no-auth'))
+              step = 'connect'
+              socket.write(socks5ConnectRequest(targetHost, targetPort))
+            } else if (step === 'connect' && buf.length >= 4) {
+              const rep = buf[1]
+              if (rep !== 0) return fail(new Error('Relay: SOCKS5 connect failed, code ' + rep))
+              const atyp = buf[3]
+              const need = atyp === 0x01 ? 10 : atyp === 0x04 ? 22 : atyp === 0x03 ? (7 + (buf[4] ?? 0)) : 10
+              if (buf.length >= need) {
+                clearTimeout(timeout)
+                buf.length = 0
+                resolve({ socket })
+              }
             }
-            clearTimeout(timeout)
-            resolve({ socket })
+          } catch (e) {
+            fail(e as Error)
           }
         }
       })
