@@ -1,0 +1,66 @@
+name: Build Windows EXE
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows installer
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Engine self-tests
+        run: npm run selftest
+
+      - name: Fingerprint generator tests
+        run: npm run test:generator
+
+      - name: Extension DOM tests
+        run: npm run test:extension-dom
+
+      # --publish never: release upload is done explicitly below with
+      # action-gh-release so manual runs never publish accidentally.
+      - name: Build & package (NSIS + portable)
+        run: npx electron-vite build && npx electron-builder --win --publish never
+
+      - name: Upload EXE artifacts to this workflow run
+        uses: actions/upload-artifact@v4
+        with:
+          name: JoeBrowser-Windows-x64
+          path: |
+            release/*.exe
+            release/*.exe.blockmap
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish GitHub Release (tag builds only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: JoeBrowser ${{ github.ref_name }}
+          files: |
+            release/*.exe
+            release/*.exe.blockmap
+            release/latest.yml
+          generate_release_notes: true
