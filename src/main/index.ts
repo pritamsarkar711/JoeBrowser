@@ -1,5 +1,5 @@
 /**
- * StealthBrowser — Electron main entry.
+ * JoeBrowser — Electron main entry.
  *
  * Responsibilities:
  *  - single instance lock
@@ -83,7 +83,7 @@ function createTray(): void {
     tray.setToolTip('JoeBrowser')
     tray.setContextMenu(
       Menu.buildFromTemplate([
-        { label: 'Show StealthBrowser', click: () => { mainWindow?.show(); mainWindow?.focus() } },
+        { label: 'Show JoeBrowser', click: () => { mainWindow?.show(); mainWindow?.focus() } },
         { type: 'separator' },
         { label: 'Quit', click: () => app.quit() }
       ])
@@ -116,7 +116,7 @@ if (!gotLock) {
     if (settings.dataDir) paths.setDataDir(settings.dataDir)
     paths.ensureDirs()
     initLogger(paths.logsDir())
-    logger.info('=== StealthBrowser starting (v' + app.getVersion() + ') ===')
+    logger.info('=== JoeBrowser starting (v' + app.getVersion() + ') ===')
     logger.info('Data dir:', paths.getDataDir())
 
     try {

@@ -41,7 +41,7 @@ function check(name: string, condition: boolean, detail = ''): void {
 }
 
 export async function runSelfTests(): Promise<number> {
-  console.log('StealthBrowser self-test starting...')
+  console.log('JoeBrowser self-test starting...')
 
   // --- isolated temp data dir --------------------------------------------
   const tmp = mkdtempSync(join(tmpdir(), 'stealthbrowser-selftest-'))

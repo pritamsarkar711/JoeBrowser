@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>StealthBrowser — Fingerprint Test</title>
+<title>JoeBrowser — Fingerprint Test</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -186,7 +186,7 @@
     ctx.fillStyle = '#f60';
     ctx.fillRect(125, 1, 62, 20);
     ctx.fillStyle = '#069';
-    ctx.fillText('StealthBrowser \u2318\u00b7\u2603', 2, 15);
+    ctx.fillText('JoeBrowser \u2318\u00b7\u2603', 2, 15);
     ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
     ctx.fillText('abcdefghijklmnopqrstuvwxyz', 4, 45);
     ctx.globalCompositeOperation = 'multiply';
@@ -321,7 +321,7 @@
   }).catch(function () { set('uaheader', '—'); });
 
   setTimeout(function () {
-    console.log('[StealthBrowser test page] total render time', Math.round(performance.now() - T0) + 'ms');
+    console.log('[JoeBrowser test page] total render time', Math.round(performance.now() - T0) + 'ms');
   }, 500);
 
   // Refresh / Copy Report
@@ -331,7 +331,7 @@
   if (copyBtn) {
     copyBtn.onclick = function () {
       var lines = [];
-      lines.push('StealthBrowser Fingerprint Report');
+      lines.push('JoeBrowser Fingerprint Report');
       lines.push('Generated: ' + new Date().toISOString());
       lines.push('');
       document.querySelectorAll('.card').forEach(function (card) {

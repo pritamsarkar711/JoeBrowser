@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "StealthBrowser Engine",
+  "name": "JoeBrowser Engine",
   "version": "1.0.0",
-  "description": "Local fingerprint masking engine for StealthBrowser. Runs entirely on-device.",
+  "description": "Local fingerprint masking engine for JoeBrowser. Runs entirely on-device.",
   "permissions": [],
   "host_permissions": ["<all_urls>"],
   "content_scripts": [

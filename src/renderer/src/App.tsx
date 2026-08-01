@@ -33,7 +33,7 @@ export default function App(): React.JSX.Element {
       <ThemeProvider theme={lightTheme}>
         <CssBaseline />
         <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography color="text.secondary">Starting StealthBrowser…</Typography>
+          <Typography color="text.secondary">Starting JoeBrowser…</Typography>
         </Box>
       </ThemeProvider>
     )
@@ -96,7 +96,7 @@ export default function App(): React.JSX.Element {
               }}
             >
               <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                {profiles.length === 0 ? 'Welcome to StealthBrowser' : 'Select a profile'}
+                {profiles.length === 0 ? 'Welcome to JoeBrowser' : 'Select a profile'}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 480 }}>
                 {profiles.length === 0

@@ -2,7 +2,7 @@ import type { StealthApi } from './index'
 
 declare global {
   interface Window {
-    /** StealthBrowser preload bridge (see src/preload/index.ts). */
+    /** JoeBrowser preload bridge (see src/preload/index.ts). */
     stealth: StealthApi
   }
 }
