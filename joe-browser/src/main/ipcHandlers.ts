@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { IPC_CHANNELS, NewProfileInput, ProfileData } from '../shared/types';
 import { DatabaseService } from './services/database';
-import { launchProfile, isProfileRunning, closeProfileBrowser, getRunningProfileIds } from './services/realBrowserLauncher';
+import { launchProfile, isProfileRunning, closeProfileBrowser, getRunningProfileIds } from './services/embeddedBrowserLauncher';
 import { generateFingerprint } from './services/fingerprintGenerator';
 
 let db: DatabaseService | null = null;

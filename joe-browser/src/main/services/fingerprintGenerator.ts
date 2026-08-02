@@ -1,18 +1,13 @@
 // ============================================================
 // Joe Browser - Fingerprint Generator
 // Generates consistent, realistic fingerprints for each browser type
-// Fixed: Brave/Firefox/Edge UA strings, consistent platform/vendor/WebGL
+// Updated: Chrome 131, Firefox 133, Edge 131, Brave 131
 // ============================================================
 
 import { BrowserType, DeviceType, OsType, FingerprintConfig } from '../../shared/types';
 
 // ===== REALISTIC USER AGENT TEMPLATES =====
-// Each browser type has its own UA format
-// Chrome:  Mozilla/5.0 ({os_info}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36
-// Brave:   Mozilla/5.0 ({os_info}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36
-// Edge:    Mozilla/5.0 ({os_info}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36 Edg/{version}
-// Firefox: Mozilla/5.0 ({os_info}) Gecko/20100101 Firefox/{version}
-// Chromium: Mozilla/5.0 ({os_info}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36
+// Updated to latest browser versions as of 2024
 
 interface UAInfo {
   platform: string;
@@ -24,10 +19,10 @@ interface UAInfo {
 }
 
 function getUAInfo(browserType: BrowserType, os: OsType, deviceType: DeviceType): UAInfo {
-  // Chrome versions (realistic recent versions)
-  const chromeVersion = '120.0.6099.130';
-  const firefoxVersion = '121.0';
-  const edgeVersion = '120.0.2210.91';
+  // Latest browser versions
+  const chromeVersion = '131.0.6778.139';
+  const firefoxVersion = '133.0';
+  const edgeVersion = '131.0.2903.86';
 
   // OS-specific platform string and UA OS info
   let platform: string;
@@ -37,15 +32,15 @@ function getUAInfo(browserType: BrowserType, os: OsType, deviceType: DeviceType)
     switch (os) {
       case 'android':
         platform = 'Linux armv81';
-        osInfo = 'Linux; Android 13; Pixel 7';
+        osInfo = 'Linux; Android 14; Pixel 8';
         break;
       case 'ios':
         platform = 'iPhone';
-        osInfo = 'iPhone; CPU iPhone OS 17_2 like Mac OS X';
+        osInfo = 'iPhone; CPU iPhone OS 18_1 like Mac OS X';
         break;
       default:
         platform = 'Linux armv81';
-        osInfo = 'Linux; Android 13; Pixel 7';
+        osInfo = 'Linux; Android 14; Pixel 8';
     }
   } else {
     switch (os) {
@@ -73,39 +68,54 @@ function getUAInfo(browserType: BrowserType, os: OsType, deviceType: DeviceType)
   let webglVendor: string;
   let webglRenderer: string;
 
+  // WebGL vendor/renderer options (realistic hardware)
+  const webglOptions = [
+    { vendor: 'Google Inc. (NVIDIA)', renderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)' },
+    { vendor: 'Google Inc. (NVIDIA)', renderer: 'ANGLE (NVIDIA, NVIDIA GeForce GTX 1660 SUPER Direct3D11 vs_5_0 ps_5_0, D3D11)' },
+    { vendor: 'Google Inc. (Intel)', renderer: 'ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0, D3D11)' },
+    { vendor: 'Google Inc. (AMD)', renderer: 'ANGLE (AMD, AMD Radeon RX 580 Series Direct3D11 vs_5_0 ps_5_0, D3D11)' },
+  ];
+  const webglIdx = Math.floor(Math.random() * webglOptions.length);
+  const firefoxWebglOptions = [
+    { vendor: 'NVIDIA Corporation', renderer: 'GeForce RTX 3060/PCIe/SSE2' },
+    { vendor: 'NVIDIA Corporation', renderer: 'GeForce GTX 1660 SUPER/PCIe/SSE2' },
+    { vendor: 'Intel', renderer: 'Mesa Intel(R) UHD Graphics 630 (CFL GT2)' },
+    { vendor: 'X.Org', renderer: 'AMD Radeon RX 580 Series (polaris10, LLVM 15.0.7, DRM 3.49, 6.1.0)' },
+  ];
+  const firefoxWebglIdx = Math.floor(Math.random() * firefoxWebglOptions.length);
+
   switch (browserType) {
     case 'chrome':
       if (deviceType === 'mobile' && os === 'android') {
-        ua = `Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Mobile Safari/537.36`;
+        ua = `Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Mobile Safari/537.36`;
       } else if (deviceType === 'mobile' && os === 'ios') {
-        ua = `Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/${chromeVersion} Mobile/15E148 Safari/604.1`;
+        ua = `Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/${chromeVersion} Mobile/15E148 Safari/604.1`;
       } else {
         ua = `Mozilla/5.0 (${osInfo}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Safari/537.36`;
       }
       vendor = 'Google Inc.';
-      webglVendor = 'Google Inc. (NVIDIA)';
-      webglRenderer = 'ANGLE (NVIDIA, NVIDIA GeForce GTX 1060 6GB Direct3D11 vs_5_0 ps_5_0, D3D11)';
+      webglVendor = webglOptions[webglIdx].vendor;
+      webglRenderer = webglOptions[webglIdx].renderer;
       break;
 
     case 'brave':
-      // Brave uses the same UA as Chrome but Brave is detectable via chrome.brave
+      // Brave uses the same UA as Chrome but with chrome.brave object
       if (deviceType === 'mobile' && os === 'android') {
-        ua = `Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Mobile Safari/537.36`;
+        ua = `Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Mobile Safari/537.36`;
       } else {
         ua = `Mozilla/5.0 (${osInfo}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Safari/537.36`;
       }
       vendor = 'Google Inc.';
-      webglVendor = 'Google Inc. (NVIDIA)';
-      webglRenderer = 'ANGLE (NVIDIA, NVIDIA GeForce GTX 1060 6GB Direct3D11 vs_5_0 ps_5_0, D3D11)';
+      webglVendor = webglOptions[webglIdx].vendor;
+      webglRenderer = webglOptions[webglIdx].renderer;
       break;
 
     case 'firefox':
       // Firefox has a completely different UA format
       if (deviceType === 'mobile' && os === 'android') {
-        ua = `Mozilla/5.0 (Android 13; Mobile; rv:${firefoxVersion}) Gecko/${firefoxVersion} Firefox/${firefoxVersion}`;
+        ua = `Mozilla/5.0 (Android 14; Mobile; rv:${firefoxVersion}) Gecko/${firefoxVersion} Firefox/${firefoxVersion}`;
       } else if (deviceType === 'mobile' && os === 'ios') {
-        // Firefox on iOS uses WebKit, not Gecko
-        ua = `Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/${firefoxVersion} Mobile/15E148 Safari/605.1.15`;
+        ua = `Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/${firefoxVersion} Mobile/15E148 Safari/605.1.15`;
       } else {
         switch (os) {
           case 'windows':
@@ -123,42 +133,42 @@ function getUAInfo(browserType: BrowserType, os: OsType, deviceType: DeviceType)
       }
       // CRITICAL: Firefox has empty vendor string
       vendor = '';
-      // Firefox uses different WebGL vendor/renderer
-      webglVendor = 'NVIDIA Corporation';
-      webglRenderer = 'GeForce GTX 1060 6GB/PCIe/SSE2';
+      // Firefox uses different WebGL vendor/renderer (no ANGLE prefix)
+      webglVendor = firefoxWebglOptions[firefoxWebglIdx].vendor;
+      webglRenderer = firefoxWebglOptions[firefoxWebglIdx].renderer;
       break;
 
     case 'edge':
       // Edge UA is same as Chrome but with "Edg/" suffix
       if (deviceType === 'mobile' && os === 'android') {
-        ua = `Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Mobile Safari/537.36 EdgA/${edgeVersion}`;
+        ua = `Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Mobile Safari/537.36 EdgA/${edgeVersion}`;
       } else if (deviceType === 'mobile' && os === 'ios') {
-        ua = `Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) EdgiOS/${edgeVersion} Mobile/15E148 Safari/605.1.15`;
+        ua = `Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) EdgiOS/${edgeVersion} Mobile/15E148 Safari/605.1.15`;
       } else {
         ua = `Mozilla/5.0 (${osInfo}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Safari/537.36 Edg/${edgeVersion}`;
       }
       vendor = 'Google Inc.';
-      webglVendor = 'Google Inc. (NVIDIA)';
-      webglRenderer = 'ANGLE (NVIDIA, NVIDIA GeForce GTX 1060 6GB Direct3D11 vs_5_0 ps_5_0, D3D11)';
+      webglVendor = webglOptions[webglIdx].vendor;
+      webglRenderer = webglOptions[webglIdx].renderer;
       break;
 
     case 'chromium':
       // Chromium uses the same UA as Chrome
       if (deviceType === 'mobile' && os === 'android') {
-        ua = `Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Mobile Safari/537.36`;
+        ua = `Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Mobile Safari/537.36`;
       } else {
         ua = `Mozilla/5.0 (${osInfo}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Safari/537.36`;
       }
       vendor = 'Google Inc.';
-      webglVendor = 'Google Inc. (NVIDIA)';
-      webglRenderer = 'ANGLE (NVIDIA, NVIDIA GeForce GTX 1060 6GB Direct3D11 vs_5_0 ps_5_0, D3D11)';
+      webglVendor = webglOptions[webglIdx].vendor;
+      webglRenderer = webglOptions[webglIdx].renderer;
       break;
 
     default:
       ua = `Mozilla/5.0 (${osInfo}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Safari/537.36`;
       vendor = 'Google Inc.';
-      webglVendor = 'Google Inc. (NVIDIA)';
-      webglRenderer = 'ANGLE (NVIDIA, NVIDIA GeForce GTX 1060 6GB Direct3D11 vs_5_0 ps_5_0, D3D11)';
+      webglVendor = webglOptions[webglIdx].vendor;
+      webglRenderer = webglOptions[webglIdx].renderer;
   }
 
   return { platform, osInfo, ua, vendor, webglVendor, webglRenderer };
@@ -207,10 +217,10 @@ export function generateFingerprint(
   }
 
   // Hardware concurrency based on device type
-  const hardwareConcurrency = deviceType === 'mobile' ? 8 : 12;
+  const hardwareConcurrency = deviceType === 'mobile' ? 8 : [4, 8, 12, 16][Math.floor(Math.random() * 4)];
 
   // Device memory based on device type
-  const deviceMemory = deviceType === 'mobile' ? 8 : 16;
+  const deviceMemory = deviceType === 'mobile' ? 8 : [4, 8, 16][Math.floor(Math.random() * 3)];
 
   // Language and timezone
   const language = 'en-US';

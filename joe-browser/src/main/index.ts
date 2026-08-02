@@ -2,7 +2,7 @@
 // Joe Browser - Main Process Entry
 // ============================================================
 
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import * as path from 'path';
 import { registerIpcHandlers } from './ipcHandlers';
 
@@ -69,7 +69,9 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  // Only quit when the main window is also closed
+  // Browser profile windows closing should not quit the app
+  if (process.platform !== 'darwin' && !mainWindow) {
     app.quit();
   }
 });

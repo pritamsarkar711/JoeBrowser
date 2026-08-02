@@ -1,13 +1,13 @@
 // ============================================================
 // Joe Browser - Embedded Browser Launcher
 // Launches profiles in a BrowserWindow with webview tag
-// All critical bugs fixed: timing, contextIsolation, preload, cleanup
+// Features: stealth preload, proxy auto-detect, timezone override
 // ============================================================
 
 import { BrowserWindow, app, session } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
-import { ProfileData, BROWSER_THEMES } from '../../shared/types';
+import { ProfileData, BROWSER_THEMES, ProxyConfig } from '../../shared/types';
 
 // Track running windows by profileId
 const runningWindows = new Map<string, BrowserWindow>();
@@ -65,6 +65,19 @@ export async function launchProfile(profile: ProfileData): Promise<{ success: bo
       return { success: false, error: 'Browser chrome HTML not found' };
     }
 
+    // Auto-detect proxy location and update fingerprint timezone
+    if (profile.proxy) {
+      await configureProxy(profile.id, profile.proxy);
+      const geoInfo = await detectProxyGeo(profile.proxy);
+      if (geoInfo) {
+        // Update fingerprint timezone based on proxy location
+        profile.fingerprint.timezone = geoInfo.timezone;
+        profile.fingerprint.language = geoInfo.language;
+        profile.fingerprint.languages = [geoInfo.language, geoInfo.language.split('-')[0]];
+        console.log(`[BrowserLauncher] Proxy auto-detect: ${geoInfo.timezone}, ${geoInfo.language} (${geoInfo.country})`);
+      }
+    }
+
     // Build and write stealth preload script
     const preloadPath = buildAndWriteStealthPreload(profile);
     if (!preloadPath) {
@@ -86,12 +99,8 @@ export async function launchProfile(profile: ProfileData): Promise<{ success: bo
       browserType: profile.browserType,
       preloadPath,
       themeColor,
+      homeUrl: 'https://www.google.com',
     });
-
-    // Configure proxy if set
-    if (profile.proxy) {
-      await configureProxy(profile.id, profile.proxy);
-    }
 
     // Create the BrowserWindow
     const browserWindow = new BrowserWindow({
@@ -100,15 +109,14 @@ export async function launchProfile(profile: ProfileData): Promise<{ success: bo
       minWidth: 800,
       minHeight: 600,
       title: `${themeInfo.name} - ${profile.name}`,
-      backgroundColor: '#202124',
+      backgroundColor: '#1f1f1f',
       autoHideMenuBar: true,
+      titleBarStyle: 'hidden',
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
         webviewTag: true,
         sandbox: false,
-        // Do NOT set partition here — the BrowserWindow uses default session
-        // The webview inside uses its own partition for profile isolation
       },
     });
 
@@ -134,7 +142,7 @@ export async function launchProfile(profile: ProfileData): Promise<{ success: bo
     return { success: true, windowId: browserWindow.id };
 
   } catch (err: any) {
-    console.error('[EmbeddedBrowserLauncher] Failed to launch profile:', err);
+    console.error('[BrowserLauncher] Failed to launch profile:', err);
     return { success: false, error: err.message || 'Unknown error launching profile' };
   }
 }
@@ -145,13 +153,9 @@ export async function launchProfile(profile: ProfileData): Promise<{ success: bo
 
 /**
  * Get the path to browser-chrome.html
- * In dev: from source directory
- * In production: from extraResources
  */
 function getBrowserChromePath(): string | null {
-  // Try multiple paths in order of likelihood
-
-  // 1. In development with electron-vite: __dirname is out/main/, so go up to project root
+  // 1. In development with electron-vite: __dirname is out/main/
   const devPath1 = path.join(__dirname, '..', '..', 'src', 'main', 'assets', 'browser-chrome.html');
   if (fs.existsSync(devPath1)) {
     return devPath1;
@@ -163,28 +167,22 @@ function getBrowserChromePath(): string | null {
     return prodPath;
   }
 
-  // 3. Using app.getAppPath() (works in dev mode)
+  // 3. Using app.getAppPath()
   try {
     const appPath = app.getAppPath();
     const appPathResolve = path.join(appPath, 'src', 'main', 'assets', 'browser-chrome.html');
     if (fs.existsSync(appPathResolve)) {
       return appPathResolve;
     }
-  } catch (e) {
-    // Ignore
-  }
+  } catch (e) {}
 
-  // 4. Try relative to __dirname (old style)
+  // 4. Try relative to __dirname
   const devPath2 = path.join(__dirname, '..', 'assets', 'browser-chrome.html');
   if (fs.existsSync(devPath2)) {
     return devPath2;
   }
 
-  console.error('[EmbeddedBrowserLauncher] Could not find browser-chrome.html');
-  console.error('[EmbeddedBrowserLauncher] Tried paths:');
-  console.error('  -', devPath1);
-  console.error('  -', prodPath);
-  console.error('  -', devPath2);
+  console.error('[BrowserLauncher] Could not find browser-chrome.html');
   return null;
 }
 
@@ -199,6 +197,7 @@ function buildChromeUrl(
     browserType: string;
     preloadPath: string;
     themeColor: string;
+    homeUrl: string;
   }
 ): string {
   const query = new URLSearchParams({
@@ -207,6 +206,7 @@ function buildChromeUrl(
     browserType: params.browserType,
     preloadPath: params.preloadPath,
     theme: params.themeColor,
+    homeUrl: params.homeUrl,
   }).toString();
 
   return `file://${htmlPath}?${query}`;
@@ -234,30 +234,282 @@ async function configureProxy(
   const partitionName = `persist:joe-${profileId}`;
   const ses = session.fromPartition(partitionName);
 
-  const proxyConfig: any = {
-    mode: 'fixed_servers',
-    proxyRules: `${proxy.type}://${proxy.host}:${proxy.port}`,
-  };
+  const proxyRules = `${proxy.type}://${proxy.host}:${proxy.port}`;
 
-  // For SOCKS proxies, use the correct scheme
-  if (proxy.type === 'socks5') {
-    proxyConfig.proxyRules = `socks5://${proxy.host}:${proxy.port}`;
-  } else if (proxy.type === 'socks4') {
-    proxyConfig.proxyRules = `socks4://${proxy.host}:${proxy.port}`;
+  await ses.setProxy({ proxyRules });
+
+  // Set proxy auth if credentials provided
+  if (proxy.username || proxy.password) {
+    ses.webRequest.onBeforeSendHeaders((details: any, callback: any) => {
+      callback({ requestHeaders: details.requestHeaders });
+    });
   }
+}
 
-  await ses.setProxy(proxyConfig);
+/**
+ * Detect proxy location and return timezone/language info
+ * Uses ip-api.com (free, no API key needed) to detect proxy location
+ */
+async function detectProxyGeo(
+  proxy: ProxyConfig
+): Promise<{ timezone: string; language: string; country: string } | null> {
+  try {
+    console.log(`[BrowserLauncher] Auto-detecting proxy location for ${proxy.host}:${proxy.port}...`);
+
+    // Use Electron's net module to make a request through the proxy
+    const proxyUrl = `${proxy.type}://${proxy.username ? proxy.username + ':' + proxy.password + '@' : ''}${proxy.host}:${proxy.port}`;
+
+    // Try to detect external IP via ip-api.com
+    const geoData = await fetchGeoThroughProxy(proxyUrl);
+    if (geoData) {
+      return {
+        timezone: geoData.timezone || 'America/New_York',
+        language: countryCodeToLanguage(geoData.countryCode),
+        country: geoData.country || 'Unknown',
+      };
+    }
+
+    // Fallback: try ipinfo.io
+    const fallbackData = await fetchGeoFallback(proxyUrl);
+    if (fallbackData) {
+      return {
+        timezone: fallbackData.timezone || 'America/New_York',
+        language: countryCodeToLanguage(fallbackData.country),
+        country: fallbackData.country || 'Unknown',
+      };
+    }
+
+    return null;
+  } catch (err) {
+    console.error('[BrowserLauncher] Proxy geo detection failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Fetch geo data from ip-api.com through the proxy
+ */
+function fetchGeoThroughProxy(proxyUrl: string): Promise<any> {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      resolve(null);
+    }, 5000);
+
+    try {
+      const url = new URL('http://ip-api.com/json/?fields=status,country,countryCode,timezone');
+
+      const proxyOptions: any = {
+        method: 'GET',
+        hostname: url.hostname,
+        port: url.port || 80,
+        path: url.pathname + url.search,
+      };
+
+      // Parse proxy URL
+      const parsedProxy = new URL(proxyUrl);
+      const proxyHost = parsedProxy.hostname;
+      const proxyPort = parseInt(parsedProxy.port) || 8080;
+
+      // Use HTTP CONNECT for HTTP/HTTPS proxies
+      const http = require('http');
+
+      const req = http.request({
+        host: proxyHost,
+        port: proxyPort,
+        method: 'CONNECT',
+        path: `${url.hostname}:80`,
+        headers: proxyOptions,
+      });
+
+      req.on('connect', (res: any, socket: any) => {
+        if (res.statusCode !== 200) {
+          clearTimeout(timeout);
+          resolve(null);
+          return;
+        }
+
+        const getRequest = http.request({
+          createConnection: () => socket,
+          hostname: url.hostname,
+          port: 80,
+          path: url.pathname + url.search,
+          method: 'GET',
+          headers: { 'Host': url.hostname },
+        }, (getResponse: any) => {
+          let data = '';
+          getResponse.on('data', (chunk: any) => { data += chunk; });
+          getResponse.on('end', () => {
+            clearTimeout(timeout);
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.status === 'success') {
+                resolve(parsed);
+              } else {
+                resolve(null);
+              }
+            } catch (e) {
+              resolve(null);
+            }
+          });
+        });
+
+        getRequest.on('error', () => {
+          clearTimeout(timeout);
+          resolve(null);
+        });
+
+        getRequest.end();
+      });
+
+      req.on('error', () => {
+        clearTimeout(timeout);
+        resolve(null);
+      });
+
+      req.setTimeout(5000, () => {
+        req.destroy();
+        clearTimeout(timeout);
+        resolve(null);
+      });
+
+      req.end();
+    } catch (e) {
+      clearTimeout(timeout);
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * Fallback: try to detect geo using a simpler approach
+ */
+function fetchGeoFallback(proxyUrl: string): Promise<any> {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      resolve(null);
+    }, 5000);
+
+    try {
+      const http = require('http');
+      const parsedProxy = new URL(proxyUrl);
+      const proxyHost = parsedProxy.hostname;
+      const proxyPort = parseInt(parsedProxy.port) || 8080;
+
+      // Use ipinfo.io as fallback
+      const req = http.request({
+        host: proxyHost,
+        port: proxyPort,
+        method: 'CONNECT',
+        path: 'ipinfo.io:443',
+      });
+
+      req.on('connect', (res: any, socket: any) => {
+        if (res.statusCode !== 200) {
+          clearTimeout(timeout);
+          resolve(null);
+          return;
+        }
+
+        const https = require('https');
+        const getRequest = https.request({
+          socket: socket,
+          hostname: 'ipinfo.io',
+          path: '/json',
+          method: 'GET',
+          headers: { 'Host': 'ipinfo.io' },
+        }, (getResponse: any) => {
+          let data = '';
+          getResponse.on('data', (chunk: any) => { data += chunk; });
+          getResponse.on('end', () => {
+            clearTimeout(timeout);
+            try {
+              const parsed = JSON.parse(data);
+              resolve({
+                country: parsed.country,
+                timezone: parsed.timezone,
+                countryCode: parsed.country,
+              });
+            } catch (e) {
+              resolve(null);
+            }
+          });
+        });
+
+        getRequest.on('error', () => {
+          clearTimeout(timeout);
+          resolve(null);
+        });
+
+        getRequest.end();
+      });
+
+      req.on('error', () => {
+        clearTimeout(timeout);
+        resolve(null);
+      });
+
+      req.setTimeout(5000, () => {
+        req.destroy();
+        clearTimeout(timeout);
+        resolve(null);
+      });
+
+      req.end();
+    } catch (e) {
+      clearTimeout(timeout);
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * Convert country code to browser language
+ */
+function countryCodeToLanguage(countryCode: string): string {
+  const map: Record<string, string> = {
+    'US': 'en-US', 'GB': 'en-GB', 'AU': 'en-AU', 'CA': 'en-CA',
+    'DE': 'de-DE', 'AT': 'de-AT', 'CH': 'de-CH',
+    'FR': 'fr-FR', 'BE': 'fr-BE',
+    'ES': 'es-ES', 'MX': 'es-MX', 'AR': 'es-AR',
+    'IT': 'it-IT',
+    'PT': 'pt-PT', 'BR': 'pt-BR',
+    'NL': 'nl-NL',
+    'RU': 'ru-RU',
+    'JP': 'ja-JP',
+    'KR': 'ko-KR',
+    'CN': 'zh-CN', 'TW': 'zh-TW', 'HK': 'zh-HK',
+    'IN': 'en-IN',
+    'PL': 'pl-PL',
+    'TR': 'tr-TR',
+    'SE': 'sv-SE',
+    'NO': 'nb-NO',
+    'DK': 'da-DK',
+    'FI': 'fi-FI',
+    'UA': 'uk-UA',
+    'CZ': 'cs-CZ',
+    'RO': 'ro-RO',
+    'HU': 'hu-HU',
+    'TH': 'th-TH',
+    'VN': 'vi-VN',
+    'ID': 'id-ID',
+    'MY': 'ms-MY',
+    'PH': 'fil-PH',
+    'SA': 'ar-SA',
+    'AE': 'ar-AE',
+    'IL': 'he-IL',
+    'GR': 'el-GR',
+  };
+  return map[countryCode] || 'en-US';
 }
 
 /**
  * Build the stealth preload script and write it to a temp file
- * Returns the absolute path to the file
  */
 function buildAndWriteStealthPreload(profile: ProfileData): string | null {
   try {
     const script = buildStealthPreloadScript(profile);
     if (!script) {
-      console.error('[EmbeddedBrowserLauncher] Failed to build stealth preload script');
+      console.error('[BrowserLauncher] Failed to build stealth preload script');
       return null;
     }
 
@@ -270,7 +522,7 @@ function buildAndWriteStealthPreload(profile: ProfileData): string | null {
 
     return preloadPath;
   } catch (err) {
-    console.error('[EmbeddedBrowserLauncher] Failed to write stealth preload:', err);
+    console.error('[BrowserLauncher] Failed to write stealth preload:', err);
     return null;
   }
 }
@@ -279,7 +531,6 @@ function buildAndWriteStealthPreload(profile: ProfileData): string | null {
  * Build the stealth preload script content
  * This runs in the webview BEFORE the page loads
  * CRITICAL: contextIsolation must be false for this to work
- * because we need to directly override page JavaScript objects
  */
 function buildStealthPreloadScript(profile: ProfileData): string | null {
   const fp = profile.fingerprint;
@@ -309,6 +560,19 @@ function buildStealthPreloadScript(profile: ProfileData): string | null {
     if (navigator.getBattery) {
       try { delete navigator.getBattery; } catch(e) {}
     }
+
+    // Firefox has InstallTrigger
+    Object.defineProperty(navigator, 'InstallTrigger', {
+      get: () => ({ getType: () => 'extension', supported: true })
+    });
+
+    // Firefox MozAppearance
+    try {
+      Object.defineProperty(document.documentElement.style, 'MozAppearance', {
+        get: () => '',
+        set: () => {}
+      });
+    } catch(e) {}
   ` : '';
 
   // Brave-specific overrides
@@ -321,7 +585,8 @@ function buildStealthPreloadScript(profile: ProfileData): string | null {
             isBrave: () => Promise.resolve(true),
             getBraveCoreVersion: () => Promise.resolve('1.60.114'),
             getPDFViewerDetails: () => Promise.resolve({ viewer: 'brave' }),
-          })
+          }),
+          configurable: true,
         });
       } catch(e) {}
     }
@@ -329,8 +594,17 @@ function buildStealthPreloadScript(profile: ProfileData): string | null {
 
   // Edge-specific overrides
   const edgeOverrides = isEdge ? `
-    // Edge has its own chrome.edge object (in some versions)
-    // Edge UA has "Edg/" suffix
+    // Edge has specific objects
+    if (window.chrome) {
+      try {
+        Object.defineProperty(window.chrome, 'edge', {
+          get: () => ({
+            searchBox: {},
+          }),
+          configurable: true,
+        });
+      } catch(e) {}
+    }
   ` : '';
 
   // WebRTC policy
@@ -427,15 +701,36 @@ function buildStealthPreloadScript(profile: ProfileData): string | null {
     };
     Intl.DateTimeFormat.prototype = origDateTimeFormat.prototype;
     Intl.DateTimeFormat.supportedLocalesOf = origDateTimeFormat.supportedLocalesOf;
+
+    // Override Date.prototype.getTimezoneOffset
+    const origGetTimezoneOffset = Date.prototype.getTimezoneOffset;
+    const targetTZ = targetTimezone;
+    try {
+      const targetDate = new Date(Date.UTC(2024, 0, 1));
+      const utcDate = new Date(targetDate.toLocaleString('en-US', { timeZone: 'UTC' }));
+      const tzDate = new Date(targetDate.toLocaleString('en-US', { timeZone: targetTZ }));
+      const offset = (utcDate.getTime() - tzDate.getTime()) / (1000 * 60);
+      Date.prototype.getTimezoneOffset = function() {
+        return offset;
+      };
+    } catch(e) {}
+
+    // Override Date.prototype.toString to show target timezone
+    const origToString = Date.prototype.toString;
+    Date.prototype.toString = function() {
+      try {
+        return this.toLocaleString('en-US', { timeZone: targetTZ });
+      } catch(e) {
+        return origToString.call(this);
+      }
+    };
   } catch(e) { console.warn('Timezone override failed:', e); }
 
   // ===== WEBGL OVERRIDES =====
   try {
     const origGetParam = WebGLRenderingContext.prototype.getParameter;
     WebGLRenderingContext.prototype.getParameter = function(param) {
-      // UNMASKED_VENDOR_WEBGL = 0x9245
       if (param === 0x9245) return ${JSON.stringify(fp.webglVendor)};
-      // UNMASKED_RENDERER_WEBGL = 0x9246
       if (param === 0x9246) return ${JSON.stringify(fp.webglRenderer)};
       return origGetParam.call(this, param);
     };
@@ -456,7 +751,6 @@ function buildStealthPreloadScript(profile: ProfileData): string | null {
     const canvasNoise = ${fp.canvasNoise};
 
     const addNoise = (data) => {
-      // Apply subtle noise to canvas data
       const noisy = new Uint8ClampedArray(data);
       for (let i = 0; i < noisy.length; i += 4) {
         noisy[i] = Math.max(0, Math.min(255, noisy[i] + (Math.random() - 0.5) * canvasNoise));
@@ -530,6 +824,31 @@ function buildStealthPreloadScript(profile: ProfileData): string | null {
       }
       return origQuery.call(this, parameters);
     };
+
+    // Override navigator.getBattery (Chrome-specific)
+    if (navigator.getBattery) {
+      const origGetBattery = navigator.getBattery;
+      Object.defineProperty(navigator, 'getBattery', {
+        get: () => function() {
+          return Promise.resolve({
+            charging: true,
+            chargingTime: 0,
+            dischargingTime: Infinity,
+            level: 1.0,
+            addEventListener: function() {},
+            removeEventListener: function() {},
+          });
+        }
+      });
+    }
+
+    // Override navigator.connection
+    if (navigator.connection) {
+      Object.defineProperty(navigator.connection, 'rtt', { get: () => 50 });
+      Object.defineProperty(navigator.connection, 'downlink', { get: () => 10 });
+      Object.defineProperty(navigator.connection, 'effectiveType', { get: () => '4g' });
+      Object.defineProperty(navigator.connection, 'saveData', { get: () => false });
+    }
   } catch(e) {}
 
   // ===== BROWSER-SPECIFIC OVERRIDES =====
@@ -553,6 +872,32 @@ function buildStealthPreloadScript(profile: ProfileData): string | null {
             } catch(e) {}
           }
           return win;
+        }
+      });
+    }
+  } catch(e) {}
+
+  // ===== SCREEN ORIENTATION =====
+  try {
+    if (screen.orientation) {
+      Object.defineProperty(screen.orientation, 'type', { get: () => 'landscape-primary' });
+      Object.defineProperty(screen.orientation, 'angle', { get: () => 0 });
+    }
+  } catch(e) {}
+
+  // ===== BATTERY API FAKE =====
+  try {
+    if (!navigator.getBattery) {
+      Object.defineProperty(navigator, 'getBattery', {
+        get: () => function() {
+          return Promise.resolve({
+            charging: true,
+            chargingTime: 0,
+            dischargingTime: Infinity,
+            level: 1.0,
+            addEventListener: function() {},
+            removeEventListener: function() {},
+          });
         }
       });
     }

@@ -145,10 +145,7 @@ const Sidebar: React.FC = () => {
       {/* Footer */}
       <Box sx={{ p: 2, borderTop: '1px solid #1a1a2e' }}>
         <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', display: 'block' }}>
-          Built with ❤️ by Joe Goldberg
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', display: 'block', mt: 0.5 }}>
-          v9.0.0
+          Joe Browser v10.0.0
         </Typography>
       </Box>
     </Box>

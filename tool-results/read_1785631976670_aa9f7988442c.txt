@@ -1,0 +1,700 @@
+     1→     1→// ============================================================
+     2→     2→// Joe Browser - Real Browser Launcher
+     3→     3→// Launches ACTUAL Chrome/Brave/Edge/Firefox/Chromium processes
+     4→     4→// with custom profiles, stealth extensions, and proxy support
+     5→     5→// ============================================================
+     6→     6→
+     7→     7→import { app } from 'electron';
+     8→     8→import { spawn, ChildProcess } from 'child_process';
+     9→     9→import * as path from 'path';
+    10→    10→import * as fs from 'fs';
+    11→    11→import * as https from 'https';
+    12→    12→import * as http from 'http';
+    13→    13→import { ProfileData, BrowserType } from '../../shared/types';
+    14→    14→
+    15→    15→// Track running browser processes by profileId
+    16→    16→const runningProcesses = new Map<string, ChildProcess>();
+    17→    17→
+    18→    18→/**
+    19→    19→ * Check if a profile is currently running
+    20→    20→ */
+    21→    21→export function isProfileRunning(profileId: string): boolean {
+    22→    22→  return runningProcesses.has(profileId);
+    23→    23→}
+    24→    24→
+    25→    25→/**
+    26→    26→ * Get all running profile IDs
+    27→    27→ */
+    28→    28→export function getRunningProfileIds(): string[] {
+    29→    29→  return Array.from(runningProcesses.keys());
+    30→    30→}
+    31→    31→
+    32→    32→/**
+    33→    33→ * Close a running profile's browser
+    34→    34→ */
+    35→    35→export function closeProfileBrowser(profileId: string): boolean {
+    36→    36→  const proc = runningProcesses.get(profileId);
+    37→    37→  if (proc && !proc.killed) {
+    38→    38→    proc.kill();
+    39→    39→    runningProcesses.delete(profileId);
+    40→    40→    return true;
+    41→    41→  }
+    42→    42→  runningProcesses.delete(profileId);
+    43→    43→  return false;
+    44→    44→}
+    45→    45→
+    46→    46→/**
+    47→    47→ * Launch a profile in a REAL browser
+    48→    48→ */
+    49→    49→export async function launchProfile(profile: ProfileData): Promise<{ success: boolean; error?: string }> {
+    50→    50→  try {
+    51→    51→    // Check if already running
+    52→    52→    if (runningProcesses.has(profile.id)) {
+    53→    53→      return { success: true };
+    54→    54→    }
+    55→    55→
+    56→    56→    if (!profile.id || !profile.fingerprint) {
+    57→    57→      return { success: false, error: 'Invalid profile data' };
+    58→    58→    }
+    59→    59→
+    60→    60→    // Auto-detect timezone from proxy if proxy is set
+    61→    61→    if (profile.proxy) {
+    62→    62→      await autoDetectTimezoneFromProxy(profile);
+    63→    63→    }
+    64→    64→
+    65→    65→    // Create profile directory
+    66→    66→    const profileDir = createProfileDirectory(profile);
+    67→    67→    if (!profileDir) {
+    68→    68→      return { success: false, error: 'Failed to create profile directory' };
+    69→    69→    }
+    70→    70→
+    71→    71→    // Create stealth extension for this profile
+    72→    72→    const extensionDir = createStealthExtension(profile);
+    73→    73→    if (!extensionDir) {
+    74→    74→      return { success: false, error: 'Failed to create stealth extension' };
+    75→    75→    }
+    76→    76→
+    77→    77→    // Find the browser executable
+    78→    78→    const browserPath = findBrowserExecutable(profile.browserType);
+    79→    79→    if (!browserPath) {
+    80→    80→      return { success: false, error: `${getBrowserName(profile.browserType)} not found. Please install it first.` };
+    81→    81→    }
+    82→    82→
+    83→    83→    // Build launch arguments
+    84→    84→    const args = buildLaunchArguments(profile, profileDir, extensionDir);
+    85→    85→
+    86→    86→    // Launch the browser
+    87→    87→    const proc = spawn(browserPath, args, {
+    88→    88→      detached: false,
+    89→    89→      stdio: 'ignore',
+    90→    90→    });
+    91→    91→
+    92→    92→    if (!proc.pid) {
+    93→    93→      return { success: false, error: 'Failed to start browser process' };
+    94→    94→    }
+    95→    95→
+    96→    96→    // Track the process
+    97→    97→    runningProcesses.set(profile.id, proc);
+    98→    98→
+    99→    99→    // Handle process exit
+   100→   100→    proc.on('exit', () => {
+   101→   101→      runningProcesses.delete(profile.id);
+   102→   102→    });
+   103→   103→
+   104→   104→    proc.on('error', (err) => {
+   105→   105→      console.error(`[RealBrowserLauncher] Process error for ${profile.id}:`, err);
+   106→   106→      runningProcesses.delete(profile.id);
+   107→   107→    });
+   108→   108→
+   109→   109→    return { success: true };
+   110→   110→
+   111→   111→  } catch (err: any) {
+   112→   112→    console.error('[RealBrowserLauncher] Failed to launch profile:', err);
+   113→   113→    return { success: false, error: err.message || 'Unknown error launching profile' };
+   114→   114→  }
+   115→   115→}
+   116→   116→
+   117→   117→// ============================================================
+   118→   118→// BROWSER EXECUTABLE FINDER
+   119→   119→// ============================================================
+   120→   120→
+   121→   121→function findBrowserExecutable(browserType: BrowserType): string | null {
+   122→   122→  const platform = process.platform;
+   123→   123→
+   124→   124→  const paths: Record<string, Record<string, string[]>> = {
+   125→   125→    win32: {
+   126→   126→      chrome: [
+   127→   127→        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+   128→   128→        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+   129→   129→        path.join(process.env.LOCALAPPDATA || '', 'Google\\Chrome\\Application\\chrome.exe'),
+   130→   130→      ],
+   131→   131→      brave: [
+   132→   132→        'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+   133→   133→        'C:\\Program Files (x86)\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+   134→   134→        path.join(process.env.LOCALAPPDATA || '', 'BraveSoftware\\Brave-Browser\\Application\\brave.exe'),
+   135→   135→      ],
+   136→   136→      edge: [
+   137→   137→        'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+   138→   138→        'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+   139→   139→      ],
+   140→   140→      firefox: [
+   141→   141→        'C:\\Program Files\\Mozilla Firefox\\firefox.exe',
+   142→   142→        'C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe',
+   143→   143→      ],
+   144→   144→      chromium: [
+   145→   145→        'C:\\Program Files\\Chromium\\Application\\chrome.exe',
+   146→   146→        'C:\\Program Files (x86)\\Chromium\\Application\\chrome.exe',
+   147→   147→        path.join(process.env.LOCALAPPDATA || '', 'Chromium\\Application\\chrome.exe'),
+   148→   148→      ],
+   149→   149→    },
+   150→   150→    darwin: {
+   151→   151→      chrome: ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'],
+   152→   152→      brave: ['/Applications/Brave Browser.app/Contents/MacOS/Brave Browser'],
+   153→   153→      edge: ['/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'],
+   154→   154→      firefox: ['/Applications/Firefox.app/Contents/MacOS/firefox'],
+   155→   155→      chromium: ['/Applications/Chromium.app/Contents/MacOS/Chromium'],
+   156→   156→    },
+   157→   157→    linux: {
+   158→   158→      chrome: ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chrome'],
+   159→   159→      brave: ['/usr/bin/brave-browser', '/usr/bin/brave-browser-stable', '/usr/bin/brave'],
+   160→   160→      edge: ['/usr/bin/microsoft-edge', '/usr/bin/microsoft-edge-stable', '/usr/bin/microsoft-edge-dev'],
+   161→   161→      firefox: ['/usr/bin/firefox', '/usr/bin/firefox-esr', '/snap/bin/firefox'],
+   162→   162→      chromium: ['/usr/bin/chromium-browser', '/usr/bin/chromium', '/usr/bin/chromium-dev'],
+   163→   163→    },
+   164→   164→  };
+   165→   165→
+   166→   166→  const platformPaths = paths[platform];
+   167→   167→  if (!platformPaths) return null;
+   168→   168→
+   169→   169→  const browserPaths = platformPaths[browserType];
+   170→   170→  if (!browserPaths) return null;
+   171→   171→
+   172→   172→  for (const p of browserPaths) {
+   173→   173→    if (p && fs.existsSync(p)) {
+   174→   174→      return p;
+   175→   175→    }
+   176→   176→  }
+   177→   177→
+   178→   178→  return null;
+   179→   179→}
+   180→   180→
+   181→   181→function getBrowserName(browserType: BrowserType): string {
+   182→   182→  const names: Record<BrowserType, string> = {
+   183→   183→    chrome: 'Google Chrome',
+   184→   184→    brave: 'Brave Browser',
+   185→   185→    firefox: 'Mozilla Firefox',
+   186→   186→    edge: 'Microsoft Edge',
+   187→   187→    chromium: 'Chromium',
+   188→   188→  };
+   189→   189→  return names[browserType] || browserType;
+   190→   190→}
+   191→   191→
+   192→   192→// ============================================================
+   193→   193→// LAUNCH ARGUMENTS
+   194→   194→// ============================================================
+   195→   195→
+   196→   196→function buildLaunchArguments(profile: ProfileData, profileDir: string, extensionDir: string): string[] {
+   197→   197→  const isFirefox = profile.browserType === 'firefox';
+   198→   198→  const args: string[] = [];
+   199→   199→
+   200→   200→  if (isFirefox) {
+   201→   201→    // Firefox-specific arguments
+   202→   202→    args.push('-profile', profileDir);
+   203→   203→    args.push('-no-remote'); // Don't reuse existing Firefox instance
+   204→   204→    args.push('-new-instance');
+   205→   205→
+   206→   206→    // Set launch URL
+   207→   207→    if (profile.launchUrl) {
+   208→   208→      args.push(profile.launchUrl);
+   209→   209→    }
+   210→   210→
+   211→   211→    // Proxy configuration for Firefox
+   212→   212→    if (profile.proxy) {
+   213→   213→      // Firefox proxy is set via user.js in the profile directory
+   214→   214→      createFirefoxProxyConfig(profileDir, profile.proxy);
+   215→   215→    }
+   216→   216→  } else {
+   217→   217→    // Chrome/Chromium/Brave/Edge arguments
+   218→   218→    args.push(`--user-data-dir=${profileDir}`);
+   219→   219→    args.push(`--load-extension=${extensionDir}`);
+   220→   220→    args.push('--no-first-run');
+   221→   221→    args.push('--no-default-browser-check');
+   222→   222→    args.push('--disable-background-networking');
+   223→   223→    args.push('--disable-client-side-phishing-detection');
+   224→   224→    args.push('--disable-default-apps');
+   225→   225→    args.push('--disable-hang-monitor');
+   226→   226→    args.push('--disable-popup-blocking');
+   227→   227→    args.push('--disable-prompt-on-repost');
+   228→   228→    args.push('--disable-sync');
+   229→   229→    args.push('--disable-web-security');
+   230→   230→    args.push('--metrics-recording-only');
+   231→   231→    args.push('--safebrowsing-disable-auto-update');
+   232→   232→
+   233→   233→    // Set user agent
+   234→   234→    if (profile.fingerprint.userAgent) {
+   235→   235→      args.push(`--user-agent=${profile.fingerprint.userAgent}`);
+   236→   236→    }
+   237→   237→
+   238→   238→    // Set window size for mobile emulation
+   239→   239→    if (profile.deviceType === 'mobile') {
+   240→   240→      const screenRes = profile.fingerprint.screenResolution.split('x');
+   241→   241→      args.push(`--window-size=${screenRes[0]},${screenRes[1]}`);
+   242→   242→    }
+   243→   243→
+   244→   244→    // Proxy configuration
+   245→   245→    if (profile.proxy) {
+   246→   246→      const proxyUrl = `${profile.proxy.type}://${profile.proxy.host}:${profile.proxy.port}`;
+   247→   247→      args.push(`--proxy-server=${proxyUrl}`);
+   248→   248→
+   249→   249→      // Proxy authentication via extension
+   250→   250→      if (profile.proxy.username && profile.proxy.password) {
+   251→   251→        createProxyAuthExtension(profileDir, profile.proxy);
+   252→   252→      }
+   253→   253→    }
+   254→   254→
+   255→   255→    // Launch URL
+   256→   256→    if (profile.launchUrl) {
+   257→   257→      args.push(profile.launchUrl);
+   258→   258→    }
+   259→   259→  }
+   260→   260→
+   261→   261→  return args;
+   262→   262→}
+   263→   263→
+   264→   264→// ============================================================
+   265→   265→// PROFILE DIRECTORY MANAGEMENT
+   266→   266→// ============================================================
+   267→   267→
+   268→   268→function createProfileDirectory(profile: ProfileData): string | null {
+   269→   269→  try {
+   270→   270→    const baseDir = path.join(app.getPath('userData'), 'browser-profiles', profile.id);
+   271→   271→    fs.mkdirSync(baseDir, { recursive: true });
+   272→   272→
+   273→   273→    if (profile.browserType === 'firefox') {
+   274→   274→      // Create Firefox-specific profile files
+   275→   275→      createFirefoxUserPrefs(baseDir, profile);
+   276→   276→    }
+   277→   277→
+   278→   278→    return baseDir;
+   279→   279→  } catch (err) {
+   280→   280→    console.error('[RealBrowserLauncher] Failed to create profile directory:', err);
+   281→   281→    return null;
+   282→   282→  }
+   283→   283→}
+   284→   284→
+   285→   285→function createFirefoxUserPrefs(profileDir: string, profile: ProfileData): void {
+   286→   286→  const fp = profile.fingerprint;
+   287→   287→  const prefsPath = path.join(profileDir, 'user.js');
+   288→   288→
+   289→   289→  let prefs = `// JoeBrowser Firefox Preferences - ${profile.name}\n`;
+   290→   290→  prefs += `user_pref("general.useragent.override", "${fp.userAgent}");\n`;
+   291→   291→  prefs += `user_pref("intl.locale.requested", "${fp.language}");\n`;
+   292→   292→  prefs += `user_pref("privacy.resistFingerprinting", false);\n`;
+   293→   293→  prefs += `user_pref("webgl.renderer-string-override", "${fp.webglRenderer}");\n`;
+   294→   294→  prefs += `user_pref("webgl.vendor-string-override", "${fp.webglVendor}");\n`;
+   295→   295→  prefs += `user_pref("device.sensors.enabled", false);\n`;
+   296→   296→  prefs += `user_pref("dom.webaudio.enabled", true);\n`;
+   297→   297→  prefs += `user_pref("media.navigator.enabled", true);\n`;
+   298→   298→  prefs += `user_pref("media.peerconnection.enabled", ${fp.webRtcPolicy !== 'disable'});\n`;
+   299→   299→  prefs += `user_pref("network.cookie.cookieBehavior", 0);\n`;
+   300→   300→  prefs += `user_pref("privacy.donottrackheader.enabled", false);\n`;
+   301→   301→  prefs += `user_pref("dom.maxHardwareConcurrency", ${fp.hardwareConcurrency});\n`;
+   302→   302→  prefs += `user_pref("browser.startup.homepage", "${profile.launchUrl || 'https://www.google.com'}");\n`;
+   303→   303→  prefs += `user_pref("browser.cache.disk.enable", true);\n`;
+   304→   304→  prefs += `user_pref("browser.cache.memory.enable", true);\n`;
+   305→   305→  prefs += `user_pref("browser.display.use_document_fonts", 1);\n`;
+   306→   306→  prefs += `user_pref("browser.shell.checkDefaultBrowser", false);\n`;
+   307→   307→  prefs += `user_pref("browser.startup.page", 1);\n`;
+   308→   308→  prefs += `user_pref("datareporting.policy.dataSubmissionEnabled", false);\n`;
+   309→   309→  prefs += `user_pref("toolkit.telemetry.enabled", false);\n`;
+   310→   310→  prefs += `user_pref("toolkit.telemetry.unified", false);\n`;
+   311→   311→
+   312→   312→  fs.writeFileSync(prefsPath, prefs, 'utf8');
+   313→   313→}
+   314→   314→
+   315→   315→function createFirefoxProxyConfig(profileDir: string, proxy: ProfileData['proxy']): void {
+   316→   316→  if (!proxy) return;
+   317→   317→
+   318→   318→  const prefsPath = path.join(profileDir, 'user.js');
+   319→   319→  const existing = fs.existsSync(prefsPath) ? fs.readFileSync(prefsPath, 'utf8') : '';
+   320→   320→
+   321→   321→  let proxyPrefs = existing + '\n// Proxy Configuration\n';
+   322→   322→
+   323→   323→  switch (proxy.type) {
+   324→   324→    case 'http':
+   325→   325→      proxyPrefs += `user_pref("network.proxy.type", 1);\n`;
+   326→   326→      proxyPrefs += `user_pref("network.proxy.http", "${proxy.host}");\n`;
+   327→   327→      proxyPrefs += `user_pref("network.proxy.http_port", ${proxy.port});\n`;
+   328→   328→      proxyPrefs += `user_pref("network.proxy.ssl", "${proxy.host}");\n`;
+   329→   329→      proxyPrefs += `user_pref("network.proxy.ssl_port", ${proxy.port});\n`;
+   330→   330→      break;
+   331→   331→    case 'socks4':
+   332→   332→      proxyPrefs += `user_pref("network.proxy.type", 1);\n`;
+   333→   333→      proxyPrefs += `user_pref("network.proxy.socks", "${proxy.host}");\n`;
+   334→   334→      proxyPrefs += `user_pref("network.proxy.socks_port", ${proxy.port});\n`;
+   335→   335→      proxyPrefs += `user_pref("network.proxy.socks_version", 4);\n`;
+   336→   336→      break;
+   337→   337→    case 'socks5':
+   338→   338→      proxyPrefs += `user_pref("network.proxy.type", 1);\n`;
+   339→   339→      proxyPrefs += `user_pref("network.proxy.socks", "${proxy.host}");\n`;
+   340→   340→      proxyPrefs += `user_pref("network.proxy.socks_port", ${proxy.port});\n`;
+   341→   341→      proxyPrefs += `user_pref("network.proxy.socks_version", 5);\n`;
+   342→   342→      break;
+   343→   343→    case 'https':
+   344→   344→      proxyPrefs += `user_pref("network.proxy.type", 1);\n`;
+   345→   345→      proxyPrefs += `user_pref("network.proxy.http", "${proxy.host}");\n`;
+   346→   346→      proxyPrefs += `user_pref("network.proxy.http_port", ${proxy.port});\n`;
+   347→   347→      proxyPrefs += `user_pref("network.proxy.ssl", "${proxy.host}");\n`;
+   348→   348→      proxyPrefs += `user_pref("network.proxy.ssl_port", ${proxy.port});\n`;
+   349→   349→      break;
+   350→   350→  }
+   351→   351→
+   352→   352→  if (proxy.username) {
+   353→   353→    proxyPrefs += `user_pref("network.proxy.share_proxy_settings", true);\n`;
+   354→   354→    // Firefox doesn't support proxy auth in prefs directly — need extension
+   355→   355→    // We'll handle this via the stealth extension
+   356→   356→  }
+   357→   357→
+   358→   358→  proxyPrefs += `user_pref("network.proxy.no_proxies_on", "localhost, 127.0.0.1");\n`;
+   359→   359→
+   360→   360→  fs.writeFileSync(prefsPath, proxyPrefs, 'utf8');
+   361→   361→}
+   362→   362→
+   363→   363→// ============================================================
+   364→   364→// STEALTH EXTENSION CREATION
+   365→   365→// ============================================================
+   366→   366→
+   367→   367→function createStealthExtension(profile: ProfileData): string | null {
+   368→   368→  try {
+   369→   369→    const isFirefox = profile.browserType === 'firefox';
+   370→   370→    const extDir = path.join(app.getPath('userData'), 'browser-profiles', profile.id, 'joe-stealth-extension');
+   371→   371→    fs.mkdirSync(extDir, { recursive: true });
+   372→   372→
+   373→   373→    if (isFirefox) {
+   374→   374→      // Copy Firefox extension files
+   375→   375→      const sourceDir = path.join(__dirname, '..', '..', 'main', 'extensions', 'firefox');
+   376→   376→      if (!copyExtensionFiles(sourceDir, extDir)) {
+   377→   377→        // Fallback: create extension files directly
+   378→   378→        createFirefoxExtensionFiles(extDir, profile);
+   379→   379→      }
+   380→   380→    } else {
+   381→   381→      // Copy Chrome extension files
+   382→   382→      const sourceDir = path.join(__dirname, '..', '..', 'main', 'extensions', 'chrome');
+   383→   383→      if (!copyExtensionFiles(sourceDir, extDir)) {
+   384→   384→        // Fallback: create extension files directly
+   385→   385→        createChromeExtensionFiles(extDir, profile);
+   386→   386→      }
+   387→   387→    }
+   388→   388→
+   389→   389→    // Create fingerprint data file that the extension will read
+   390→   390→    createFingerprintDataFile(extDir, profile);
+   391→   391→
+   392→   392→    return extDir;
+   393→   393→  } catch (err) {
+   394→   394→    console.error('[RealBrowserLauncher] Failed to create stealth extension:', err);
+   395→   395→    return null;
+   396→   396→  }
+   397→   397→}
+   398→   398→
+   399→   399→function copyExtensionFiles(sourceDir: string, targetDir: string): boolean {
+   400→   400→  try {
+   401→   401→    if (!fs.existsSync(sourceDir)) return false;
+   402→   402→
+   403→   403→    const files = fs.readdirSync(sourceDir);
+   404→   404→    for (const file of files) {
+   405→   405→      const src = path.join(sourceDir, file);
+   406→   406→      const dst = path.join(targetDir, file);
+   407→   407→      fs.copyFileSync(src, dst);
+   408→   408→    }
+   409→   409→    return true;
+   410→   410→  } catch (err) {
+   411→   411→    return false;
+   412→   412→  }
+   413→   413→}
+   414→   414→
+   415→   415→function createChromeExtensionFiles(extDir: string, profile: ProfileData): void {
+   416→   416→  // manifest.json
+   417→   417→  const manifest = {
+   418→   418→    manifest_version: 3,
+   419→   419→    name: 'JoeBrowser Stealth',
+   420→   420→    version: '1.0.0',
+   421→   421→    description: 'Anti-detect fingerprint injection',
+   422→   422→    content_scripts: [{
+   423→   423→      matches: ['<all_urls>'],
+   424→   424→      js: ['fingerprint-data.js', 'content.js'],
+   425→   425→      run_at: 'document_start',
+   426→   426→      world: 'MAIN',
+   427→   427→    }],
+   428→   428→    permissions: [],
+   429→   429→    incognito: 'split',
+   430→   430→  };
+   431→   431→
+   432→   432→  fs.writeFileSync(path.join(extDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
+   433→   433→
+   434→   434→  // content.js — same as the extension source
+   435→   435→  const sourceContentPath = path.join(__dirname, '..', '..', 'main', 'extensions', 'chrome', 'content.js');
+   436→   436→  if (fs.existsSync(sourceContentPath)) {
+   437→   437→    fs.copyFileSync(sourceContentPath, path.join(extDir, 'content.js'));
+   438→   438→  } else {
+   439→   439→    // Create minimal content.js
+   440→   440→    fs.writeFileSync(path.join(extDir, 'content.js'), getChromeContentScript(), 'utf8');
+   441→   441→  }
+   442→   442→}
+   443→   443→
+   444→   444→function createFirefoxExtensionFiles(extDir: string, profile: ProfileData): void {
+   445→   445→  // manifest.json
+   446→   446→  const manifest = {
+   447→   447→    manifest_version: 2,
+   448→   448→    name: 'JoeBrowser Stealth',
+   449→   449→    version: '1.0.0',
+   450→   450→    description: 'Anti-detect fingerprint injection for Firefox',
+   451→   451→    content_scripts: [{
+   452→   452→      matches: ['<all_urls>'],
+   453→   453→      js: ['content.js'],
+   454→   454→      run_at: 'document_start',
+   455→   455→    }],
+   456→   456→    web_accessible_resources: ['inject.js', 'fingerprint-data.js'],
+   457→   457→    incognito: 'spanning',
+   458→   458→  };
+   459→   459→
+   460→   460→  fs.writeFileSync(path.join(extDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
+   461→   461→
+   462→   462→  // content.js — injects scripts into main world
+   463→   463→  const contentScript = `
+   464→   464→(function() {
+   465→   465→  'use strict';
+   466→   466→  // Inject fingerprint data first
+   467→   467→  const fpScript = document.createElement('script');
+   468→   468→  fpScript.src = browser.runtime.getURL('fingerprint-data.js');
+   469→   469→  (document.head || document.documentElement).appendChild(fpScript);
+   470→   470→  fpScript.onload = () => fpScript.remove();
+   471→   471→
+   472→   472→  // Then inject the stealth script
+   473→   473→  const script = document.createElement('script');
+   474→   474→  script.src = browser.runtime.getURL('inject.js');
+   475→   475→  (document.head || document.documentElement).appendChild(script);
+   476→   476→  script.onload = () => script.remove();
+   477→   477→})();
+   478→   478→`;
+   479→   479→  fs.writeFileSync(path.join(extDir, 'content.js'), contentScript, 'utf8');
+   480→   480→
+   481→   481→  // inject.js — same as the extension source
+   482→   482→  const sourceInjectPath = path.join(__dirname, '..', '..', 'main', 'extensions', 'firefox', 'inject.js');
+   483→   483→  if (fs.existsSync(sourceInjectPath)) {
+   484→   484→    fs.copyFileSync(sourceInjectPath, path.join(extDir, 'inject.js'));
+   485→   485→  } else {
+   486→   486→    // Create minimal inject.js
+   487→   487→    fs.writeFileSync(path.join(extDir, 'inject.js'), getFirefoxInjectScript(), 'utf8');
+   488→   488→  }
+   489→   489→}
+   490→   490→
+   491→   491→function createFingerprintDataFile(extDir: string, profile: ProfileData): void {
+   492→   492→  const fp = profile.fingerprint;
+   493→   493→  const data = `window.__JOE_FINGERPRINT__ = ${JSON.stringify(fp)};`;
+   494→   494→  fs.writeFileSync(path.join(extDir, 'fingerprint-data.js'), data, 'utf8');
+   495→   495→}
+   496→   496→
+   497→   497→function getChromeContentScript(): string {
+   498→   498→  return `
+   499→   499→(function() {
+   500→   500→  'use strict';
+   501→   501→  const fp = window.__JOE_FINGERPRINT__;
+   502→   502→  if (!fp) return;
+   503→   503→  if (window.__joeStealthApplied) return;
+   504→   504→  window.__joeStealthApplied = true;
+   505→   505→  try {
+   506→   506→    Object.defineProperty(navigator, 'userAgent', { get: () => fp.userAgent });
+   507→   507→    Object.defineProperty(navigator, 'platform', { get: () => fp.platform });
+   508→   508→    Object.defineProperty(navigator, 'vendor', { get: () => fp.vendor });
+   509→   509→    Object.defineProperty(navigator, 'languages', { get: () => fp.languages });
+   510→   510→    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => fp.hardwareConcurrency });
+   511→   511→    Object.defineProperty(navigator, 'deviceMemory', { get: () => fp.deviceMemory });
+   512→   512→    Object.defineProperty(navigator, 'maxTouchPoints', { get: () => fp.maxTouchPoints });
+   513→   513→    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+   514→   514→  } catch(e) {}
+   515→   515→  try {
+   516→   516→    const sr = fp.screenResolution.split('x');
+   517→   517→    const ar = fp.availableScreenResolution.split('x');
+   518→   518→    Object.defineProperty(screen, 'width', { get: () => parseInt(sr[0]) });
+   519→   519→    Object.defineProperty(screen, 'height', { get: () => parseInt(sr[1]) });
+   520→   520→    Object.defineProperty(screen, 'availWidth', { get: () => parseInt(ar[0]) });
+   521→   521→    Object.defineProperty(screen, 'availHeight', { get: () => parseInt(ar[1]) });
+   522→   522→    Object.defineProperty(screen, 'colorDepth', { get: () => fp.colorDepth });
+   523→   523→    Object.defineProperty(screen, 'pixelDepth', { get: () => fp.colorDepth });
+   524→   524→  } catch(e) {}
+   525→   525→  try {
+   526→   526→    const orig = WebGLRenderingContext.prototype.getParameter;
+   527→   527→    WebGLRenderingContext.prototype.getParameter = function(p) {
+   528→   528→      if (p === 0x9245) return fp.webglVendor;
+   529→   529→      if (p === 0x9246) return fp.webglRenderer;
+   530→   530→      return orig.call(this, p);
+   531→   531→    };
+   532→   532→  } catch(e) {}
+   533→   533→  try {
+   534→   534→    const origDTF = Intl.DateTimeFormat;
+   535→   535→    Intl.DateTimeFormat = function(...a) {
+   536→   536→      if (!a[1]) a[1] = { timeZone: fp.timezone };
+   537→   537→      else if (!a[1].timeZone) a[1].timeZone = fp.timezone;
+   538→   538→      return new origDTF(...a);
+   539→   539→    };
+   540→   540→    Intl.DateTimeFormat.prototype = origDTF.prototype;
+   541→   541→    Intl.DateTimeFormat.supportedLocalesOf = origDTF.supportedLocalesOf;
+   542→   542→  } catch(e) {}
+   543→   543→  try { if (!window.chrome) window.chrome = {}; if (!window.chrome.runtime) window.chrome.runtime = {}; } catch(e) {}
+   544→   544→  try { if (fp.browserType === 'brave' && window.chrome) { Object.defineProperty(window.chrome, 'brave', { get: () => ({ isBrave: () => Promise.resolve(true) }) }); } } catch(e) {}
+   545→   545→  try { if (fp.webRtcPolicy === 'disable') { delete window.RTCPeerConnection; } } catch(e) {}
+   546→   546→  console.log('[JoeBrowser] Stealth applied for:', fp.browserType);
+   547→   547→})();
+   548→   548→`;
+   549→   549→}
+   550→   550→
+   551→   551→function getFirefoxInjectScript(): string {
+   552→   552→  return `
+   553→   553→(function() {
+   554→   554→  'use strict';
+   555→   555→  const fp = window.__JOE_FINGERPRINT__;
+   556→   556→  if (!fp) return;
+   557→   557→  if (window.__joeStealthApplied) return;
+   558→   558→  window.__joeStealthApplied = true;
+   559→   559→  try {
+   560→   560→    Object.defineProperty(navigator, 'userAgent', { get: () => fp.userAgent });
+   561→   561→    Object.defineProperty(navigator, 'platform', { get: () => fp.platform });
+   562→   562→    Object.defineProperty(navigator, 'vendor', { get: () => '' });
+   563→   563→    Object.defineProperty(navigator, 'languages', { get: () => fp.languages });
+   564→   564→    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => fp.hardwareConcurrency });
+   565→   565→    Object.defineProperty(navigator, 'maxTouchPoints', { get: () => fp.maxTouchPoints });
+   566→   566→    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+   567→   567→  } catch(e) {}
+   568→   568→  try {
+   569→   569→    const sr = fp.screenResolution.split('x');
+   570→   570→    const ar = fp.availableScreenResolution.split('x');
+   571→   571→    Object.defineProperty(screen, 'width', { get: () => parseInt(sr[0]) });
+   572→   572→    Object.defineProperty(screen, 'height', { get: () => parseInt(sr[1]) });
+   573→   573→    Object.defineProperty(screen, 'availWidth', { get: () => parseInt(ar[0]) });
+   574→   574→    Object.defineProperty(screen, 'availHeight', { get: () => parseInt(ar[1]) });
+   575→   575→    Object.defineProperty(screen, 'colorDepth', { get: () => fp.colorDepth });
+   576→   576→    Object.defineProperty(screen, 'pixelDepth', { get: () => fp.colorDepth });
+   577→   577→  } catch(e) {}
+   578→   578→  try {
+   579→   579→    const orig = WebGLRenderingContext.prototype.getParameter;
+   580→   580→    WebGLRenderingContext.prototype.getParameter = function(p) {
+   581→   581→      if (p === 0x9245) return fp.webglVendor;
+   582→   582→      if (p === 0x9246) return fp.webglRenderer;
+   583→   583→      return orig.call(this, p);
+   584→   584→    };
+   585→   585→  } catch(e) {}
+   586→   586→  try {
+   587→   587→    const origDTF = Intl.DateTimeFormat;
+   588→   588→    Intl.DateTimeFormat = function(...a) {
+   589→   589→      if (!a[1]) a[1] = { timeZone: fp.timezone };
+   590→   590→      else if (!a[1].timeZone) a[1].timeZone = fp.timezone;
+   591→   591→      return new origDTF(...a);
+   592→   592→    };
+   593→   593→    Intl.DateTimeFormat.prototype = origDTF.prototype;
+   594→   594→    Intl.DateTimeFormat.supportedLocalesOf = origDTF.supportedLocalesOf;
+   595→   595→  } catch(e) {}
+   596→   596→  try { if (window.chrome) delete window.chrome; } catch(e) {}
+   597→   597→  try { if (fp.webRtcPolicy === 'disable') { delete window.RTCPeerConnection; } } catch(e) {}
+   598→   598→  console.log('[JoeBrowser] Stealth applied for Firefox');
+   599→   599→})();
+   600→   600→`;
+   601→   601→}
+   602→   602→
+   603→   603→// ============================================================
+   604→   604→// PROXY AUTH EXTENSION (for Chrome/Brave/Edge)
+   605→   605→// ============================================================
+   606→   606→
+   607→   607→function createProxyAuthExtension(profileDir: string, proxy: NonNullable<ProfileData['proxy']>): void {
+   608→   608→  const extDir = path.join(profileDir, 'proxy-auth-extension');
+   609→   609→  fs.mkdirSync(extDir, { recursive: true });
+   610→   610→
+   611→   611→  const manifest = {
+   612→   612→    manifest_version: 3,
+   613→   613→    name: 'Proxy Auth',
+   614→   614→    version: '1.0',
+   615→   615→    permissions: ['webRequest', 'webRequestAuthProvider'],
+   616→   616→    background: { service_worker: 'background.js' },
+   617→   617→  };
+   618→   618→
+   619→   619→  fs.writeFileSync(path.join(extDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
+   620→   620→
+   621→   621→  const bgScript = `
+   622→   622→chrome.webRequest.onAuthRequired.addListener(
+   623→   623→  function(details) {
+   624→   624→    return {
+   625→   625→      authCredentials: {
+   626→   626→        username: '${proxy.username || ''}',
+   627→   627→        password: '${proxy.password || ''}'
+   628→   628→      }
+   629→   629→    };
+   630→   630→  },
+   631→   631→  { urls: ['<all_urls>'] },
+   632→   632→  ['blocking']
+   633→   633→);
+   634→   634→`;
+   635→   635→  fs.writeFileSync(path.join(extDir, 'background.js'), bgScript, 'utf8');
+   636→   636→}
+   637→   637→
+   638→   638→// ============================================================
+   639→   639→// PROXY TIMEZONE AUTO-DETECTION
+   640→   640→// ============================================================
+   641→   641→
+   642→   642→async function autoDetectTimezoneFromProxy(profile: ProfileData): Promise<void> {
+   643→   643→  if (!profile.proxy) return;
+   644→   644→
+   645→   645→  try {
+   646→   646→    const proxyUrl = `${profile.proxy.type}://${profile.proxy.host}:${profile.proxy.port}`;
+   647→   647→    console.log(`[RealBrowserLauncher] Auto-detecting timezone for proxy: ${proxyUrl}`);
+   648→   648→
+   649→   649→    // Use ip-api.com to detect timezone from proxy IP
+   650→   650→    const geoData = await fetchGeoLocation(proxyUrl);
+   651→   651→    if (geoData) {
+   652→   652→      if (geoData.timezone) {
+   653→   653→        profile.fingerprint.timezone = geoData.timezone;
+   654→   654→        console.log(`[RealBrowserLauncher] Timezone set to: ${geoData.timezone}`);
+   655→   655→      }
+   656→   656→      if (geoData.countryCode) {
+   657→   657→        // Set language based on country
+   658→   658→        const langMap: Record<string, string> = {
+   659→   659→          US: 'en-US', GB: 'en-GB', DE: 'de-DE', FR: 'fr-FR', ES: 'es-ES',
+   660→   660→          IT: 'it-IT', JP: 'ja-JP', KR: 'ko-KR', CN: 'zh-CN', RU: 'ru-RU',
+   661→   661→          BR: 'pt-BR', IN: 'en-IN', AU: 'en-AU', CA: 'en-CA', NL: 'nl-NL',
+   662→   662→        };
+   663→   663→        if (langMap[geoData.countryCode]) {
+   664→   664→          profile.fingerprint.language = langMap[geoData.countryCode];
+   665→   665→          profile.fingerprint.languages = [langMap[geoData.countryCode], langMap[geoData.countryCode].split('-')[0]];
+   666→   666→        }
+   667→   667→      }
+   668→   668→    }
+   669→   669→  } catch (err) {
+   670→   670→    console.warn('[RealBrowserLauncher] Failed to auto-detect timezone from proxy:', err);
+   671→   671→    // Don't fail the launch — just use the default timezone
+   672→   672→  }
+   673→   673→}
+   674→   674→
+   675→   675→function fetchGeoLocation(proxyUrl: string): Promise<any> {
+   676→   676→  return new Promise((resolve) => {
+   677→   677→    const url = 'http://ip-api.com/json/?fields=status,countryCode,timezone';
+   678→   678→
+   679→   679→    const req = http.get(url, { timeout: 5000 }, (res) => {
+   680→   680→      let data = '';
+   681→   681→      res.on('data', (chunk) => data += chunk);
+   682→   682→      res.on('end', () => {
+   683→   683→        try {
+   684→   684→          const parsed = JSON.parse(data);
+   685→   685→          if (parsed.status === 'success') {
+   686→   686→            resolve(parsed);
+   687→   687→          } else {
+   688→   688→            resolve(null);
+   689→   689→          }
+   690→   690→        } catch (e) {
+   691→   691→          resolve(null);
+   692→   692→        }
+   693→   693→      });
+   694→   694→    });
+   695→   695→
+   696→   696→    req.on('error', () => resolve(null));
+   697→   697→    req.on('timeout', () => { req.destroy(); resolve(null); });
+   698→   698→  });
+   699→   699→}
+   700→   700→

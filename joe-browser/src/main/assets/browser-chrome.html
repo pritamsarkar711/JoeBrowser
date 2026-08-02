@@ -3,111 +3,266 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Joe Browser</title>
+<title>New Tab</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #202124; color: #e8eaed; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
 
-  /* ===== TAB BAR ===== */
-  #tab-bar {
+  /* ===== CSS VARIABLES ===== */
+  :root {
+    --tab-bg: #1f1f1f;
+    --tab-active-bg: #2b2b2b;
+    --tab-hover-bg: #2a2a2a;
+    --tab-inactive-text: #999;
+    --tab-active-text: #e8e8e8;
+    --toolbar-bg: #2b2b2b;
+    --toolbar-btn-hover: rgba(255,255,255,0.1);
+    --urlbar-bg: #1f1f1f;
+    --urlbar-border: transparent;
+    --urlbar-focus-border: var(--accent, #4285F4);
+    --urlbar-text: #e8e8e8;
+    --urlbar-placeholder: #777;
+    --content-bg: #fff;
+    --newtab-bg: #1f1f1f;
+    --newtab-text: #e8e8e8;
+    --newtab-placeholder: #888;
+    --newtab-search-bg: #2b2b2b;
+    --newtab-search-border: #3a3a3a;
+    --newtab-shortcut-bg: #2b2b2b;
+    --newtab-shortcut-text: #ccc;
+    --loading-color: var(--accent, #4285F4);
+    --separator: #3a3a3a;
+    --window-control-hover: rgba(255,255,255,0.1);
+    --window-control-close-hover: #e81123;
+    --accent: #4285F4;
+  }
+
+  /* ===== MAIN LAYOUT ===== */
+  #app { display: flex; flex-direction: column; height: 100vh; background: var(--tab-bg); color: var(--tab-active-text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; }
+
+  /* ===== TITLE BAR / TAB STRIP ===== */
+  #tab-strip {
     display: flex;
     align-items: flex-end;
-    height: 38px;
-    background: #202124;
-    padding: 0 8px;
+    height: 40px;
+    background: var(--tab-bg);
+    padding-left: 8px;
     -webkit-app-region: drag;
     user-select: none;
+    position: relative;
   }
+
+  /* Window controls (macOS style - left side dots) */
+  #window-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    height: 40px;
+    -webkit-app-region: no-drag;
+    flex-shrink: 0;
+  }
+  .win-dot {
+    width: 12px; height: 12px; border-radius: 50%; cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .win-dot:hover { opacity: 0.8; }
+  .win-dot.close { background: #ff5f57; }
+  .win-dot.minimize { background: #ffbd2e; }
+  .win-dot.maximize { background: #28c840; }
+
+  /* Tab container */
+  #tabs-container {
+    display: flex;
+    align-items: flex-end;
+    flex: 1;
+    height: 40px;
+    overflow: hidden;
+    -webkit-app-region: no-drag;
+  }
+
+  /* Individual tab */
   .tab {
     display: flex;
     align-items: center;
-    height: 32px;
-    max-width: 220px;
+    height: 34px;
+    max-width: 240px;
     min-width: 60px;
-    padding: 0 8px 0 12px;
-    background: #2d2e30;
+    padding: 0 4px 0 12px;
+    background: transparent;
     border-radius: 8px 8px 0 0;
     margin-right: 1px;
     cursor: pointer;
-    -webkit-app-region: no-drag;
-    transition: background 0.15s;
+    transition: background 0.1s;
     position: relative;
+    flex-shrink: 0;
   }
-  .tab:hover { background: #35363a; }
+  .tab:hover { background: var(--tab-hover-bg); }
   .tab.active {
-    background: #35363a;
-    border-top: 2px solid var(--theme-color, #4285F4);
-    margin-top: -2px;
+    background: var(--tab-active-bg);
+    z-index: 1;
   }
+  .tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent);
+  }
+
+  /* Tab favicon */
   .tab-favicon {
-    width: 16px; height: 16px; margin-right: 6px; flex-shrink: 0;
+    width: 16px; height: 16px; margin-right: 8px; flex-shrink: 0;
     border-radius: 2px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: #999; font-weight: 600;
   }
-  .tab-favicon.loading {
-    animation: spin 1s linear infinite;
-    border: 2px solid transparent;
-    border-top-color: var(--theme-color, #4285F4);
-    border-radius: 50%;
+  .tab-favicon.loading-spinner {
     width: 14px; height: 14px;
+    border: 2px solid transparent;
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: tab-spin 0.8s linear infinite;
   }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes tab-spin { to { transform: rotate(360deg); } }
+
+  /* Tab title */
   .tab-title {
     flex: 1; font-size: 12px; white-space: nowrap; overflow: hidden;
-    text-overflow: ellipsis; color: #9aa0a6; line-height: 32px;
+    text-overflow: ellipsis; color: var(--tab-inactive-text); line-height: 34px;
+    max-width: 180px;
   }
-  .tab.active .tab-title { color: #e8eaed; }
+  .tab.active .tab-title { color: var(--tab-active-text); }
+
+  /* Tab close button */
   .tab-close {
     width: 18px; height: 18px; border-radius: 50%; border: none;
-    background: transparent; color: #9aa0a6; font-size: 14px;
+    background: transparent; color: var(--tab-inactive-text); font-size: 15px;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
     margin-left: 4px; flex-shrink: 0; transition: background 0.15s, color 0.15s;
     line-height: 1;
   }
   .tab-close:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+  /* New tab button */
   .new-tab-btn {
     width: 28px; height: 28px; border-radius: 50%; border: none;
-    background: transparent; color: #9aa0a6; font-size: 20px;
-    cursor: pointer; margin-left: 4px; margin-bottom: 4px;
+    background: transparent; color: var(--tab-inactive-text); font-size: 20px;
+    cursor: pointer; margin-left: 2px; margin-bottom: 6px;
     display: flex; align-items: center; justify-content: center;
     transition: background 0.15s; -webkit-app-region: no-drag;
   }
-  .new-tab-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .new-tab-btn:hover { background: var(--toolbar-btn-hover); color: var(--tab-active-text); }
 
-  /* ===== NAVIGATION BAR ===== */
-  #nav-bar {
+  /* ===== TOOLBAR (Navigation + URL bar) ===== */
+  #toolbar {
     display: flex;
     align-items: center;
-    height: 40px;
-    background: #35363a;
+    height: 42px;
+    background: var(--toolbar-bg);
     padding: 0 8px;
-    gap: 4px;
+    gap: 2px;
+    border-bottom: 1px solid var(--separator);
   }
+
+  /* Navigation buttons */
   .nav-btn {
     width: 32px; height: 32px; border-radius: 50%; border: none;
-    background: transparent; color: #9aa0a6; cursor: pointer;
+    background: transparent; color: var(--tab-inactive-text); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s; flex-shrink: 0;
+    padding: 0;
+  }
+  .nav-btn:hover { background: var(--toolbar-btn-hover); color: var(--tab-active-text); }
+  .nav-btn:disabled { opacity: 0.25; cursor: default; }
+  .nav-btn:disabled:hover { background: transparent; color: var(--tab-inactive-text); }
+  .nav-btn svg { width: 16px; height: 16px; }
+
+  /* URL bar container */
+  #url-container {
+    flex: 1; height: 32px; display: flex; align-items: center;
+    background: var(--urlbar-bg); border-radius: 24px;
+    padding: 0 12px; margin: 0 4px;
+    border: 2px solid var(--urlbar-border);
+    transition: border-color 0.2s, background 0.2s;
+    min-width: 0;
+  }
+  #url-container:focus-within {
+    border-color: var(--urlbar-focus-border);
+    background: var(--urlbar-bg);
+  }
+
+  /* Security icon */
+  #security-icon {
+    width: 16px; height: 16px; margin-right: 6px; flex-shrink: 0;
+    cursor: pointer;
+  }
+  #security-icon svg { width: 16px; height: 16px; }
+
+  /* URL input */
+  #url-bar {
+    flex: 1; height: 100%; background: transparent; border: none;
+    color: var(--urlbar-text); font-size: 13px; outline: none;
+    min-width: 0;
+  }
+  #url-bar::placeholder { color: var(--urlbar-placeholder); }
+
+  /* Bookmark star */
+  #bookmark-btn {
+    width: 24px; height: 24px; border: none; background: transparent;
+    color: var(--tab-inactive-text); cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%; margin-left: 4px;
+    transition: color 0.15s;
+  }
+  #bookmark-btn:hover { color: var(--tab-active-text); }
+  #bookmark-btn svg { width: 16px; height: 16px; }
+
+  /* Extension / menu buttons */
+  .toolbar-btn {
+    width: 32px; height: 32px; border-radius: 50%; border: none;
+    background: transparent; color: var(--tab-inactive-text); cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     transition: background 0.15s, color 0.15s; flex-shrink: 0;
   }
-  .nav-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
-  .nav-btn:disabled { opacity: 0.3; cursor: default; }
-  .nav-btn:disabled:hover { background: transparent; color: #9aa0a6; }
-  .nav-btn svg { width: 18px; height: 18px; }
+  .toolbar-btn:hover { background: var(--toolbar-btn-hover); color: var(--tab-active-text); }
+  .toolbar-btn svg { width: 16px; height: 16px; }
 
-  #url-bar {
-    flex: 1; height: 30px; background: #202124; border: 2px solid transparent;
-    border-radius: 16px; padding: 0 14px; color: #e8eaed; font-size: 13px;
-    outline: none; transition: border-color 0.2s, background 0.2s;
+  /* ===== BOOKMARKS BAR ===== */
+  #bookmarks-bar {
+    display: flex;
+    align-items: center;
+    height: 30px;
+    background: var(--toolbar-bg);
+    padding: 0 12px;
+    gap: 2px;
+    border-bottom: 1px solid var(--separator);
+    overflow: hidden;
   }
-  #url-bar:focus { border-color: var(--theme-color, #4285F4); background: #1a1b1e; }
-  #url-bar::placeholder { color: #5f6368; }
+  .bookmark-item {
+    display: flex; align-items: center; gap: 4px; padding: 2px 8px;
+    border-radius: 4px; cursor: pointer; white-space: nowrap;
+    color: var(--tab-inactive-text); font-size: 11px;
+    transition: background 0.15s;
+  }
+  .bookmark-item:hover { background: var(--toolbar-btn-hover); color: var(--tab-active-text); }
+  .bookmark-item svg { width: 14px; height: 14px; flex-shrink: 0; }
 
-  .security-icon {
-    width: 18px; height: 18px; margin-right: 6px; flex-shrink: 0;
+  /* ===== LOADING BAR ===== */
+  #loading-bar {
+    position: absolute; top: 0; left: 0; height: 2px; width: 0;
+    background: var(--loading-color); z-index: 100;
+    transition: width 0.3s ease; opacity: 0;
   }
+  #loading-bar.active { opacity: 1; }
+  #loading-bar.half { width: 60%; }
+  #loading-bar.done { width: 100%; opacity: 0; transition: width 0.2s, opacity 0.3s 0.2s; }
 
   /* ===== WEBVIEW CONTAINER ===== */
   #webview-container {
-    flex: 1; position: relative; background: #fff;
+    flex: 1; position: relative; background: var(--content-bg);
   }
   #webview-container webview {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -116,57 +271,96 @@
   /* ===== NEW TAB PAGE ===== */
   .newtab-page {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    background: #202124; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; padding: 40px;
+    background: var(--newtab-bg); display: flex; flex-direction: column;
+    align-items: center; padding-top: 15vh;
   }
   .newtab-logo {
-    font-size: 48px; font-weight: 800; margin-bottom: 24px;
-    background: linear-gradient(135deg, var(--theme-color, #4285F4), #a855f7);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    font-size: 72px; font-weight: 400; margin-bottom: 32px;
+    color: var(--newtab-text); letter-spacing: -2px;
+  }
+  .newtab-logo span { color: var(--accent); }
+
+  /* Search bar */
+  .newtab-search-wrapper {
+    width: 100%; max-width: 584px; position: relative; margin-bottom: 32px;
   }
   .newtab-search {
-    width: 100%; max-width: 560px; height: 46px; background: #35363a;
-    border: 1px solid #3c4043; border-radius: 24px; padding: 0 20px;
-    color: #e8eaed; font-size: 15px; outline: none;
+    width: 100%; height: 46px; background: var(--newtab-search-bg);
+    border: 1px solid var(--newtab-search-border); border-radius: 24px;
+    padding: 0 20px 0 48px; color: var(--newtab-text); font-size: 16px; outline: none;
     transition: border-color 0.2s, box-shadow 0.2s;
   }
   .newtab-search:focus {
-    border-color: var(--theme-color, #4285F4);
+    border-color: var(--accent);
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
   }
-  .newtab-search::placeholder { color: #5f6368; }
+  .newtab-search::placeholder { color: var(--newtab-placeholder); }
+  .newtab-search-icon {
+    position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+    color: var(--newtab-placeholder);
+  }
+  .newtab-search-icon svg { width: 20px; height: 20px; }
+
+  /* Shortcut tiles */
   .newtab-shortcuts {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
-    margin-top: 32px; max-width: 560px; width: 100%;
+    display: grid; grid-template-columns: repeat(5, 96px); gap: 16px;
+    margin-top: 8px;
   }
   .newtab-shortcut {
     display: flex; flex-direction: column; align-items: center; gap: 8px;
-    padding: 12px 8px; border-radius: 12px; cursor: pointer;
+    padding: 12px 4px; border-radius: 8px; cursor: pointer;
     transition: background 0.15s;
   }
   .newtab-shortcut:hover { background: rgba(255,255,255,0.05); }
   .newtab-shortcut-icon {
-    width: 48px; height: 48px; border-radius: 50%; background: #35363a;
+    width: 48px; height: 48px; border-radius: 50%; background: var(--newtab-shortcut-bg);
     display: flex; align-items: center; justify-content: center;
-    font-size: 20px; font-weight: 700; color: #9aa0a6;
+    font-size: 18px; font-weight: 700;
   }
   .newtab-shortcut-label {
-    font-size: 12px; color: #9aa0a6; text-align: center;
+    font-size: 11px; color: var(--newtab-shortcut-text); text-align: center;
     max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
 
-  /* ===== LOADING BAR ===== */
-  #loading-bar {
-    position: absolute; top: 0; left: 0; height: 2px; width: 0;
-    background: var(--theme-color, #4285F4); z-index: 100;
-    transition: width 0.3s ease; opacity: 0;
+  /* ===== ERROR PAGE ===== */
+  .error-page {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: var(--newtab-bg); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; padding: 40px;
+    text-align: center;
   }
-  #loading-bar.active { opacity: 1; }
-  #loading-bar.half { width: 60%; }
-  #loading-bar.done { width: 100%; opacity: 0; transition: width 0.2s, opacity 0.3s 0.2s; }
+  .error-page h2 { color: #e8e8e8; font-size: 20px; margin-bottom: 12px; font-weight: 500; }
+  .error-page p { color: #999; font-size: 14px; margin-bottom: 24px; }
+  .error-page button {
+    padding: 8px 24px; border-radius: 4px; border: 1px solid var(--accent);
+    background: transparent; color: var(--accent); font-size: 14px;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .error-page button:hover { background: rgba(66,133,244,0.1); }
 
-  /* ===== MAIN LAYOUT ===== */
-  #app { display: flex; flex-direction: column; height: 100vh; }
+  /* ===== CONTEXT MENU ===== */
+  #context-menu {
+    position: fixed; z-index: 10000; min-width: 200px;
+    background: #2b2b2b; border: 1px solid #3a3a3a; border-radius: 8px;
+    padding: 4px 0; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    display: none; font-size: 12px;
+  }
+  #context-menu.show { display: block; }
+  .ctx-item {
+    display: flex; align-items: center; gap: 8px; padding: 6px 16px;
+    color: #ccc; cursor: pointer; transition: background 0.1s;
+  }
+  .ctx-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  .ctx-item svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .ctx-item .shortcut { margin-left: auto; color: #777; font-size: 11px; }
+  .ctx-separator { height: 1px; background: #3a3a3a; margin: 4px 0; }
+
+  /* ===== STATUS BAR ===== */
+  #status-bar {
+    height: 22px; background: var(--toolbar-bg); display: flex;
+    align-items: center; padding: 0 12px; font-size: 11px; color: #777;
+    border-top: 1px solid var(--separator);
+  }
 </style>
 </head>
 <body>
@@ -174,36 +368,96 @@
   <!-- Loading Bar -->
   <div id="loading-bar"></div>
 
-  <!-- Tab Bar -->
-  <div id="tab-bar">
+  <!-- Tab Strip -->
+  <div id="tab-strip">
+    <div id="window-controls">
+      <div class="win-dot close" id="win-close"></div>
+      <div class="win-dot minimize" id="win-minimize"></div>
+      <div class="win-dot maximize" id="win-maximize"></div>
+    </div>
     <div id="tabs-container"></div>
-    <button class="new-tab-btn" id="new-tab-btn" title="New Tab">+</button>
+    <button class="new-tab-btn" id="new-tab-btn" title="New Tab (Ctrl+T)">+</button>
   </div>
 
-  <!-- Navigation Bar -->
-  <div id="nav-bar">
-    <button class="nav-btn" id="btn-back" title="Back" disabled>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+  <!-- Toolbar -->
+  <div id="toolbar">
+    <button class="nav-btn" id="btn-back" title="Back (Alt+Left)" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
-    <button class="nav-btn" id="btn-forward" title="Forward" disabled>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    <button class="nav-btn" id="btn-forward" title="Forward (Alt+Right)" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
     </button>
-    <button class="nav-btn" id="btn-reload" title="Reload">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+    <button class="nav-btn" id="btn-reload" title="Reload (Ctrl+R)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
     </button>
     <button class="nav-btn" id="btn-home" title="Home">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
     </button>
-    <div style="flex:1; display:flex; align-items:center; position:relative;">
-      <svg class="security-icon" id="security-icon" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="2">
-        <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>
-      </svg>
-      <input type="text" id="url-bar" placeholder="Search or enter URL" spellcheck="false" autocomplete="off">
+
+    <!-- URL Bar -->
+    <div id="url-container">
+      <div id="security-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      </div>
+      <input type="text" id="url-bar" placeholder="Search Google or type a URL" spellcheck="false" autocomplete="off" />
+      <button id="bookmark-btn" title="Bookmark this tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+      </button>
+    </div>
+
+    <!-- Extension / Menu buttons -->
+    <button class="toolbar-btn" id="btn-extensions" title="Extensions">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    </button>
+    <button class="toolbar-btn" id="btn-menu" title="Menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+    </button>
+  </div>
+
+  <!-- Bookmarks Bar -->
+  <div id="bookmarks-bar">
+    <div class="bookmark-item" data-url="https://www.google.com">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#4285F4"><circle cx="12" cy="12" r="10"/></svg>
+      Google
+    </div>
+    <div class="bookmark-item" data-url="https://www.youtube.com">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#FF0000"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      YouTube
+    </div>
+    <div class="bookmark-item" data-url="https://github.com">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+      GitHub
+    </div>
+    <div class="bookmark-item" data-url="https://www.wikipedia.org">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      Wikipedia
+    </div>
+    <div class="bookmark-item" data-url="https://www.reddit.com">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#FF4500"><circle cx="12" cy="12" r="10"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/></svg>
+      Reddit
     </div>
   </div>
 
   <!-- Webview Container -->
   <div id="webview-container"></div>
+
+  <!-- Status Bar -->
+  <div id="status-bar">
+    <span id="status-text"></span>
+  </div>
+</div>
+
+<!-- Context Menu -->
+<div id="context-menu">
+  <div class="ctx-item" data-action="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>Back<span class="shortcut">Alt+Left</span></div>
+  <div class="ctx-item" data-action="forward"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>Forward<span class="shortcut">Alt+Right</span></div>
+  <div class="ctx-item" data-action="reload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Reload<span class="shortcut">Ctrl+R</span></div>
+  <div class="ctx-separator"></div>
+  <div class="ctx-item" data-action="newtab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New Tab<span class="shortcut">Ctrl+T</span></div>
+  <div class="ctx-item" data-action="closetab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Close Tab<span class="shortcut">Ctrl+W</span></div>
+  <div class="ctx-separator"></div>
+  <div class="ctx-item" data-action="bookmark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Bookmark this page</div>
+  <div class="ctx-item" data-action="devtools"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>Developer Tools<span class="shortcut">F12</span></div>
 </div>
 
 <script>
@@ -217,9 +471,40 @@
   const browserType = params.get('browserType') || 'chrome';
   const preloadPath = params.get('preloadPath') || '';
   const themeColor = params.get('theme') || '#4285F4';
+  const homeUrl = params.get('homeUrl') || 'https://www.google.com';
 
-  // Set theme CSS variable
-  document.documentElement.style.setProperty('--theme-color', themeColor);
+  // ===== APPLY BROWSER-SPECIFIC THEME =====
+  applyBrowserTheme(browserType, themeColor);
+
+  function applyBrowserTheme(type, accent) {
+    const root = document.documentElement;
+    root.style.setProperty('--accent', accent);
+
+    // Firefox has a slightly different look
+    if (type === 'firefox') {
+      root.style.setProperty('--tab-bg', '#1c1b22');
+      root.style.setProperty('--tab-active-bg', '#2b2a33');
+      root.style.setProperty('--toolbar-bg', '#2b2a33');
+      root.style.setProperty('--urlbar-bg', '#1c1b22');
+      root.style.setProperty('--newtab-bg', '#1c1b22');
+      root.style.setProperty('--newtab-search-bg', '#2b2a33');
+      root.style.setProperty('--separator', '#3a3944');
+    }
+    // Edge has a slightly different look
+    if (type === 'edge') {
+      root.style.setProperty('--tab-bg', '#1e1e1e');
+      root.style.setProperty('--tab-active-bg', '#2d2d2d');
+      root.style.setProperty('--toolbar-bg', '#2d2d2d');
+      root.style.setProperty('--newtab-bg', '#1e1e1e');
+    }
+    // Brave
+    if (type === 'brave') {
+      root.style.setProperty('--tab-bg', '#1a1a2e');
+      root.style.setProperty('--tab-active-bg', '#252540');
+      root.style.setProperty('--toolbar-bg', '#252540');
+      root.style.setProperty('--newtab-bg', '#1a1a2e');
+    }
+  }
 
   // ===== STATE =====
   let tabs = [];
@@ -234,9 +519,24 @@
   const btnReload = document.getElementById('btn-reload');
   const btnHome = document.getElementById('btn-home');
   const urlBar = document.getElementById('url-bar');
+  const urlContainer = document.getElementById('url-container');
+  const securityIcon = document.getElementById('security-icon');
+  const bookmarkBtn = document.getElementById('bookmark-btn');
   const webviewContainer = document.getElementById('webview-container');
   const loadingBar = document.getElementById('loading-bar');
-  const securityIcon = document.getElementById('security-icon');
+  const statusText = document.getElementById('status-text');
+  const contextMenu = document.getElementById('context-menu');
+  const btnMenu = document.getElementById('btn-menu');
+
+  // ===== WINDOW CONTROLS =====
+  const winClose = document.getElementById('win-close');
+  const winMinimize = document.getElementById('win-minimize');
+  const winMaximize = document.getElementById('win-maximize');
+
+  // These will be handled by IPC if available, otherwise no-op
+  winClose.addEventListener('click', () => window.close());
+  winMinimize.addEventListener('click', () => { /* no-op in webview context */ });
+  winMaximize.addEventListener('click', () => { /* no-op in webview context */ });
 
   // ===== TAB MANAGEMENT =====
   function createTab(url) {
@@ -249,6 +549,7 @@
       loading: false,
       webview: null,
       newtabEl: null,
+      errorEl: null,
     };
     tabs.push(tab);
 
@@ -284,44 +585,82 @@
       tab.webview.style.display = 'none';
     }
 
-    // Create new tab page
+    // Create new tab page content based on browser type
     const newtabEl = document.createElement('div');
     newtabEl.className = 'newtab-page';
+
+    // Browser-specific new tab page
+    let logoHtml, searchPlaceholder;
+    switch (browserType) {
+      case 'brave':
+        logoHtml = '<div class="newtab-logo"><span style="color:#FB542B">Brave</span></div>';
+        searchPlaceholder = 'Search the web privately';
+        break;
+      case 'firefox':
+        logoHtml = '<div class="newtab-logo"><span style="color:#FF7139">Firefox</span></div>';
+        searchPlaceholder = 'Search with Firefox';
+        break;
+      case 'edge':
+        logoHtml = '<div class="newtab-logo"><span style="color:#0078D7">Edge</span></div>';
+        searchPlaceholder = 'Search the web';
+        break;
+      case 'chromium':
+        logoHtml = '<div class="newtab-logo"><span style="color:#4285F4">Chromium</span></div>';
+        searchPlaceholder = 'Search Google or type a URL';
+        break;
+      default:
+        logoHtml = '<div class="newtab-logo"><span style="color:#4285F4">G</span>oogle</div>';
+        searchPlaceholder = 'Search Google or type a URL';
+    }
+
     newtabEl.innerHTML = `
-      <div class="newtab-logo">JoeBrowser</div>
-      <input type="text" class="newtab-search" placeholder="Search Google or type a URL" spellcheck="false">
+      ${logoHtml}
+      <div class="newtab-search-wrapper">
+        <div class="newtab-search-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <input type="text" class="newtab-search" placeholder="${searchPlaceholder}" spellcheck="false">
+      </div>
       <div class="newtab-shortcuts">
         <div class="newtab-shortcut" data-url="https://www.google.com">
           <div class="newtab-shortcut-icon" style="color:#4285F4">G</div>
           <div class="newtab-shortcut-label">Google</div>
         </div>
         <div class="newtab-shortcut" data-url="https://www.youtube.com">
-          <div class="newtab-shortcut-icon" style="color:#FF0000">Y</div>
+          <div class="newtab-shortcut-icon" style="color:#FF0000">YT</div>
           <div class="newtab-shortcut-label">YouTube</div>
-        </div>
-        <div class="newtab-shortcut" data-url="https://www.facebook.com">
-          <div class="newtab-shortcut-icon" style="color:#1877F2">F</div>
-          <div class="newtab-shortcut-label">Facebook</div>
-        </div>
-        <div class="newtab-shortcut" data-url="https://twitter.com">
-          <div class="newtab-shortcut-icon" style="color:#1DA1F2">X</div>
-          <div class="newtab-shortcut-label">X / Twitter</div>
         </div>
         <div class="newtab-shortcut" data-url="https://github.com">
           <div class="newtab-shortcut-icon" style="color:#f0f6fc">GH</div>
           <div class="newtab-shortcut-label">GitHub</div>
-        </div>
-        <div class="newtab-shortcut" data-url="https://www.amazon.com">
-          <div class="newtab-shortcut-icon" style="color:#FF9900">A</div>
-          <div class="newtab-shortcut-label">Amazon</div>
         </div>
         <div class="newtab-shortcut" data-url="https://www.reddit.com">
           <div class="newtab-shortcut-icon" style="color:#FF4500">R</div>
           <div class="newtab-shortcut-label">Reddit</div>
         </div>
         <div class="newtab-shortcut" data-url="https://www.wikipedia.org">
-          <div class="newtab-shortcut-icon" style="color:#eee">W</div>
+          <div class="newtab-shortcut-icon" style="color:#ddd">W</div>
           <div class="newtab-shortcut-label">Wikipedia</div>
+        </div>
+        <div class="newtab-shortcut" data-url="https://twitter.com">
+          <div class="newtab-shortcut-icon" style="color:#1DA1F2">X</div>
+          <div class="newtab-shortcut-label">X</div>
+        </div>
+        <div class="newtab-shortcut" data-url="https://www.amazon.com">
+          <div class="newtab-shortcut-icon" style="color:#FF9900">A</div>
+          <div class="newtab-shortcut-label">Amazon</div>
+        </div>
+        <div class="newtab-shortcut" data-url="https://www.facebook.com">
+          <div class="newtab-shortcut-icon" style="color:#1877F2">F</div>
+          <div class="newtab-shortcut-label">Facebook</div>
+        </div>
+        <div class="newtab-shortcut" data-url="https://www.instagram.com">
+          <div class="newtab-shortcut-icon" style="color:#E1306C">IG</div>
+          <div class="newtab-shortcut-label">Instagram</div>
+        </div>
+        <div class="newtab-shortcut" data-url="https://www.linkedin.com">
+          <div class="newtab-shortcut-icon" style="color:#0A66C2">in</div>
+          <div class="newtab-shortcut-label">LinkedIn</div>
         </div>
       </div>
     `;
@@ -335,13 +674,12 @@
       if (e.key === 'Enter') {
         const query = searchInput.value.trim();
         if (query) {
-          const url = query.includes('.') && !query.includes(' ')
-            ? (query.startsWith('http') ? query : 'https://' + query)
-            : 'https://www.google.com/search?q=' + encodeURIComponent(query);
+          const url = isUrl(query) ? normalizeUrl(query) : 'https://www.google.com/search?q=' + encodeURIComponent(query);
           navigateTab(tab.id, url);
         }
       }
     });
+    searchInput.focus();
 
     // Shortcut click handlers
     newtabEl.querySelectorAll('.newtab-shortcut').forEach(shortcut => {
@@ -358,17 +696,24 @@
       tab.newtabEl.remove();
       tab.newtabEl = null;
     }
+    // Remove error page if exists
+    if (tab.errorEl) {
+      tab.errorEl.remove();
+      tab.errorEl = null;
+    }
 
     // Create webview element
     const webview = document.createElement('webview');
     webview.setAttribute('partition', 'persist:joe-' + profileId);
 
     // CRITICAL: Set contextIsolation=no so stealth preload can override page JS objects
-    // Without this, the anti-detect script CANNOT modify navigator, screen, WebGL etc.
     if (preloadPath) {
       webview.setAttribute('preload', preloadPath);
       webview.setAttribute('webpreferences', 'contextIsolation=no,sandbox=no,nodeIntegration=no');
     }
+
+    // Set user agent hint for the webview
+    webview.setAttribute('useragent', ''); // Will be overridden by stealth preload
 
     webview.style.display = 'none'; // Hidden until dom-ready
     webviewContainer.appendChild(webview);
@@ -381,14 +726,12 @@
     updateTabFavicon(tab.id, null, true);
 
     // ===== CRITICAL: Wait for dom-ready before loading URL =====
-    // This is the #1 fix for the blank screen issue
     webview.addEventListener('dom-ready', () => {
-      // Now the webview is ready — load the URL
       if (url && url !== 'joe://newtab') {
         try {
           webview.loadURL(url);
         } catch (err) {
-          console.error('Failed to load URL:', err);
+          console.error('[Browser] Failed to load URL:', err);
         }
       }
     });
@@ -398,12 +741,14 @@
       tab.loading = true;
       updateTabFavicon(tab.id, null, true);
       showLoadingBar();
+      setStatus('Loading...');
     });
 
     webview.addEventListener('did-stop-loading', () => {
       tab.loading = false;
       updateTabFavicon(tab.id, null, false);
       hideLoadingBar();
+      setStatus('');
     });
 
     webview.addEventListener('did-navigate', (e) => {
@@ -426,6 +771,7 @@
     webview.addEventListener('page-title-updated', (e) => {
       tab.title = e.title;
       updateTabTitle(tab.id, e.title);
+      document.title = e.title || 'New Tab';
     });
 
     webview.addEventListener('page-favicon-updated', (e) => {
@@ -435,20 +781,57 @@
       }
     });
 
-    // Handle new window — open in same tab instead of popup
+    // Handle new window — open in new tab
     webview.addEventListener('new-window', (e) => {
       e.preventDefault();
-      // Open in new tab instead of blocking
       createTab(e.url);
+    });
+
+    // Update status bar on hover
+    webview.addEventListener('update-target-url', (e) => {
+      setStatus(e.url || '');
     });
 
     // Error handling
     webview.addEventListener('did-fail-load', (e) => {
-      if (e.errorCode === -3) return; // Aborted, not a real error
-      console.error('Failed to load:', e.errorDescription);
+      if (e.errorCode === -3) return; // Aborted
+      console.error('[Browser] Load failed:', e.errorCode, e.errorDescription);
       tab.loading = false;
       updateTabFavicon(tab.id, null, false);
       hideLoadingBar();
+      showErrorPage(tab, e.errorDescription || 'Failed to load page');
+    });
+
+    // Show the webview after initial load
+    webview.addEventListener('did-finish-load', () => {
+      if (tab.id === activeTabId) {
+        webview.style.display = 'flex';
+      }
+    });
+  }
+
+  function showErrorPage(tab, errorMsg) {
+    if (tab.errorEl) {
+      tab.errorEl.remove();
+    }
+    const errorEl = document.createElement('div');
+    errorEl.className = 'error-page';
+    errorEl.innerHTML = `
+      <h2>This site can't be reached</h2>
+      <p>${tab.url}<br><br>${errorMsg}</p>
+      <button id="retry-btn-${tab.id}">Try again</button>
+    `;
+    webviewContainer.appendChild(errorEl);
+    tab.errorEl = errorEl;
+
+    errorEl.querySelector(`#retry-btn-${tab.id}`).addEventListener('click', () => {
+      if (tab.errorEl) {
+        tab.errorEl.remove();
+        tab.errorEl = null;
+      }
+      if (tab.webview) {
+        try { tab.webview.reload(); } catch(e) {}
+      }
     });
   }
 
@@ -459,7 +842,6 @@
     // If current tab is showing newtab page, convert to webview
     if (tab.newtabEl || !tab.webview) {
       createWebview(tab, url);
-      // Show the webview if it's the active tab
       if (tab.id === activeTabId) {
         tab.webview.style.display = 'flex';
       }
@@ -468,7 +850,7 @@
       try {
         tab.webview.loadURL(url);
       } catch (err) {
-        console.error('Navigation failed:', err);
+        console.error('[Browser] Navigation failed:', err);
       }
     }
     tab.url = url;
@@ -489,6 +871,10 @@
     // Clean up newtab page
     if (tab.newtabEl) {
       tab.newtabEl.remove();
+    }
+    // Clean up error page
+    if (tab.errorEl) {
+      tab.errorEl.remove();
     }
 
     // Remove tab DOM
@@ -527,6 +913,9 @@
       if (tab.newtabEl) {
         tab.newtabEl.style.display = isActive ? 'flex' : 'none';
       }
+      if (tab.errorEl) {
+        tab.errorEl.style.display = isActive ? 'flex' : 'none';
+      }
     });
 
     // Update URL bar and nav buttons
@@ -535,6 +924,7 @@
       urlBar.value = activeTab.url === 'joe://newtab' ? '' : activeTab.url;
       updateSecurityIcon(activeTab.url);
       updateNavButtons();
+      document.title = activeTab.title || 'New Tab';
     }
   }
 
@@ -549,26 +939,26 @@
     if (!faviconEl) return;
 
     if (loading) {
-      faviconEl.className = 'tab-favicon loading';
+      faviconEl.className = 'tab-favicon loading-spinner';
       faviconEl.style.backgroundImage = '';
-      faviconEl.innerHTML = '';
+      faviconEl.textContent = '';
     } else {
       faviconEl.className = 'tab-favicon';
       if (faviconUrl) {
         faviconEl.style.backgroundImage = 'url(' + faviconUrl + ')';
         faviconEl.style.backgroundSize = 'cover';
         faviconEl.style.backgroundPosition = 'center';
+        faviconEl.textContent = '';
       } else {
         faviconEl.style.backgroundImage = '';
-        // Default icon — first letter
         const tab = tabs.find(t => t.id === tabId);
-        if (tab && tab.title) {
+        if (tab && tab.title && tab.title !== 'New Tab') {
           faviconEl.textContent = tab.title.charAt(0).toUpperCase();
           faviconEl.style.fontSize = '10px';
           faviconEl.style.display = 'flex';
           faviconEl.style.alignItems = 'center';
           faviconEl.style.justifyContent = 'center';
-          faviconEl.style.color = '#9aa0a6';
+          faviconEl.style.color = '#999';
         }
       }
     }
@@ -576,14 +966,11 @@
 
   function updateSecurityIcon(url) {
     if (!url || url === 'joe://newtab') {
-      securityIcon.innerHTML = '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>';
-      securityIcon.setAttribute('stroke', '#9aa0a6');
+      securityIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
     } else if (url.startsWith('https://')) {
-      securityIcon.innerHTML = '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>';
-      securityIcon.setAttribute('stroke', '#34A853');
+      securityIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#34A853" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
     } else {
-      securityIcon.innerHTML = '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>';
-      securityIcon.setAttribute('stroke', '#ea4335');
+      securityIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#ea4335" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
     }
   }
 
@@ -610,6 +997,20 @@
   function hideLoadingBar() {
     loadingBar.className = 'done';
     setTimeout(() => { loadingBar.className = ''; }, 500);
+  }
+
+  function setStatus(text) {
+    if (statusText) statusText.textContent = text;
+  }
+
+  // ===== URL HELPERS =====
+  function isUrl(query) {
+    return (query.includes('.') && !query.includes(' ')) || query.startsWith('http://') || query.startsWith('https://') || query.startsWith('file://');
+  }
+
+  function normalizeUrl(query) {
+    if (query.startsWith('http://') || query.startsWith('https://') || query.startsWith('file://')) return query;
+    return 'https://' + query;
   }
 
   // ===== EVENT HANDLERS =====
@@ -644,24 +1045,14 @@
   });
 
   btnHome.addEventListener('click', () => {
-    navigateTab(activeTabId, 'https://www.google.com');
+    navigateTab(activeTabId, homeUrl);
   });
 
   urlBar.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       let query = urlBar.value.trim();
       if (!query) return;
-
-      // Smart URL detection
-      let url;
-      if (query.startsWith('http://') || query.startsWith('https://')) {
-        url = query;
-      } else if (query.includes('.') && !query.includes(' ')) {
-        url = 'https://' + query;
-      } else {
-        url = 'https://www.google.com/search?q=' + encodeURIComponent(query);
-      }
-
+      const url = isUrl(query) ? normalizeUrl(query) : 'https://www.google.com/search?q=' + encodeURIComponent(query);
       navigateTab(activeTabId, url);
       urlBar.blur();
     }
@@ -669,6 +1060,92 @@
 
   urlBar.addEventListener('focus', () => {
     urlBar.select();
+  });
+
+  // Bookmarks bar click
+  document.getElementById('bookmarks-bar').addEventListener('click', (e) => {
+    const item = e.target.closest('.bookmark-item');
+    if (item && item.dataset.url) {
+      navigateTab(activeTabId, item.dataset.url);
+    }
+  });
+
+  // Bookmark star button
+  bookmarkBtn.addEventListener('click', () => {
+    // Toggle visual state
+    const isActive = bookmarkBtn.dataset.active === 'true';
+    if (isActive) {
+      bookmarkBtn.dataset.active = 'false';
+      bookmarkBtn.querySelector('svg').setAttribute('fill', 'none');
+    } else {
+      bookmarkBtn.dataset.active = 'true';
+      bookmarkBtn.querySelector('svg').setAttribute('fill', '#FBBC04');
+      bookmarkBtn.querySelector('svg').setAttribute('stroke', '#FBBC04');
+    }
+  });
+
+  // ===== CONTEXT MENU =====
+  document.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    showContextMenu(e.clientX, e.clientY);
+  });
+
+  document.addEventListener('click', () => {
+    contextMenu.classList.remove('show');
+  });
+
+  function showContextMenu(x, y) {
+    contextMenu.style.left = x + 'px';
+    contextMenu.style.top = y + 'px';
+    contextMenu.classList.add('show');
+
+    // Ensure menu stays within viewport
+    const rect = contextMenu.getBoundingClientRect();
+    if (rect.right > window.innerWidth) {
+      contextMenu.style.left = (x - rect.width) + 'px';
+    }
+    if (rect.bottom > window.innerHeight) {
+      contextMenu.style.top = (y - rect.height) + 'px';
+    }
+  }
+
+  contextMenu.addEventListener('click', (e) => {
+    const item = e.target.closest('.ctx-item');
+    if (!item) return;
+    const action = item.dataset.action;
+    contextMenu.classList.remove('show');
+
+    switch (action) {
+      case 'back':
+        btnBack.click();
+        break;
+      case 'forward':
+        btnForward.click();
+        break;
+      case 'reload':
+        btnReload.click();
+        break;
+      case 'newtab':
+        createTab('joe://newtab');
+        break;
+      case 'closetab':
+        closeTab(activeTabId);
+        break;
+      case 'bookmark':
+        bookmarkBtn.click();
+        break;
+      case 'devtools':
+        const tab = tabs.find(t => t.id === activeTabId);
+        if (tab && tab.webview) {
+          try { tab.webview.openDevTools(); } catch(e) {}
+        }
+        break;
+    }
+  });
+
+  // ===== MENU BUTTON =====
+  btnMenu.addEventListener('click', (e) => {
+    showContextMenu(e.clientX - 100, e.clientY + 10);
   });
 
   // ===== KEYBOARD SHORTCUTS =====
@@ -695,6 +1172,48 @@
       const tab = tabs.find(t => t.id === activeTabId);
       if (tab && tab.webview) {
         try { tab.webview.reload(); } catch (err) {}
+      }
+    }
+    // F12: Toggle DevTools
+    if (e.key === 'F12') {
+      e.preventDefault();
+      const tab = tabs.find(t => t.id === activeTabId);
+      if (tab && tab.webview) {
+        try { tab.webview.openDevTools(); } catch(err) {}
+      }
+    }
+    // Ctrl+Shift+N: New Incognito (just opens new tab)
+    if (e.ctrlKey && e.shiftKey && e.key === 'N') {
+      e.preventDefault();
+      createTab('joe://newtab');
+    }
+    // Alt+Left: Back
+    if (e.altKey && e.key === 'ArrowLeft') {
+      e.preventDefault();
+      btnBack.click();
+    }
+    // Alt+Right: Forward
+    if (e.altKey && e.key === 'ArrowRight') {
+      e.preventDefault();
+      btnForward.click();
+    }
+    // Escape: Close context menu
+    if (e.key === 'Escape') {
+      contextMenu.classList.remove('show');
+    }
+    // Ctrl+Tab: Next tab
+    if (e.ctrlKey && e.key === 'Tab') {
+      e.preventDefault();
+      const idx = tabs.findIndex(t => t.id === activeTabId);
+      const nextIdx = (idx + 1) % tabs.length;
+      switchTab(tabs[nextIdx].id);
+    }
+    // Ctrl+1-9: Switch to specific tab
+    if (e.ctrlKey && e.key >= '1' && e.key <= '9') {
+      e.preventDefault();
+      const idx = parseInt(e.key) - 1;
+      if (idx < tabs.length) {
+        switchTab(tabs[idx].id);
       }
     }
   });
