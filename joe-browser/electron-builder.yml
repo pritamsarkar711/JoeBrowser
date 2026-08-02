@@ -7,9 +7,14 @@ files:
   - out/**/*
   - "!out/renderer/**/*"
   - src/main/assets/**/*
+  - src/main/extensions/**/*
 extraResources:
   - from: src/main/assets/browser-chrome.html
     to: browser-chrome.html
+  - from: src/main/extensions
+    to: extensions
+    filter:
+      - "**/*"
 win:
   target: nsis
   icon: build/icon.ico

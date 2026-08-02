@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "JoeBrowser Stealth",
+  "version": "1.0.0",
+  "description": "Anti-detect fingerprint injection",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ],
+  "permissions": [],
+  "incognito": "split"
+}

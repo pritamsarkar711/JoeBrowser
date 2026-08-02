@@ -1,0 +1,15 @@
+{
+  "manifest_version": 2,
+  "name": "JoeBrowser Stealth",
+  "version": "1.0.0",
+  "description": "Anti-detect fingerprint injection for Firefox",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": ["inject.js"],
+  "incognito": "spanning"
+}

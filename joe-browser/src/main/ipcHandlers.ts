@@ -1,14 +1,14 @@
 // ============================================================
 // Joe Browser - IPC Handlers
-// All channels with proper error handling and try/catch
+// Uses REAL browser launcher (Chrome/Brave/Edge/Firefox/Chromium)
 // ============================================================
 
-import { ipcMain, app, BrowserWindow } from 'electron';
+import { ipcMain, app } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { IPC_CHANNELS, NewProfileInput, ProfileData } from '../shared/types';
 import { DatabaseService } from './services/database';
-import { launchProfile, isProfileRunning, closeProfileBrowser, getRunningProfileIds } from './services/embeddedBrowserLauncher';
+import { launchProfile, isProfileRunning, closeProfileBrowser, getRunningProfileIds } from './services/realBrowserLauncher';
 import { generateFingerprint } from './services/fingerprintGenerator';
 
 let db: DatabaseService | null = null;
@@ -42,10 +42,8 @@ export function registerIpcHandlers(): void {
       const deviceType = input.deviceType || 'desktop';
       const os = input.os || (deviceType === 'mobile' ? 'android' : 'windows');
 
-      // Generate fingerprint
       const fingerprint = generateFingerprint(input.browserType, deviceType, os);
 
-      // Generate profile name if not provided
       const name = input.name || `${input.browserType.charAt(0).toUpperCase() + input.browserType.slice(1)} Profile`;
 
       const profile: ProfileData = {
@@ -75,16 +73,11 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.PROFILES_UPDATE, async (_event, id: string, updates: Partial<ProfileData>) => {
     try {
-      if (!id) {
-        return { success: false, error: 'Profile ID is required' };
-      }
+      if (!id) return { success: false, error: 'Profile ID is required' };
 
-      // If browser type or OS changed, regenerate fingerprint
       if (updates.browserType || updates.os || updates.deviceType) {
         const existing = db!.getProfile(id);
-        if (!existing) {
-          return { success: false, error: 'Profile not found' };
-        }
+        if (!existing) return { success: false, error: 'Profile not found' };
 
         const browserType = updates.browserType || existing.browserType;
         const deviceType = updates.deviceType || existing.deviceType;
@@ -106,11 +99,8 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.PROFILES_DELETE, async (_event, id: string) => {
     try {
-      if (!id) {
-        return { success: false, error: 'Profile ID is required' };
-      }
+      if (!id) return { success: false, error: 'Profile ID is required' };
 
-      // Close browser if running
       if (isProfileRunning(id)) {
         closeProfileBrowser(id);
       }
@@ -125,16 +115,11 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.PROFILES_LAUNCH, async (_event, id: string) => {
     try {
-      if (!id) {
-        return { success: false, error: 'Profile ID is required' };
-      }
+      if (!id) return { success: false, error: 'Profile ID is required' };
 
       const profile = db!.getProfile(id);
-      if (!profile) {
-        return { success: false, error: 'Profile not found' };
-      }
+      if (!profile) return { success: false, error: 'Profile not found' };
 
-      // Update last used time
       db!.updateProfile(id, { lastUsed: Date.now() });
 
       const result = await launchProfile(profile);
@@ -147,16 +132,11 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.PROFILES_EXPORT, async (_event, id: string) => {
     try {
-      if (!id) {
-        return { success: false, error: 'Profile ID is required' };
-      }
+      if (!id) return { success: false, error: 'Profile ID is required' };
 
       const profile = db!.getProfile(id);
-      if (!profile) {
-        return { success: false, error: 'Profile not found' };
-      }
+      if (!profile) return { success: false, error: 'Profile not found' };
 
-      // Export to JSON file
       const exportPath = path.join(app.getPath('downloads'), `joe-profile-${id}.json`);
       fs.writeFileSync(exportPath, JSON.stringify(profile, null, 2), 'utf8');
       return { success: true };
@@ -167,28 +147,16 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.PROFILES_IMPORT, async () => {
-    try {
-      // In a real app, this would open a file dialog
-      // For now, return not implemented
-      return { success: false, error: 'Import not yet implemented' };
-    } catch (err: any) {
-      console.error('[IPC] profiles:import error:', err);
-      return { success: false, error: err.message || 'Failed to import profile' };
-    }
+    return { success: false, error: 'Import not yet implemented' };
   });
 
   ipcMain.handle(IPC_CHANNELS.PROFILES_DUPLICATE, async (_event, id: string) => {
     try {
-      if (!id) {
-        return { success: false, error: 'Profile ID is required' };
-      }
+      if (!id) return { success: false, error: 'Profile ID is required' };
 
       const original = db!.getProfile(id);
-      if (!original) {
-        return { success: false, error: 'Profile not found' };
-      }
+      if (!original) return { success: false, error: 'Profile not found' };
 
-      // Generate new fingerprint for the duplicate
       const fingerprint = generateFingerprint(original.browserType, original.deviceType, original.os);
 
       const duplicate: ProfileData = {
@@ -213,9 +181,7 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.BROWSER_CLOSE, async (_event, profileId: string) => {
     try {
-      if (!profileId) {
-        return { success: false, error: 'Profile ID is required' };
-      }
+      if (!profileId) return { success: false, error: 'Profile ID is required' };
       closeProfileBrowser(profileId);
       return { success: true };
     } catch (err: any) {
@@ -238,26 +204,19 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_GET, async (_event, key: string) => {
     try {
-      if (!key) {
-        return { success: false, error: 'Key is required' };
-      }
+      if (!key) return { success: false, error: 'Key is required' };
       const settingsPath = path.join(app.getPath('userData'), 'settings.json');
-      if (!fs.existsSync(settingsPath)) {
-        return { success: true, data: null };
-      }
+      if (!fs.existsSync(settingsPath)) return { success: true, data: null };
       const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
       return { success: true, data: settings[key] || null };
     } catch (err: any) {
-      console.error('[IPC] settings:get error:', err);
       return { success: false, error: err.message || 'Failed to get setting' };
     }
   });
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SET, async (_event, key: string, value: string) => {
     try {
-      if (!key) {
-        return { success: false, error: 'Key is required' };
-      }
+      if (!key) return { success: false, error: 'Key is required' };
       const settingsPath = path.join(app.getPath('userData'), 'settings.json');
       let settings: Record<string, any> = {};
       if (fs.existsSync(settingsPath)) {
@@ -267,7 +226,6 @@ export function registerIpcHandlers(): void {
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
       return { success: true };
     } catch (err: any) {
-      console.error('[IPC] settings:set error:', err);
       return { success: false, error: err.message || 'Failed to set setting' };
     }
   });
@@ -277,13 +235,10 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.MASTER_PASSWORD_INIT, async () => {
     try {
       const settingsPath = path.join(app.getPath('userData'), 'settings.json');
-      if (!fs.existsSync(settingsPath)) {
-        return { success: true, data: { initialized: false } };
-      }
+      if (!fs.existsSync(settingsPath)) return { success: true, data: { initialized: false } };
       const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
       return { success: true, data: { initialized: !!settings.masterPasswordHash } };
     } catch (err: any) {
-      console.error('[IPC] master-password:init error:', err);
       return { success: false, error: err.message || 'Failed to check master password' };
     }
   });
@@ -291,14 +246,11 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.MASTER_PASSWORD_VERIFY, async (_event, password: string) => {
     try {
       const settingsPath = path.join(app.getPath('userData'), 'settings.json');
-      if (!fs.existsSync(settingsPath)) {
-        return { success: false, error: 'No master password set' };
-      }
+      if (!fs.existsSync(settingsPath)) return { success: false, error: 'No master password set' };
       const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
       const hash = simpleHash(password);
       return { success: hash === settings.masterPasswordHash };
     } catch (err: any) {
-      console.error('[IPC] master-password:verify error:', err);
       return { success: false, error: err.message || 'Failed to verify password' };
     }
   });
@@ -314,7 +266,6 @@ export function registerIpcHandlers(): void {
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
       return { success: true };
     } catch (err: any) {
-      console.error('[IPC] master-password:change error:', err);
       return { success: false, error: err.message || 'Failed to change password' };
     }
   });
@@ -337,26 +288,19 @@ export function registerIpcHandlers(): void {
     }
   });
 
-  console.log('[IPC] All handlers registered successfully');
+  console.log('[IPC] All handlers registered (using REAL browser launcher)');
 }
 
-/**
- * Simple hash function for master password
- * In production, use bcrypt or argon2
- */
 function simpleHash(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
+    hash = hash & hash;
   }
   return hash.toString(36);
 }
 
-/**
- * Generate a unique ID
- */
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
 }

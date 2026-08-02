@@ -2,6 +2,8 @@
 const electron = require("electron");
 const path = require("path");
 const fs = require("fs");
+const child_process = require("child_process");
+const http = require("http");
 function _interopNamespaceDefault(e) {
   const n = Object.create(null, { [Symbol.toStringTag]: { value: "Module" } });
   if (e) {
@@ -20,6 +22,7 @@ function _interopNamespaceDefault(e) {
 }
 const path__namespace = /* @__PURE__ */ _interopNamespaceDefault(path);
 const fs__namespace = /* @__PURE__ */ _interopNamespaceDefault(fs);
+const http__namespace = /* @__PURE__ */ _interopNamespaceDefault(http);
 const IPC_CHANNELS = {
   // Profiles
   PROFILES_LIST: "profiles:list",
@@ -43,13 +46,6 @@ const IPC_CHANNELS = {
   // App
   APP_VERSION: "app:version",
   APP_QUIT: "app:quit"
-};
-const BROWSER_THEMES = {
-  chrome: { primary: "#4285F4", accent: "#34A853", name: "Chrome" },
-  brave: { primary: "#FB542B", accent: "#FF6B3D", name: "Brave" },
-  firefox: { primary: "#FF7139", accent: "#FF9500", name: "Firefox" },
-  edge: { primary: "#0078D7", accent: "#00A4EF", name: "Edge" },
-  chromium: { primary: "#4285F4", accent: "#34A853", name: "Chromium" }
 };
 let Database;
 try {
@@ -254,438 +250,600 @@ class DatabaseService {
     }
   }
 }
-const runningWindows = /* @__PURE__ */ new Map();
+const runningProcesses = /* @__PURE__ */ new Map();
 function isProfileRunning(profileId) {
-  return runningWindows.has(profileId);
+  return runningProcesses.has(profileId);
 }
 function getRunningProfileIds() {
-  return Array.from(runningWindows.keys());
+  return Array.from(runningProcesses.keys());
 }
 function closeProfileBrowser(profileId) {
-  const win = runningWindows.get(profileId);
-  if (win && !win.isDestroyed()) {
-    win.close();
+  const proc = runningProcesses.get(profileId);
+  if (proc && !proc.killed) {
+    proc.kill();
+    runningProcesses.delete(profileId);
     return true;
   }
-  runningWindows.delete(profileId);
+  runningProcesses.delete(profileId);
   return false;
 }
 async function launchProfile(profile) {
   try {
-    if (runningWindows.has(profile.id)) {
-      const existingWin = runningWindows.get(profile.id);
-      if (existingWin && !existingWin.isDestroyed()) {
-        existingWin.focus();
-        return { success: true, windowId: existingWin.id };
-      }
-      runningWindows.delete(profile.id);
+    if (runningProcesses.has(profile.id)) {
+      return { success: true };
     }
     if (!profile.id || !profile.fingerprint) {
-      return { success: false, error: "Invalid profile data: missing id or fingerprint" };
+      return { success: false, error: "Invalid profile data" };
     }
-    const chromeHtmlPath = getBrowserChromePath();
-    if (!chromeHtmlPath) {
-      return { success: false, error: "Browser chrome HTML not found" };
-    }
-    const preloadPath = buildAndWriteStealthPreload(profile);
-    if (!preloadPath) {
-      return { success: false, error: "Failed to create stealth preload script" };
-    }
-    const themeInfo = BROWSER_THEMES[profile.browserType] || BROWSER_THEMES.chrome;
-    const themeColor = themeInfo.primary;
-    const windowSize = getWindowSize(profile);
-    const targetUrl = profile.launchUrl || "https://www.google.com";
-    const chromeUrl = buildChromeUrl(chromeHtmlPath, {
-      targetUrl,
-      profileId: profile.id,
-      browserType: profile.browserType,
-      preloadPath,
-      themeColor
-    });
     if (profile.proxy) {
-      await configureProxy(profile.id, profile.proxy);
+      await autoDetectTimezoneFromProxy(profile);
     }
-    const browserWindow = new electron.BrowserWindow({
-      width: windowSize.width,
-      height: windowSize.height,
-      minWidth: 800,
-      minHeight: 600,
-      title: `${themeInfo.name} - ${profile.name}`,
-      backgroundColor: "#202124",
-      autoHideMenuBar: true,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-        webviewTag: true,
-        sandbox: false
-        // Do NOT set partition here — the BrowserWindow uses default session
-        // The webview inside uses its own partition for profile isolation
-      }
+    const profileDir = createProfileDirectory(profile);
+    if (!profileDir) {
+      return { success: false, error: "Failed to create profile directory" };
+    }
+    const extensionDir = createStealthExtension(profile);
+    if (!extensionDir) {
+      return { success: false, error: "Failed to create stealth extension" };
+    }
+    const browserPath = findBrowserExecutable(profile.browserType);
+    if (!browserPath) {
+      return { success: false, error: `${getBrowserName(profile.browserType)} not found. Please install it first.` };
+    }
+    const args = buildLaunchArguments(profile, profileDir, extensionDir);
+    const proc = child_process.spawn(browserPath, args, {
+      detached: false,
+      stdio: "ignore"
     });
-    await browserWindow.loadURL(chromeUrl);
-    runningWindows.set(profile.id, browserWindow);
-    browserWindow.on("closed", () => {
-      runningWindows.delete(profile.id);
-      try {
-        if (fs__namespace.existsSync(preloadPath)) {
-          fs__namespace.unlinkSync(preloadPath);
-        }
-      } catch (e) {
-      }
+    if (!proc.pid) {
+      return { success: false, error: "Failed to start browser process" };
+    }
+    runningProcesses.set(profile.id, proc);
+    proc.on("exit", () => {
+      runningProcesses.delete(profile.id);
     });
-    return { success: true, windowId: browserWindow.id };
+    proc.on("error", (err) => {
+      console.error(`[RealBrowserLauncher] Process error for ${profile.id}:`, err);
+      runningProcesses.delete(profile.id);
+    });
+    return { success: true };
   } catch (err) {
-    console.error("[EmbeddedBrowserLauncher] Failed to launch profile:", err);
+    console.error("[RealBrowserLauncher] Failed to launch profile:", err);
     return { success: false, error: err.message || "Unknown error launching profile" };
   }
 }
-function getBrowserChromePath() {
-  const devPath1 = path__namespace.join(__dirname, "..", "..", "src", "main", "assets", "browser-chrome.html");
-  if (fs__namespace.existsSync(devPath1)) {
-    return devPath1;
-  }
-  const prodPath = path__namespace.join(process.resourcesPath, "browser-chrome.html");
-  if (fs__namespace.existsSync(prodPath)) {
-    return prodPath;
-  }
-  try {
-    const appPath = electron.app.getAppPath();
-    const appPathResolve = path__namespace.join(appPath, "src", "main", "assets", "browser-chrome.html");
-    if (fs__namespace.existsSync(appPathResolve)) {
-      return appPathResolve;
+function findBrowserExecutable(browserType) {
+  const platform = process.platform;
+  const paths = {
+    win32: {
+      chrome: [
+        "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+        "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+        path__namespace.join(process.env.LOCALAPPDATA || "", "Google\\Chrome\\Application\\chrome.exe")
+      ],
+      brave: [
+        "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
+        "C:\\Program Files (x86)\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
+        path__namespace.join(process.env.LOCALAPPDATA || "", "BraveSoftware\\Brave-Browser\\Application\\brave.exe")
+      ],
+      edge: [
+        "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+        "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+      ],
+      firefox: [
+        "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+        "C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe"
+      ],
+      chromium: [
+        "C:\\Program Files\\Chromium\\Application\\chrome.exe",
+        "C:\\Program Files (x86)\\Chromium\\Application\\chrome.exe",
+        path__namespace.join(process.env.LOCALAPPDATA || "", "Chromium\\Application\\chrome.exe")
+      ]
+    },
+    darwin: {
+      chrome: ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"],
+      brave: ["/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"],
+      edge: ["/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"],
+      firefox: ["/Applications/Firefox.app/Contents/MacOS/firefox"],
+      chromium: ["/Applications/Chromium.app/Contents/MacOS/Chromium"]
+    },
+    linux: {
+      chrome: ["/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chrome"],
+      brave: ["/usr/bin/brave-browser", "/usr/bin/brave-browser-stable", "/usr/bin/brave"],
+      edge: ["/usr/bin/microsoft-edge", "/usr/bin/microsoft-edge-stable", "/usr/bin/microsoft-edge-dev"],
+      firefox: ["/usr/bin/firefox", "/usr/bin/firefox-esr", "/snap/bin/firefox"],
+      chromium: ["/usr/bin/chromium-browser", "/usr/bin/chromium", "/usr/bin/chromium-dev"]
     }
-  } catch (e) {
+  };
+  const platformPaths = paths[platform];
+  if (!platformPaths) return null;
+  const browserPaths = platformPaths[browserType];
+  if (!browserPaths) return null;
+  for (const p of browserPaths) {
+    if (p && fs__namespace.existsSync(p)) {
+      return p;
+    }
   }
-  const devPath2 = path__namespace.join(__dirname, "..", "assets", "browser-chrome.html");
-  if (fs__namespace.existsSync(devPath2)) {
-    return devPath2;
-  }
-  console.error("[EmbeddedBrowserLauncher] Could not find browser-chrome.html");
-  console.error("[EmbeddedBrowserLauncher] Tried paths:");
-  console.error("  -", devPath1);
-  console.error("  -", prodPath);
-  console.error("  -", devPath2);
   return null;
 }
-function buildChromeUrl(htmlPath, params) {
-  const query = new URLSearchParams({
-    targetUrl: params.targetUrl,
-    profileId: params.profileId,
-    browserType: params.browserType,
-    preloadPath: params.preloadPath,
-    theme: params.themeColor
-  }).toString();
-  return `file://${htmlPath}?${query}`;
-}
-function getWindowSize(profile) {
-  if (profile.deviceType === "mobile") {
-    return { width: 420, height: 900 };
-  }
-  return { width: 1280, height: 800 };
-}
-async function configureProxy(profileId, proxy) {
-  if (!proxy) return;
-  const partitionName = `persist:joe-${profileId}`;
-  const ses = electron.session.fromPartition(partitionName);
-  const proxyConfig = {
-    mode: "fixed_servers",
-    proxyRules: `${proxy.type}://${proxy.host}:${proxy.port}`
+function getBrowserName(browserType) {
+  const names = {
+    chrome: "Google Chrome",
+    brave: "Brave Browser",
+    firefox: "Mozilla Firefox",
+    edge: "Microsoft Edge",
+    chromium: "Chromium"
   };
-  if (proxy.type === "socks5") {
-    proxyConfig.proxyRules = `socks5://${proxy.host}:${proxy.port}`;
-  } else if (proxy.type === "socks4") {
-    proxyConfig.proxyRules = `socks4://${proxy.host}:${proxy.port}`;
-  }
-  await ses.setProxy(proxyConfig);
+  return names[browserType] || browserType;
 }
-function buildAndWriteStealthPreload(profile) {
-  try {
-    const script = buildStealthPreloadScript(profile);
-    if (!script) {
-      console.error("[EmbeddedBrowserLauncher] Failed to build stealth preload script");
-      return null;
+function buildLaunchArguments(profile, profileDir, extensionDir) {
+  const isFirefox = profile.browserType === "firefox";
+  const args = [];
+  if (isFirefox) {
+    args.push("-profile", profileDir);
+    args.push("-no-remote");
+    args.push("-new-instance");
+    if (profile.launchUrl) {
+      args.push(profile.launchUrl);
     }
-    const preloadDir = path__namespace.join(electron.app.getPath("userData"), "stealth-preloads");
-    fs__namespace.mkdirSync(preloadDir, { recursive: true });
-    const preloadPath = path__namespace.join(preloadDir, `stealth-${profile.id}.js`);
-    fs__namespace.writeFileSync(preloadPath, script, "utf8");
-    return preloadPath;
+    if (profile.proxy) {
+      createFirefoxProxyConfig(profileDir, profile.proxy);
+    }
+  } else {
+    args.push(`--user-data-dir=${profileDir}`);
+    args.push(`--load-extension=${extensionDir}`);
+    args.push("--no-first-run");
+    args.push("--no-default-browser-check");
+    args.push("--disable-background-networking");
+    args.push("--disable-client-side-phishing-detection");
+    args.push("--disable-default-apps");
+    args.push("--disable-hang-monitor");
+    args.push("--disable-popup-blocking");
+    args.push("--disable-prompt-on-repost");
+    args.push("--disable-sync");
+    args.push("--disable-web-security");
+    args.push("--metrics-recording-only");
+    args.push("--safebrowsing-disable-auto-update");
+    if (profile.fingerprint.userAgent) {
+      args.push(`--user-agent=${profile.fingerprint.userAgent}`);
+    }
+    if (profile.deviceType === "mobile") {
+      const screenRes = profile.fingerprint.screenResolution.split("x");
+      args.push(`--window-size=${screenRes[0]},${screenRes[1]}`);
+    }
+    if (profile.proxy) {
+      const proxyUrl = `${profile.proxy.type}://${profile.proxy.host}:${profile.proxy.port}`;
+      args.push(`--proxy-server=${proxyUrl}`);
+      if (profile.proxy.username && profile.proxy.password) {
+        createProxyAuthExtension(profileDir, profile.proxy);
+      }
+    }
+    if (profile.launchUrl) {
+      args.push(profile.launchUrl);
+    }
+  }
+  return args;
+}
+function createProfileDirectory(profile) {
+  try {
+    const baseDir = path__namespace.join(electron.app.getPath("userData"), "browser-profiles", profile.id);
+    fs__namespace.mkdirSync(baseDir, { recursive: true });
+    if (profile.browserType === "firefox") {
+      createFirefoxUserPrefs(baseDir, profile);
+    }
+    return baseDir;
   } catch (err) {
-    console.error("[EmbeddedBrowserLauncher] Failed to write stealth preload:", err);
+    console.error("[RealBrowserLauncher] Failed to create profile directory:", err);
     return null;
   }
 }
-function buildStealthPreloadScript(profile) {
+function createFirefoxUserPrefs(profileDir, profile) {
   const fp = profile.fingerprint;
-  if (!fp) return null;
-  const browserType = profile.browserType;
-  const isFirefox = browserType === "firefox";
-  const isBrave = browserType === "brave";
-  const isEdge = browserType === "edge";
-  const firefoxOverrides = isFirefox ? `
-    // Firefox uses empty vendor string
-    Object.defineProperty(navigator, 'vendor', { get: () => '' });
-
-    // Firefox doesn't have chrome object
-    if (window.chrome) {
-      try { delete window.chrome; } catch(e) {}
+  const prefsPath = path__namespace.join(profileDir, "user.js");
+  let prefs = `// JoeBrowser Firefox Preferences - ${profile.name}
+`;
+  prefs += `user_pref("general.useragent.override", "${fp.userAgent}");
+`;
+  prefs += `user_pref("intl.locale.requested", "${fp.language}");
+`;
+  prefs += `user_pref("privacy.resistFingerprinting", false);
+`;
+  prefs += `user_pref("webgl.renderer-string-override", "${fp.webglRenderer}");
+`;
+  prefs += `user_pref("webgl.vendor-string-override", "${fp.webglVendor}");
+`;
+  prefs += `user_pref("device.sensors.enabled", false);
+`;
+  prefs += `user_pref("dom.webaudio.enabled", true);
+`;
+  prefs += `user_pref("media.navigator.enabled", true);
+`;
+  prefs += `user_pref("media.peerconnection.enabled", ${fp.webRtcPolicy !== "disable"});
+`;
+  prefs += `user_pref("network.cookie.cookieBehavior", 0);
+`;
+  prefs += `user_pref("privacy.donottrackheader.enabled", false);
+`;
+  prefs += `user_pref("dom.maxHardwareConcurrency", ${fp.hardwareConcurrency});
+`;
+  prefs += `user_pref("browser.startup.homepage", "${profile.launchUrl || "https://www.google.com"}");
+`;
+  prefs += `user_pref("browser.cache.disk.enable", true);
+`;
+  prefs += `user_pref("browser.cache.memory.enable", true);
+`;
+  prefs += `user_pref("browser.display.use_document_fonts", 1);
+`;
+  prefs += `user_pref("browser.shell.checkDefaultBrowser", false);
+`;
+  prefs += `user_pref("browser.startup.page", 1);
+`;
+  prefs += `user_pref("datareporting.policy.dataSubmissionEnabled", false);
+`;
+  prefs += `user_pref("toolkit.telemetry.enabled", false);
+`;
+  prefs += `user_pref("toolkit.telemetry.unified", false);
+`;
+  fs__namespace.writeFileSync(prefsPath, prefs, "utf8");
+}
+function createFirefoxProxyConfig(profileDir, proxy) {
+  if (!proxy) return;
+  const prefsPath = path__namespace.join(profileDir, "user.js");
+  const existing = fs__namespace.existsSync(prefsPath) ? fs__namespace.readFileSync(prefsPath, "utf8") : "";
+  let proxyPrefs = existing + "\n// Proxy Configuration\n";
+  switch (proxy.type) {
+    case "http":
+      proxyPrefs += `user_pref("network.proxy.type", 1);
+`;
+      proxyPrefs += `user_pref("network.proxy.http", "${proxy.host}");
+`;
+      proxyPrefs += `user_pref("network.proxy.http_port", ${proxy.port});
+`;
+      proxyPrefs += `user_pref("network.proxy.ssl", "${proxy.host}");
+`;
+      proxyPrefs += `user_pref("network.proxy.ssl_port", ${proxy.port});
+`;
+      break;
+    case "socks4":
+      proxyPrefs += `user_pref("network.proxy.type", 1);
+`;
+      proxyPrefs += `user_pref("network.proxy.socks", "${proxy.host}");
+`;
+      proxyPrefs += `user_pref("network.proxy.socks_port", ${proxy.port});
+`;
+      proxyPrefs += `user_pref("network.proxy.socks_version", 4);
+`;
+      break;
+    case "socks5":
+      proxyPrefs += `user_pref("network.proxy.type", 1);
+`;
+      proxyPrefs += `user_pref("network.proxy.socks", "${proxy.host}");
+`;
+      proxyPrefs += `user_pref("network.proxy.socks_port", ${proxy.port});
+`;
+      proxyPrefs += `user_pref("network.proxy.socks_version", 5);
+`;
+      break;
+    case "https":
+      proxyPrefs += `user_pref("network.proxy.type", 1);
+`;
+      proxyPrefs += `user_pref("network.proxy.http", "${proxy.host}");
+`;
+      proxyPrefs += `user_pref("network.proxy.http_port", ${proxy.port});
+`;
+      proxyPrefs += `user_pref("network.proxy.ssl", "${proxy.host}");
+`;
+      proxyPrefs += `user_pref("network.proxy.ssl_port", ${proxy.port});
+`;
+      break;
+  }
+  if (proxy.username) {
+    proxyPrefs += `user_pref("network.proxy.share_proxy_settings", true);
+`;
+  }
+  proxyPrefs += `user_pref("network.proxy.no_proxies_on", "localhost, 127.0.0.1");
+`;
+  fs__namespace.writeFileSync(prefsPath, proxyPrefs, "utf8");
+}
+function createStealthExtension(profile) {
+  try {
+    const isFirefox = profile.browserType === "firefox";
+    const extDir = path__namespace.join(electron.app.getPath("userData"), "browser-profiles", profile.id, "joe-stealth-extension");
+    fs__namespace.mkdirSync(extDir, { recursive: true });
+    if (isFirefox) {
+      const sourceDir = path__namespace.join(__dirname, "..", "..", "main", "extensions", "firefox");
+      if (!copyExtensionFiles(sourceDir, extDir)) {
+        createFirefoxExtensionFiles(extDir, profile);
+      }
+    } else {
+      const sourceDir = path__namespace.join(__dirname, "..", "..", "main", "extensions", "chrome");
+      if (!copyExtensionFiles(sourceDir, extDir)) {
+        createChromeExtensionFiles(extDir, profile);
+      }
     }
-
-    // Firefox has different connection properties
-    Object.defineProperty(navigator, 'connection', {
-      get: () => undefined
-    });
-
-    // Firefox doesn't have getBattery
-    if (navigator.getBattery) {
-      try { delete navigator.getBattery; } catch(e) {}
+    createFingerprintDataFile(extDir, profile);
+    return extDir;
+  } catch (err) {
+    console.error("[RealBrowserLauncher] Failed to create stealth extension:", err);
+    return null;
+  }
+}
+function copyExtensionFiles(sourceDir, targetDir) {
+  try {
+    if (!fs__namespace.existsSync(sourceDir)) return false;
+    const files = fs__namespace.readdirSync(sourceDir);
+    for (const file of files) {
+      const src = path__namespace.join(sourceDir, file);
+      const dst = path__namespace.join(targetDir, file);
+      fs__namespace.copyFileSync(src, dst);
     }
-  ` : "";
-  const braveOverrides = isBrave ? `
-    // Brave has its own chrome.brave object
-    if (window.chrome) {
-      try {
-        Object.defineProperty(window.chrome, 'brave', {
-          get: () => ({
-            isBrave: () => Promise.resolve(true),
-            getBraveCoreVersion: () => Promise.resolve('1.60.114'),
-            getPDFViewerDetails: () => Promise.resolve({ viewer: 'brave' }),
-          })
-        });
-      } catch(e) {}
-    }
-  ` : "";
-  const edgeOverrides = isEdge ? `
-    // Edge has its own chrome.edge object (in some versions)
-    // Edge UA has "Edg/" suffix
-  ` : "";
-  const webrtcPolicy = fp.webRtcPolicy === "disable" ? `
-    // Disable WebRTC entirely
-    if (window.RTCPeerConnection) {
-      try { delete window.RTCPeerConnection; } catch(e) {}
-    }
-    if (window.webkitRTCPeerConnection) {
-      try { delete window.webkitRTCPeerConnection; } catch(e) {}
-    }
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      try { delete navigator.mediaDevices.getUserMedia; } catch(e) {}
-    }
-  ` : fp.webRtcPolicy === "proxy" ? `
-    // Proxy WebRTC — use default public interface only
-    if (window.RTCPeerConnection) {
-      const OrigRTC = window.RTCPeerConnection;
-      window.RTCPeerConnection = function(...args) {
-        if (args[0]) {
-          args[0].iceTransportPolicy = 'all';
-        }
-        return new OrigRTC(...args);
-      };
-      window.RTCPeerConnection.prototype = OrigRTC.prototype;
-    }
-  ` : "";
-  const script = `
-// ============================================================
-// JoeBrowser Stealth Preload Script
-// Profile: ${profile.name} (${browserType})
-// Generated: ${(/* @__PURE__ */ new Date()).toISOString()}
-// ============================================================
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+function createChromeExtensionFiles(extDir, profile) {
+  const manifest = {
+    manifest_version: 3,
+    name: "JoeBrowser Stealth",
+    version: "1.0.0",
+    description: "Anti-detect fingerprint injection",
+    content_scripts: [{
+      matches: ["<all_urls>"],
+      js: ["fingerprint-data.js", "content.js"],
+      run_at: "document_start",
+      world: "MAIN"
+    }],
+    permissions: [],
+    incognito: "split"
+  };
+  fs__namespace.writeFileSync(path__namespace.join(extDir, "manifest.json"), JSON.stringify(manifest, null, 2), "utf8");
+  const sourceContentPath = path__namespace.join(__dirname, "..", "..", "main", "extensions", "chrome", "content.js");
+  if (fs__namespace.existsSync(sourceContentPath)) {
+    fs__namespace.copyFileSync(sourceContentPath, path__namespace.join(extDir, "content.js"));
+  } else {
+    fs__namespace.writeFileSync(path__namespace.join(extDir, "content.js"), getChromeContentScript(), "utf8");
+  }
+}
+function createFirefoxExtensionFiles(extDir, profile) {
+  const manifest = {
+    manifest_version: 2,
+    name: "JoeBrowser Stealth",
+    version: "1.0.0",
+    description: "Anti-detect fingerprint injection for Firefox",
+    content_scripts: [{
+      matches: ["<all_urls>"],
+      js: ["content.js"],
+      run_at: "document_start"
+    }],
+    web_accessible_resources: ["inject.js", "fingerprint-data.js"],
+    incognito: "spanning"
+  };
+  fs__namespace.writeFileSync(path__namespace.join(extDir, "manifest.json"), JSON.stringify(manifest, null, 2), "utf8");
+  const contentScript = `
 (function() {
   'use strict';
+  // Inject fingerprint data first
+  const fpScript = document.createElement('script');
+  fpScript.src = browser.runtime.getURL('fingerprint-data.js');
+  (document.head || document.documentElement).appendChild(fpScript);
+  fpScript.onload = () => fpScript.remove();
 
-  // Prevent re-running
-  if (window.__joeStealthApplied) return;
-  window.__joeStealthApplied = true;
-
-  // ===== NAVIGATOR OVERRIDES =====
-  try {
-    Object.defineProperty(navigator, 'userAgent', { get: () => ${JSON.stringify(fp.userAgent)} });
-    Object.defineProperty(navigator, 'platform', { get: () => ${JSON.stringify(fp.platform)} });
-    Object.defineProperty(navigator, 'vendor', { get: () => ${JSON.stringify(fp.vendor)} });
-    Object.defineProperty(navigator, 'language', { get: () => ${JSON.stringify(fp.language)} });
-    Object.defineProperty(navigator, 'languages', { get: () => ${JSON.stringify(fp.languages)} });
-    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => ${fp.hardwareConcurrency} });
-    Object.defineProperty(navigator, 'deviceMemory', { get: () => ${fp.deviceMemory} });
-    Object.defineProperty(navigator, 'maxTouchPoints', { get: () => ${fp.maxTouchPoints} });
-    Object.defineProperty(navigator, 'cookieEnabled', { get: () => true });
-    Object.defineProperty(navigator, 'doNotTrack', { get: () => null });
-    Object.defineProperty(navigator, 'webdriver', { get: () => false });
-    Object.defineProperty(navigator, 'plugins', { get: () => {
-      const arr = [];
-      arr.item = (i) => arr[i] || null;
-      arr.namedItem = (name) => arr.find(p => p.name === name) || null;
-      arr.refresh = () => {};
-      return arr;
-    }});
-    Object.defineProperty(navigator, 'mimeTypes', { get: () => {
-      const arr = [];
-      arr.item = (i) => arr[i] || null;
-      arr.namedItem = (name) => arr.find(m => m.type === name) || null;
-      return arr;
-    }});
-  } catch(e) { console.warn('Navigator override failed:', e); }
-
-  // ===== SCREEN OVERRIDES =====
-  try {
-    const screenRes = ${JSON.stringify(fp.screenResolution)}.split('x');
-    const availRes = ${JSON.stringify(fp.availableScreenResolution)}.split('x');
-    Object.defineProperty(screen, 'width', { get: () => parseInt(screenRes[0]) });
-    Object.defineProperty(screen, 'height', { get: () => parseInt(screenRes[1]) });
-    Object.defineProperty(screen, 'availWidth', { get: () => parseInt(availRes[0]) });
-    Object.defineProperty(screen, 'availHeight', { get: () => parseInt(availRes[1]) });
-    Object.defineProperty(screen, 'colorDepth', { get: () => ${fp.colorDepth} });
-    Object.defineProperty(screen, 'pixelDepth', { get: () => ${fp.colorDepth} });
-  } catch(e) { console.warn('Screen override failed:', e); }
-
-  // ===== TIMEZONE OVERRIDE =====
-  try {
-    const origDateTimeFormat = Intl.DateTimeFormat;
-    const targetTimezone = ${JSON.stringify(fp.timezone)};
-    Intl.DateTimeFormat = function(...args) {
-      if (args.length === 0 || !args[1]) {
-        args[1] = { timeZone: targetTimezone };
-      } else if (!args[1].timeZone) {
-        args[1].timeZone = targetTimezone;
-      }
-      return new origDateTimeFormat(...args);
-    };
-    Intl.DateTimeFormat.prototype = origDateTimeFormat.prototype;
-    Intl.DateTimeFormat.supportedLocalesOf = origDateTimeFormat.supportedLocalesOf;
-  } catch(e) { console.warn('Timezone override failed:', e); }
-
-  // ===== WEBGL OVERRIDES =====
-  try {
-    const origGetParam = WebGLRenderingContext.prototype.getParameter;
-    WebGLRenderingContext.prototype.getParameter = function(param) {
-      // UNMASKED_VENDOR_WEBGL = 0x9245
-      if (param === 0x9245) return ${JSON.stringify(fp.webglVendor)};
-      // UNMASKED_RENDERER_WEBGL = 0x9246
-      if (param === 0x9246) return ${JSON.stringify(fp.webglRenderer)};
-      return origGetParam.call(this, param);
-    };
-    if (typeof WebGL2RenderingContext !== 'undefined') {
-      const origGetParam2 = WebGL2RenderingContext.prototype.getParameter;
-      WebGL2RenderingContext.prototype.getParameter = function(param) {
-        if (param === 0x9245) return ${JSON.stringify(fp.webglVendor)};
-        if (param === 0x9246) return ${JSON.stringify(fp.webglRenderer)};
-        return origGetParam2.call(this, param);
-      };
-    }
-  } catch(e) { console.warn('WebGL override failed:', e); }
-
-  // ===== CANVAS NOISE =====
-  try {
-    const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
-    const origToBlob = HTMLCanvasElement.prototype.toBlob;
-    const canvasNoise = ${fp.canvasNoise};
-
-    const addNoise = (data) => {
-      // Apply subtle noise to canvas data
-      const noisy = new Uint8ClampedArray(data);
-      for (let i = 0; i < noisy.length; i += 4) {
-        noisy[i] = Math.max(0, Math.min(255, noisy[i] + (Math.random() - 0.5) * canvasNoise));
-        noisy[i+1] = Math.max(0, Math.min(255, noisy[i+1] + (Math.random() - 0.5) * canvasNoise));
-        noisy[i+2] = Math.max(0, Math.min(255, noisy[i+2] + (Math.random() - 0.5) * canvasNoise));
-      }
-      return noisy;
-    };
-
-    HTMLCanvasElement.prototype.toDataURL = function(...args) {
-      try {
-        const ctx = this.getContext('2d');
-        if (ctx && this.width > 0 && this.height > 0) {
-          const imgData = ctx.getImageData(0, 0, this.width, this.height);
-          const noisy = addNoise(imgData.data);
-          ctx.putImageData(new ImageData(noisy, this.width, this.height), 0, 0);
-        }
-      } catch(e) {}
-      return origToDataURL.apply(this, args);
-    };
-  } catch(e) { console.warn('Canvas noise failed:', e); }
-
-  // ===== AUDIO NOISE =====
-  try {
-    const audioNoise = ${fp.audioNoise};
-    if (audioNoise > 0 && typeof AudioContext !== 'undefined') {
-      const origGetChannelData = AudioBuffer.prototype.getChannelData;
-      AudioBuffer.prototype.getChannelData = function(channel) {
-        const data = origGetChannelData.call(this, channel);
-        for (let i = 0; i < data.length; i += 100) {
-          data[i] += (Math.random() - 0.5) * audioNoise * 0.0001;
-        }
-        return data;
-      };
-    }
-  } catch(e) { console.warn('Audio noise failed:', e); }
-
-  // ===== CHROME OBJECT =====
-  try {
-    if (!window.chrome) {
-      window.chrome = {};
-    }
-    if (!window.chrome.runtime) {
-      window.chrome.runtime = {
-        connect: function() {},
-        sendMessage: function() {},
-        onMessage: { addListener: function() {} },
-      };
-    }
-  } catch(e) {}
-
-  // ===== PREVENT AUTOMATION DETECTION =====
-  try {
-    // Remove CDC properties
-    delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
-    delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
-    delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
-
-    // Override document.$cdc_ variables
-    const cdcKeys = Object.keys(document).filter(k => k.startsWith('$cdc_'));
-    cdcKeys.forEach(k => { try { delete document[k]; } catch(e) {} });
-
-    // Remove webdriver flag
-    Object.defineProperty(navigator, 'webdriver', { get: () => false });
-
-    // Override permissions query
-    const origQuery = window.navigator.permissions.query;
-    window.navigator.permissions.query = function(parameters) {
-      if (parameters.name === 'notifications') {
-        return Promise.resolve({ state: Notification.permission });
-      }
-      return origQuery.call(this, parameters);
-    };
-  } catch(e) {}
-
-  // ===== BROWSER-SPECIFIC OVERRIDES =====
-  ${firefoxOverrides}
-  ${braveOverrides}
-  ${edgeOverrides}
-
-  // ===== WEBRTC POLICY =====
-  ${webrtcPolicy}
-
-  // ===== IFRAME CONTENT WINDOW OVERRIDE =====
-  try {
-    const origContentWindow = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow');
-    if (origContentWindow) {
-      Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', {
-        get: function() {
-          const win = origContentWindow.get.call(this);
-          if (win) {
-            try {
-              Object.defineProperty(win.navigator, 'userAgent', { get: () => ${JSON.stringify(fp.userAgent)} });
-            } catch(e) {}
-          }
-          return win;
-        }
-      });
-    }
-  } catch(e) {}
-
-  console.log('[JoeBrowser] Stealth fingerprint applied for profile: ${profile.name}');
-
+  // Then inject the stealth script
+  const script = document.createElement('script');
+  script.src = browser.runtime.getURL('inject.js');
+  (document.head || document.documentElement).appendChild(script);
+  script.onload = () => script.remove();
 })();
 `;
-  return script;
+  fs__namespace.writeFileSync(path__namespace.join(extDir, "content.js"), contentScript, "utf8");
+  const sourceInjectPath = path__namespace.join(__dirname, "..", "..", "main", "extensions", "firefox", "inject.js");
+  if (fs__namespace.existsSync(sourceInjectPath)) {
+    fs__namespace.copyFileSync(sourceInjectPath, path__namespace.join(extDir, "inject.js"));
+  } else {
+    fs__namespace.writeFileSync(path__namespace.join(extDir, "inject.js"), getFirefoxInjectScript(), "utf8");
+  }
+}
+function createFingerprintDataFile(extDir, profile) {
+  const fp = profile.fingerprint;
+  const data = `window.__JOE_FINGERPRINT__ = ${JSON.stringify(fp)};`;
+  fs__namespace.writeFileSync(path__namespace.join(extDir, "fingerprint-data.js"), data, "utf8");
+}
+function getChromeContentScript() {
+  return `
+(function() {
+  'use strict';
+  const fp = window.__JOE_FINGERPRINT__;
+  if (!fp) return;
+  if (window.__joeStealthApplied) return;
+  window.__joeStealthApplied = true;
+  try {
+    Object.defineProperty(navigator, 'userAgent', { get: () => fp.userAgent });
+    Object.defineProperty(navigator, 'platform', { get: () => fp.platform });
+    Object.defineProperty(navigator, 'vendor', { get: () => fp.vendor });
+    Object.defineProperty(navigator, 'languages', { get: () => fp.languages });
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => fp.hardwareConcurrency });
+    Object.defineProperty(navigator, 'deviceMemory', { get: () => fp.deviceMemory });
+    Object.defineProperty(navigator, 'maxTouchPoints', { get: () => fp.maxTouchPoints });
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+  } catch(e) {}
+  try {
+    const sr = fp.screenResolution.split('x');
+    const ar = fp.availableScreenResolution.split('x');
+    Object.defineProperty(screen, 'width', { get: () => parseInt(sr[0]) });
+    Object.defineProperty(screen, 'height', { get: () => parseInt(sr[1]) });
+    Object.defineProperty(screen, 'availWidth', { get: () => parseInt(ar[0]) });
+    Object.defineProperty(screen, 'availHeight', { get: () => parseInt(ar[1]) });
+    Object.defineProperty(screen, 'colorDepth', { get: () => fp.colorDepth });
+    Object.defineProperty(screen, 'pixelDepth', { get: () => fp.colorDepth });
+  } catch(e) {}
+  try {
+    const orig = WebGLRenderingContext.prototype.getParameter;
+    WebGLRenderingContext.prototype.getParameter = function(p) {
+      if (p === 0x9245) return fp.webglVendor;
+      if (p === 0x9246) return fp.webglRenderer;
+      return orig.call(this, p);
+    };
+  } catch(e) {}
+  try {
+    const origDTF = Intl.DateTimeFormat;
+    Intl.DateTimeFormat = function(...a) {
+      if (!a[1]) a[1] = { timeZone: fp.timezone };
+      else if (!a[1].timeZone) a[1].timeZone = fp.timezone;
+      return new origDTF(...a);
+    };
+    Intl.DateTimeFormat.prototype = origDTF.prototype;
+    Intl.DateTimeFormat.supportedLocalesOf = origDTF.supportedLocalesOf;
+  } catch(e) {}
+  try { if (!window.chrome) window.chrome = {}; if (!window.chrome.runtime) window.chrome.runtime = {}; } catch(e) {}
+  try { if (fp.browserType === 'brave' && window.chrome) { Object.defineProperty(window.chrome, 'brave', { get: () => ({ isBrave: () => Promise.resolve(true) }) }); } } catch(e) {}
+  try { if (fp.webRtcPolicy === 'disable') { delete window.RTCPeerConnection; } } catch(e) {}
+  console.log('[JoeBrowser] Stealth applied for:', fp.browserType);
+})();
+`;
+}
+function getFirefoxInjectScript() {
+  return `
+(function() {
+  'use strict';
+  const fp = window.__JOE_FINGERPRINT__;
+  if (!fp) return;
+  if (window.__joeStealthApplied) return;
+  window.__joeStealthApplied = true;
+  try {
+    Object.defineProperty(navigator, 'userAgent', { get: () => fp.userAgent });
+    Object.defineProperty(navigator, 'platform', { get: () => fp.platform });
+    Object.defineProperty(navigator, 'vendor', { get: () => '' });
+    Object.defineProperty(navigator, 'languages', { get: () => fp.languages });
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => fp.hardwareConcurrency });
+    Object.defineProperty(navigator, 'maxTouchPoints', { get: () => fp.maxTouchPoints });
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+  } catch(e) {}
+  try {
+    const sr = fp.screenResolution.split('x');
+    const ar = fp.availableScreenResolution.split('x');
+    Object.defineProperty(screen, 'width', { get: () => parseInt(sr[0]) });
+    Object.defineProperty(screen, 'height', { get: () => parseInt(sr[1]) });
+    Object.defineProperty(screen, 'availWidth', { get: () => parseInt(ar[0]) });
+    Object.defineProperty(screen, 'availHeight', { get: () => parseInt(ar[1]) });
+    Object.defineProperty(screen, 'colorDepth', { get: () => fp.colorDepth });
+    Object.defineProperty(screen, 'pixelDepth', { get: () => fp.colorDepth });
+  } catch(e) {}
+  try {
+    const orig = WebGLRenderingContext.prototype.getParameter;
+    WebGLRenderingContext.prototype.getParameter = function(p) {
+      if (p === 0x9245) return fp.webglVendor;
+      if (p === 0x9246) return fp.webglRenderer;
+      return orig.call(this, p);
+    };
+  } catch(e) {}
+  try {
+    const origDTF = Intl.DateTimeFormat;
+    Intl.DateTimeFormat = function(...a) {
+      if (!a[1]) a[1] = { timeZone: fp.timezone };
+      else if (!a[1].timeZone) a[1].timeZone = fp.timezone;
+      return new origDTF(...a);
+    };
+    Intl.DateTimeFormat.prototype = origDTF.prototype;
+    Intl.DateTimeFormat.supportedLocalesOf = origDTF.supportedLocalesOf;
+  } catch(e) {}
+  try { if (window.chrome) delete window.chrome; } catch(e) {}
+  try { if (fp.webRtcPolicy === 'disable') { delete window.RTCPeerConnection; } } catch(e) {}
+  console.log('[JoeBrowser] Stealth applied for Firefox');
+})();
+`;
+}
+function createProxyAuthExtension(profileDir, proxy) {
+  const extDir = path__namespace.join(profileDir, "proxy-auth-extension");
+  fs__namespace.mkdirSync(extDir, { recursive: true });
+  const manifest = {
+    manifest_version: 3,
+    name: "Proxy Auth",
+    version: "1.0",
+    permissions: ["webRequest", "webRequestAuthProvider"],
+    background: { service_worker: "background.js" }
+  };
+  fs__namespace.writeFileSync(path__namespace.join(extDir, "manifest.json"), JSON.stringify(manifest, null, 2), "utf8");
+  const bgScript = `
+chrome.webRequest.onAuthRequired.addListener(
+  function(details) {
+    return {
+      authCredentials: {
+        username: '${proxy.username || ""}',
+        password: '${proxy.password || ""}'
+      }
+    };
+  },
+  { urls: ['<all_urls>'] },
+  ['blocking']
+);
+`;
+  fs__namespace.writeFileSync(path__namespace.join(extDir, "background.js"), bgScript, "utf8");
+}
+async function autoDetectTimezoneFromProxy(profile) {
+  if (!profile.proxy) return;
+  try {
+    const proxyUrl = `${profile.proxy.type}://${profile.proxy.host}:${profile.proxy.port}`;
+    console.log(`[RealBrowserLauncher] Auto-detecting timezone for proxy: ${proxyUrl}`);
+    const geoData = await fetchGeoLocation(proxyUrl);
+    if (geoData) {
+      if (geoData.timezone) {
+        profile.fingerprint.timezone = geoData.timezone;
+        console.log(`[RealBrowserLauncher] Timezone set to: ${geoData.timezone}`);
+      }
+      if (geoData.countryCode) {
+        const langMap = {
+          US: "en-US",
+          GB: "en-GB",
+          DE: "de-DE",
+          FR: "fr-FR",
+          ES: "es-ES",
+          IT: "it-IT",
+          JP: "ja-JP",
+          KR: "ko-KR",
+          CN: "zh-CN",
+          RU: "ru-RU",
+          BR: "pt-BR",
+          IN: "en-IN",
+          AU: "en-AU",
+          CA: "en-CA",
+          NL: "nl-NL"
+        };
+        if (langMap[geoData.countryCode]) {
+          profile.fingerprint.language = langMap[geoData.countryCode];
+          profile.fingerprint.languages = [langMap[geoData.countryCode], langMap[geoData.countryCode].split("-")[0]];
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[RealBrowserLauncher] Failed to auto-detect timezone from proxy:", err);
+  }
+}
+function fetchGeoLocation(proxyUrl) {
+  return new Promise((resolve) => {
+    const url = "http://ip-api.com/json/?fields=status,countryCode,timezone";
+    const req = http__namespace.get(url, { timeout: 5e3 }, (res) => {
+      let data = "";
+      res.on("data", (chunk) => data += chunk);
+      res.on("end", () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.status === "success") {
+            resolve(parsed);
+          } else {
+            resolve(null);
+          }
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    });
+    req.on("error", () => resolve(null));
+    req.on("timeout", () => {
+      req.destroy();
+      resolve(null);
+    });
+  });
 }
 function getUAInfo(browserType, os, deviceType) {
   const chromeVersion = "120.0.6099.130";
@@ -915,14 +1073,10 @@ function registerIpcHandlers() {
   });
   electron.ipcMain.handle(IPC_CHANNELS.PROFILES_UPDATE, async (_event, id, updates) => {
     try {
-      if (!id) {
-        return { success: false, error: "Profile ID is required" };
-      }
+      if (!id) return { success: false, error: "Profile ID is required" };
       if (updates.browserType || updates.os || updates.deviceType) {
         const existing = db.getProfile(id);
-        if (!existing) {
-          return { success: false, error: "Profile not found" };
-        }
+        if (!existing) return { success: false, error: "Profile not found" };
         const browserType = updates.browserType || existing.browserType;
         const deviceType = updates.deviceType || existing.deviceType;
         const os = updates.os || existing.os;
@@ -939,9 +1093,7 @@ function registerIpcHandlers() {
   });
   electron.ipcMain.handle(IPC_CHANNELS.PROFILES_DELETE, async (_event, id) => {
     try {
-      if (!id) {
-        return { success: false, error: "Profile ID is required" };
-      }
+      if (!id) return { success: false, error: "Profile ID is required" };
       if (isProfileRunning(id)) {
         closeProfileBrowser(id);
       }
@@ -954,13 +1106,9 @@ function registerIpcHandlers() {
   });
   electron.ipcMain.handle(IPC_CHANNELS.PROFILES_LAUNCH, async (_event, id) => {
     try {
-      if (!id) {
-        return { success: false, error: "Profile ID is required" };
-      }
+      if (!id) return { success: false, error: "Profile ID is required" };
       const profile = db.getProfile(id);
-      if (!profile) {
-        return { success: false, error: "Profile not found" };
-      }
+      if (!profile) return { success: false, error: "Profile not found" };
       db.updateProfile(id, { lastUsed: Date.now() });
       const result = await launchProfile(profile);
       return result;
@@ -971,13 +1119,9 @@ function registerIpcHandlers() {
   });
   electron.ipcMain.handle(IPC_CHANNELS.PROFILES_EXPORT, async (_event, id) => {
     try {
-      if (!id) {
-        return { success: false, error: "Profile ID is required" };
-      }
+      if (!id) return { success: false, error: "Profile ID is required" };
       const profile = db.getProfile(id);
-      if (!profile) {
-        return { success: false, error: "Profile not found" };
-      }
+      if (!profile) return { success: false, error: "Profile not found" };
       const exportPath = path__namespace.join(electron.app.getPath("downloads"), `joe-profile-${id}.json`);
       fs__namespace.writeFileSync(exportPath, JSON.stringify(profile, null, 2), "utf8");
       return { success: true };
@@ -987,22 +1131,13 @@ function registerIpcHandlers() {
     }
   });
   electron.ipcMain.handle(IPC_CHANNELS.PROFILES_IMPORT, async () => {
-    try {
-      return { success: false, error: "Import not yet implemented" };
-    } catch (err) {
-      console.error("[IPC] profiles:import error:", err);
-      return { success: false, error: err.message || "Failed to import profile" };
-    }
+    return { success: false, error: "Import not yet implemented" };
   });
   electron.ipcMain.handle(IPC_CHANNELS.PROFILES_DUPLICATE, async (_event, id) => {
     try {
-      if (!id) {
-        return { success: false, error: "Profile ID is required" };
-      }
+      if (!id) return { success: false, error: "Profile ID is required" };
       const original = db.getProfile(id);
-      if (!original) {
-        return { success: false, error: "Profile not found" };
-      }
+      if (!original) return { success: false, error: "Profile not found" };
       const fingerprint = generateFingerprint(original.browserType, original.deviceType, original.os);
       const duplicate = {
         ...original,
@@ -1022,9 +1157,7 @@ function registerIpcHandlers() {
   });
   electron.ipcMain.handle(IPC_CHANNELS.BROWSER_CLOSE, async (_event, profileId) => {
     try {
-      if (!profileId) {
-        return { success: false, error: "Profile ID is required" };
-      }
+      if (!profileId) return { success: false, error: "Profile ID is required" };
       closeProfileBrowser(profileId);
       return { success: true };
     } catch (err) {
@@ -1043,25 +1176,18 @@ function registerIpcHandlers() {
   });
   electron.ipcMain.handle(IPC_CHANNELS.SETTINGS_GET, async (_event, key) => {
     try {
-      if (!key) {
-        return { success: false, error: "Key is required" };
-      }
+      if (!key) return { success: false, error: "Key is required" };
       const settingsPath = path__namespace.join(electron.app.getPath("userData"), "settings.json");
-      if (!fs__namespace.existsSync(settingsPath)) {
-        return { success: true, data: null };
-      }
+      if (!fs__namespace.existsSync(settingsPath)) return { success: true, data: null };
       const settings = JSON.parse(fs__namespace.readFileSync(settingsPath, "utf8"));
       return { success: true, data: settings[key] || null };
     } catch (err) {
-      console.error("[IPC] settings:get error:", err);
       return { success: false, error: err.message || "Failed to get setting" };
     }
   });
   electron.ipcMain.handle(IPC_CHANNELS.SETTINGS_SET, async (_event, key, value) => {
     try {
-      if (!key) {
-        return { success: false, error: "Key is required" };
-      }
+      if (!key) return { success: false, error: "Key is required" };
       const settingsPath = path__namespace.join(electron.app.getPath("userData"), "settings.json");
       let settings = {};
       if (fs__namespace.existsSync(settingsPath)) {
@@ -1071,34 +1197,27 @@ function registerIpcHandlers() {
       fs__namespace.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), "utf8");
       return { success: true };
     } catch (err) {
-      console.error("[IPC] settings:set error:", err);
       return { success: false, error: err.message || "Failed to set setting" };
     }
   });
   electron.ipcMain.handle(IPC_CHANNELS.MASTER_PASSWORD_INIT, async () => {
     try {
       const settingsPath = path__namespace.join(electron.app.getPath("userData"), "settings.json");
-      if (!fs__namespace.existsSync(settingsPath)) {
-        return { success: true, data: { initialized: false } };
-      }
+      if (!fs__namespace.existsSync(settingsPath)) return { success: true, data: { initialized: false } };
       const settings = JSON.parse(fs__namespace.readFileSync(settingsPath, "utf8"));
       return { success: true, data: { initialized: !!settings.masterPasswordHash } };
     } catch (err) {
-      console.error("[IPC] master-password:init error:", err);
       return { success: false, error: err.message || "Failed to check master password" };
     }
   });
   electron.ipcMain.handle(IPC_CHANNELS.MASTER_PASSWORD_VERIFY, async (_event, password) => {
     try {
       const settingsPath = path__namespace.join(electron.app.getPath("userData"), "settings.json");
-      if (!fs__namespace.existsSync(settingsPath)) {
-        return { success: false, error: "No master password set" };
-      }
+      if (!fs__namespace.existsSync(settingsPath)) return { success: false, error: "No master password set" };
       const settings = JSON.parse(fs__namespace.readFileSync(settingsPath, "utf8"));
       const hash = simpleHash(password);
       return { success: hash === settings.masterPasswordHash };
     } catch (err) {
-      console.error("[IPC] master-password:verify error:", err);
       return { success: false, error: err.message || "Failed to verify password" };
     }
   });
@@ -1113,7 +1232,6 @@ function registerIpcHandlers() {
       fs__namespace.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), "utf8");
       return { success: true };
     } catch (err) {
-      console.error("[IPC] master-password:change error:", err);
       return { success: false, error: err.message || "Failed to change password" };
     }
   });
@@ -1131,7 +1249,7 @@ function registerIpcHandlers() {
       console.error("[IPC] app:quit error:", err);
     }
   });
-  console.log("[IPC] All handlers registered successfully");
+  console.log("[IPC] All handlers registered (using REAL browser launcher)");
 }
 function simpleHash(str) {
   let hash = 0;

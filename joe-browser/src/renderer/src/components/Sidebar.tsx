@@ -148,7 +148,7 @@ const Sidebar: React.FC = () => {
           Built with ❤️ by Joe Goldberg
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', display: 'block', mt: 0.5 }}>
-          v8.0.0
+          v9.0.0
         </Typography>
       </Box>
     </Box>

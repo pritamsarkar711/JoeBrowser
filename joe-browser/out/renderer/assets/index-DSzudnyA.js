@@ -28644,7 +28644,7 @@ const Sidebar = () => {
         ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs(Box, { sx: { p: 2, borderTop: "1px solid #1a1a2e" }, children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(Typography, { variant: "caption", color: "text.secondary", sx: { textAlign: "center", display: "block" }, children: "Built with ❤️ by Joe Goldberg" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Typography, { variant: "caption", color: "text.secondary", sx: { textAlign: "center", display: "block", mt: 0.5 }, children: "v8.0.0" })
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Typography, { variant: "caption", color: "text.secondary", sx: { textAlign: "center", display: "block", mt: 0.5 }, children: "v9.0.0" })
         ] })
       ]
     }

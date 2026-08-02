@@ -3,35 +3,31 @@
 ---
 Task ID: 1
 Agent: Main Agent
-Task: Deep audit and complete bug fix of JoeBrowser v8
+Task: v9.0.0 - Complete rebuild with REAL browser launching
 
 Work Log:
-- Deep audited all 19 source files in the project
-- Identified 25+ critical bugs across the entire codebase
-- Root cause found: webview.loadURL() called before dom-ready event (main blank screen bug)
-- Root cause found: contextIsolation=true (default) blocks stealth preload script from overriding page JS
-- Root cause found: Firefox/Brave/Edge UA strings were wrong
-- Root cause found: browser-chrome.html was poor quality, no tabs, had footer credit
-
-Critical Fixes Applied:
-1. browser-chrome.html - Complete rewrite with professional Chrome-like UI, tabs, new tab page, keyboard shortcuts
-2. embeddedBrowserLauncher.ts - Fixed webview contextIsolation, sandbox, preload path, dom-ready timing, error handling
-3. fingerprintGenerator.ts - Fixed ALL browser type UA strings (Firefox/Brave/Edge), consistent vendor/platform/WebGL
-4. ipcHandlers.ts - Added try/catch to ALL 17 handlers, proper error returns
-5. database.ts - Added proper initialization, error handling, WAL mode
-6. main/index.ts - Added error handling, uncaught exception handlers
-7. preload/index.ts - Cleaned up, all IPC channels exposed
-8. store.tsx - Fixed running profile state management, periodic refresh
-9. App.tsx - Fixed initialization flow, profile loading, running state tracking
-10. Sidebar.tsx - Fixed new profile event dispatch
-11. ProfileCard.tsx - Fixed launch/stop actions, running indicator
-12. NewProfileDialog.tsx - Fixed event listener for open dialog
-13. electron.vite.config.ts - Added path aliases
-14. electron-builder.yml - Fixed asset inclusion
+- Analyzed user feedback: "i need real build in chromium firefox brave edge browser real means real"
+- Completely redesigned architecture: instead of fake HTML browser, launch ACTUAL browsers
+- Created Chrome Stealth Extension (Manifest V3, world:MAIN) for fingerprint injection
+- Created Firefox Stealth Extension (Manifest V2, script injection via <script> tag) for fingerprint injection
+- Created realBrowserLauncher.ts that:
+  - Finds real browser executables on Windows/Mac/Linux
+  - Launches Chrome/Brave/Edge/Chromium with --user-data-dir, --load-extension, --proxy-server flags
+  - Launches Firefox with -profile, -no-remote, user.js preferences
+  - Creates per-profile user data directories with session isolation
+  - Creates stealth extensions dynamically per-profile with fingerprint data
+  - Creates proxy auth extension for Chrome/Brave/Edge
+  - Auto-detects timezone and language from proxy IP using ip-api.com
+  - Tracks running browser processes and cleans up on exit
+- Updated IPC handlers to use realBrowserLauncher instead of embeddedBrowserLauncher
+- Updated package.json to version 9.0.0
+- Updated electron-builder.yml to include extension files in build
+- Build compiles successfully
 
 Stage Summary:
-- Build compiles successfully (all 3 bundles: main, preload, renderer)
-- All critical bugs fixed: blank screen, stealth preload, browser fingerprints, tabs, UI quality
-- Browser-chrome.html now has: professional tab bar, new tab page with search, navigation buttons, loading bar, security indicator, keyboard shortcuts
-- "Built with ❤️ by Joe Goldberg" removed from browser window (kept in sidebar only)
-- New tab functionality added (Ctrl+T, + button)
+- v9.0.0: Real browser launching — no more fake HTML browser
+- Chrome/Brave/Edge: Launches real browser with stealth extension
+- Firefox: Launches real Firefox with user.js preferences and stealth extension
+- Proxy auto-detection: Auto-detects timezone and language from proxy IP
+- Per-profile isolation: Each profile has its own user data directory
+- Stealth fingerprint injection via Chrome/Firefox extensions
