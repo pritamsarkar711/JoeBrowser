@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">CalcMaster</string>
+    <string name="title_activity_main">CalcMaster</string>
+    <string name="package_name">com.calcmaster.app</string>
+    <string name="custom_url_scheme">com.calcmaster.app</string>
+</resources>
